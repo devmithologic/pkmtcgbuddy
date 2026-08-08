@@ -1,0 +1,7 @@
+# Cotas mínimas, no versiones exactas: pip instalará la última compatible.
+# Cuando el slice funcione, `pip freeze` te dará las versiones exactas que acabaste usando.
+
+fastapi>=0.115           # framework web
+uvicorn[standard]>=0.32  # servidor ASGI que ejecuta la app
+pymongo>=4.13            # driver de MongoDB; incluye AsyncMongoClient (sustituye a Motor)
+pydantic-settings>=2.6   # carga configuración desde .env con validación de tipos
