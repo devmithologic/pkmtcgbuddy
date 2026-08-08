@@ -49,7 +49,7 @@ Format: `XX_LANG_CONCEPT.md`
   met.
 - **`LANG`** — the language or stack layer the concept belongs to, uppercase. Use the existing
   vocabulary rather than inventing synonyms, so files sort and filter cleanly:
-  `PYTHON`, `FASTAPI`, `PYDANTIC`, `MONGODB`, `MOTOR`, `REACT`, `JAVASCRIPT`, `VITE`, `HTTP`,
+  `PYTHON`, `FASTAPI`, `PYDANTIC`, `MONGODB`, `PYMONGO`, `REACT`, `JAVASCRIPT`, `VITE`, `HTTP`,
   `DOCKER`, `PYTEST`, `GIT`. Add a new one only when nothing fits.
 - **`CONCEPT`** — the concept in `SCREAMING_SNAKE_CASE`. Name the *idea*, not the file you touched:
   `DEPENDENCY_INJECTION`, not `MAIN_PY_CHANGES`. If you can't name the concept, that's a signal the

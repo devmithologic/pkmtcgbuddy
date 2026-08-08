@@ -54,11 +54,11 @@ log_mentor/  Learning notes, one concept per file
 
 ## Status
 
-Early. Scaffolding and documentation only — no application code yet.
+Early. Phase 1 works: a match can be recorded and listed, end to end.
 
 The roadmap is built in vertical slices, one feature at a time from database to browser:
 
-1. Record a match; list matches
+1. ~~Record a match; list matches~~ ✓
 2. Decks and deck versions
 3. Card lookup via TCGdex
 4. Matchup and win-rate statistics
@@ -68,4 +68,20 @@ The roadmap is built in vertical slices, one feature at a time from database to 
 
 ## Running it
 
-Nothing to run yet. Setup commands will be documented here once they have actually been run.
+Requires Python 3.12+, Node 20+, and a local MongoDB on `:27017`.
+
+```bash
+# One-time setup
+cd backend && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && cp .env.example .env
+cd ../frontend && npm install && cp .env.example .env
+```
+
+Then two terminals:
+
+```bash
+cd backend && source .venv/bin/activate && uvicorn app.main:app --reload   # :8000
+cd frontend && npm run dev                                                 # :5173
+```
+
+The app is at `http://localhost:5173`; the generated API docs at `http://localhost:8000/docs`.

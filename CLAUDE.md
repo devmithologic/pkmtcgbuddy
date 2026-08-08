@@ -92,6 +92,12 @@ includes card images, and serves 12+ languages. Rejected `pokemontcg.io` — it 
 the commercial Scrydex product and its public endpoint has been measured around 39% reliability.
 TCGdex has no pricing data; nothing in the planned feature set needs prices.
 
+**MongoDB driver: `pymongo.AsyncMongoClient`, not Motor.** Motor was the async MongoDB driver for
+years, but it has been superseded — MongoDB's own docs now publish a *"Migrate From Motor"* page, and
+async support lives inside `pymongo` itself. Motor also carries a thread pool for network operations
+that `AsyncMongoClient` does without. Anything on the web recommending `motor.motor_asyncio` predates
+this.
+
 **All external card calls go behind one adapter module** (`backend/app/services/card_source.py`), and
 the rest of the codebase depends on our own card model rather than TCGdex's response shape. This
 keeps a provider swap to one file. It is also the lesson: isolate what you don't control.
@@ -137,10 +143,37 @@ Short and real. Add entries as they become true, delete ones that stop being tru
 
 ## Commands
 
-None yet. Add them here only after they have actually been run — an unverified command is worse than
-no command.
+All verified. Three processes; MongoDB runs as a service, the other two need a terminal each.
+
+```bash
+# Backend — terminal 1
+cd backend && source .venv/bin/activate && uvicorn app.main:app --reload   # :8000
+
+# Frontend — terminal 2
+cd frontend && npm run dev                                                 # :5173
+
+# MongoDB — launchd service, starts at login. Aliases in ~/.zshrc:
+mongo-status · mongo-ping · mongo-start · mongo-stop · mongo-log
+
+# Inspect stored documents
+mongosh pkmtcgbuddy --eval 'db.matches.find().pretty()'
+```
+
+`brew services start mongodb-community` does **not** work: the `mongodb/brew` tap uses the old service
+format and Homebrew 6.x generates a plist with empty `ProgramArguments` (`Bootstrap failed: 5`). The
+service is loaded into launchd directly from the formula's own plist.
+
+First-time setup, after cloning:
+
+```bash
+cd backend && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && cp .env.example .env
+cd ../frontend && npm install && cp .env.example .env
+```
 
 ## Status
 
-Greenfield. Scaffolding only: this file, `README.md`, `.gitignore`, and `.claude/skills/`. Git repo
-initialised; no application code yet. Next: phase 1 of the roadmap.
+Phase 1 complete. A match can be recorded and listed end to end: MongoDB → FastAPI → React, verified
+in the browser. `log_mentor/` holds six entries covering the concepts it introduced.
+
+Next: phase 2 — decks and deck versions.
