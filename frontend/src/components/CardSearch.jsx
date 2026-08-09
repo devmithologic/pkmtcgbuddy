@@ -36,12 +36,22 @@ export default function CardSearch() {
   const [selectedId, setSelectedId] = useState(null)
 
   // El backend exige 2 caracteres como mínimo; con menos, ni lo intentamos.
-  const canSearch = filters.q.trim().length >= 2 || filters.ace_spec
+  const nameQuery = filters.q.trim()
+  const hasUsableName = nameQuery.length >= 2
+  const canSearch = hasUsableName || filters.ace_spec
 
   useEffect(() => {
     if (!canSearch) {
       setResults([])
       setHasMore(false)
+      // Estos dos hacen falta porque este retorno anticipado se salta el
+      // finally de más abajo. Si el usuario borra el texto mientras hay una
+      // búsqueda en vuelo, la limpieza aborta la petición, el finally no
+      // ejecuta setLoading(false) —está protegido por signal.aborted— y el
+      // efecto sale por aquí: «Buscando…» se quedaría para siempre, y el error
+      // de la búsqueda anterior seguiría en pantalla.
+      setLoading(false)
+      setError(null)
       return
     }
 
@@ -54,7 +64,11 @@ export default function CardSearch() {
 
       try {
         const data = await searchCards(
-          { ...filters, q: filters.q.trim() || undefined, page },
+          // Solo mandamos q si por sí solo supera el mínimo del backend. Con
+          // «Solo ACE SPEC» marcado, canSearch es cierto aunque haya una única
+          // letra escrita: enviarla provocaría un 422 y el usuario vería un
+          // error de validación en bruto en vez de resultados.
+          { ...filters, q: hasUsableName ? nameQuery : undefined, page },
           controller.signal,
         )
         setResults(data.cards)
@@ -74,7 +88,7 @@ export default function CardSearch() {
       controller.abort()
     }
     // Cualquier cambio de filtro o de página relanza la búsqueda.
-  }, [filters, page, canSearch])
+  }, [filters, page, canSearch, hasUsableName, nameQuery])
 
   function handleFilterChange(event) {
     const { name, value, type, checked } = event.target

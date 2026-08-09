@@ -25,6 +25,21 @@ from app.models.card import (
     DeckFormat,
 )
 
+
+class CardSourceError(RuntimeError):
+    """TCGdex respondió algo que no sabemos interpretar.
+
+    Distinta de httpx.HTTPError, que cubre los fallos de transporte. Esta cubre
+    los de *contenido*: un 200 con HTML de un proxy caído, un campo que
+    desapareció, una categoría nueva que no está en nuestro enum.
+
+    Existe porque sin ella esos casos suben como ValueError o KeyError, esquivan
+    el manejo de errores del router y acaban en un 500 — es decir, la aplicación
+    se declara culpable de un fallo ajeno. Traducir los errores del proveedor es
+    parte del trabajo del adaptador, igual que traducir sus datos.
+    """
+
+
 BASE_URL = "https://api.tcgdex.net/v2/en"
 
 # TCGdex marca las ACE SPEC como una rareza. Esta constante es la única aparición
@@ -43,7 +58,18 @@ async def connect_card_source() -> None:
         # Sin timeout, una TCGdex lenta deja peticiones nuestras colgadas
         # indefinidamente y acaba agotando el pool de conexiones. Es la forma más
         # común de que el fallo de un tercero se convierta en tu caída.
-        timeout=httpx.Timeout(10.0),
+        #
+        # Los plazos van separados a propósito, porque distinguen dos situaciones
+        # que no merecen la misma paciencia:
+        #
+        #   connect  — establecer TCP + TLS. Si el host no responde, no va a
+        #              responder: esperar más no ayuda. 3s y fuera.
+        #   read     — esperar el cuerpo de una conexión ya establecida. Aquí sí
+        #              conviene aguantar: el servidor está trabajando.
+        #
+        # Con un único Timeout(10.0), un host caído hacía esperar diez segundos
+        # para decir lo que se sabía a los tres.
+        timeout=httpx.Timeout(connect=3.0, read=8.0, write=5.0, pool=2.0),
         headers={"User-Agent": "pkmtcgbuddy"},
     )
 
@@ -71,12 +97,34 @@ def _image_url(base: str | None, quality: str = "low") -> str | None:
     return f"{base}/{quality}.webp" if base else None
 
 
+def _parse_list(response: httpx.Response) -> list[dict]:
+    """Extrae una lista de objetos del cuerpo, o falla de forma controlada.
+
+    Un 200 no garantiza JSON: un proxy o un CDN delante de TCGdex puede devolver
+    una página de error HTML con estado 200. Es el modo de fallo típico de un
+    tercero inestable, y sin esta comprobación se manifiesta como un TypeError
+    al intentar recorrer la respuesta.
+    """
+    try:
+        payload = response.json()
+    except ValueError as exc:  # incluye json.JSONDecodeError
+        raise CardSourceError("TCGdex devolvió algo que no es JSON") from exc
+
+    if not isinstance(payload, list):
+        raise CardSourceError(f"Se esperaba una lista, llegó {type(payload).__name__}")
+
+    return payload
+
+
 def _to_summary(payload: dict) -> CardSummary:
-    return CardSummary(
-        id=payload["id"],
-        name=payload["name"],
-        image_url=_image_url(payload.get("image")),
-    )
+    try:
+        return CardSummary(
+            id=payload["id"],
+            name=payload["name"],
+            image_url=_image_url(payload.get("image")),
+        )
+    except (KeyError, TypeError) as exc:
+        raise CardSourceError(f"Carta sin los campos mínimos: {exc}") from exc
 
 
 def _to_card(payload: dict) -> Card:
@@ -88,17 +136,23 @@ def _to_card(payload: dict) -> Card:
     legal = payload.get("legal") or {}
     rarity = payload.get("rarity")
 
-    return Card(
-        id=payload["id"],
-        name=payload["name"],
-        image_url=_image_url(payload.get("image")),
-        category=CardCategory(payload["category"]),
-        rarity=rarity,
-        regulation_mark=payload.get("regulationMark"),
-        legal_standard=bool(legal.get("standard", False)),
-        legal_expanded=bool(legal.get("expanded", False)),
-        is_ace_spec=rarity == ACE_SPEC_RARITY,
-    )
+    try:
+        return Card(
+            id=payload["id"],
+            name=payload["name"],
+            image_url=_image_url(payload.get("image")),
+            # ValueError si TCGdex añade una categoría que no tenemos. Es el
+            # riesgo de traducir a un enum cerrado, y se prefiere a aceptar
+            # cualquier cadena: falla ruidosamente y en un solo sitio.
+            category=CardCategory(payload["category"]),
+            rarity=rarity,
+            regulation_mark=payload.get("regulationMark"),
+            legal_standard=bool(legal.get("standard", False)),
+            legal_expanded=bool(legal.get("expanded", False)),
+            is_ace_spec=rarity == ACE_SPEC_RARITY,
+        )
+    except (KeyError, ValueError, TypeError) as exc:
+        raise CardSourceError(f"No se pudo interpretar la carta: {exc}") from exc
 
 
 async def search_cards(
@@ -117,9 +171,7 @@ async def search_cards(
     """
     params: dict[str, str | int] = {
         "pagination:page": page,
-        # Pedimos uno de más para saber si existe página siguiente sin necesitar
-        # un total que la API no da. Truco habitual en paginación por cursor.
-        "pagination:itemsPerPage": page_size + 1,
+        "pagination:itemsPerPage": page_size,
         "sort:field": "name",
         "sort:order": "ASC",
     }
@@ -137,13 +189,24 @@ async def search_cards(
 
     response = await _require_client().get("/cards", params=params)
     response.raise_for_status()
-    payload = response.json()
+    payload = _parse_list(response)
 
-    has_more = len(payload) > page_size
-    cards = [_to_summary(item) for item in payload[:page_size]]
+    # TCGdex no devuelve el total de resultados, así que "hay más páginas" se
+    # deduce: si vino la página completa, probablemente haya otra.
+    #
+    # Es una aproximación, y su único fallo es benigno: cuando el total es
+    # múltiplo exacto de page_size, la última página ofrece "Siguiente" y la
+    # siguiente sale vacía. Preferimos eso a la alternativa —pedir un elemento
+    # extra— porque con paginación por número de página `itemsPerPage` también
+    # determina el desplazamiento: pedir page_size+1 desplaza la ventana y se
+    # salta una carta en cada frontera de página.
+    has_more = len(payload) == page_size
 
     return CardSearchResult(
-        cards=cards, page=page, page_size=page_size, has_more=has_more
+        cards=[_to_summary(item) for item in payload],
+        page=page,
+        page_size=page_size,
+        has_more=has_more,
     )
 
 
@@ -164,4 +227,9 @@ async def get_card(card_id: str) -> Card | None:
         return None
     response.raise_for_status()
 
-    return _to_card(response.json())
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise CardSourceError("TCGdex devolvió algo que no es JSON") from exc
+
+    return _to_card(payload)

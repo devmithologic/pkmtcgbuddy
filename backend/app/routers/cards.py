@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.models.card import Card, CardCategory, CardSearchResult, DeckFormat
 from app.services import card_source
+from app.services.card_source import CardSourceError
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -46,8 +47,11 @@ async def search_cards(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="TCGdex tardó demasiado en responder. Inténtalo de nuevo.",
         )
-    except httpx.HTTPError:
-        # 502 Bad Gateway: recibimos algo, pero no era utilizable.
+    except (httpx.HTTPError, CardSourceError):
+        # 502 Bad Gateway: recibimos algo, pero no era utilizable. Cubre tanto el
+        # fallo de transporte (httpx) como el de contenido (CardSourceError): un
+        # 200 con HTML, un campo que desapareció, una categoría nueva. Sin el
+        # segundo, esos casos serían un 500 y culparían a nuestro servidor.
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="No se pudo consultar TCGdex.",
@@ -64,7 +68,7 @@ async def get_card(card_id: str) -> Card:
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="TCGdex tardó demasiado en responder.",
         )
-    except httpx.HTTPError:
+    except (httpx.HTTPError, CardSourceError):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="No se pudo consultar TCGdex."
         )
