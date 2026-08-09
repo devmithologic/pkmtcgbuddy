@@ -173,7 +173,18 @@ cd ../frontend && npm install && cp .env.example .env
 
 ## Status
 
-Phase 1 complete. A match can be recorded and listed end to end: MongoDB → FastAPI → React, verified
-in the browser. `log_mentor/` holds six entries covering the concepts it introduced.
+Phase 1 complete: a match can be recorded and listed end to end, verified in the browser.
 
-Next: phase 2 — decks and deck versions.
+Phase 2 is split in two slices. **Slice A is done**: card search against TCGdex, with filters for
+format, category and ACE SPEC, plus a detail panel. `log_mentor/` holds ten entries.
+
+**Next — phase 2, slice B: decks.** Agreed rules:
+
+- 60 cards exactly; at most 4 copies of a card by name, basic Energy exempt.
+- At most **1 ACE SPEC** per deck. Detected via `Card.is_ace_spec`, never by string matching.
+- A deck declares a format (`standard` or `expanded`); every card must be legal in it.
+- **Incomplete decks are saved anyway.** The API stores whatever state the deck is in and reports
+  what makes it illegal. Building a deck is iterative; refusing to save until it is legal is the
+  wrong shape. Keep input validation separate from these business rules.
+- `DeckVersion` lands here, not later. Matches must reference the version played — retrofitting that
+  onto existing records is the one thing `CLAUDE.md` warns about most.
