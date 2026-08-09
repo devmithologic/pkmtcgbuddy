@@ -116,9 +116,15 @@ Syncing turns TCGdex from a runtime dependency into a deploy-time one. It also m
 faster: 0.8 ms locally versus ~500 ms proxied.
 
 **Sync scope is a real decision, and it is invisible at query time.** TCGdex holds 23,546 cards;
-14,901 are Expanded-legal and 3,345 Standard-legal. Syncing `--format standard` therefore omits promo
-printings that are not Standard-legal — which looks like missing data from the provider until you
-check. Sync Expanded unless there is a reason not to: it is a superset of Standard.
+14,901 are Expanded-legal and 3,345 Standard-legal. Syncing `--format standard` omits promo printings
+that are not Standard-legal — which looks like missing data from the provider until you check. Sync
+Expanded: it is a superset of Standard. The database currently holds the full Expanded set.
+
+**Substring search does not use an index.** `name` matching is an unanchored `$regex`, which has to
+examine every candidate document. Measured: 0.8 ms over 3,318 cards, 6.1 ms over 14,901 — still ~80×
+faster than the live proxy, but the cost grows with the collection. If it ever matters, the options
+are a MongoDB text index (word-based, would stop `rod` matching `Aerodactyl`) or anchoring the
+pattern to a prefix. Neither is worth doing yet.
 
 ## Domain model (draft)
 
@@ -199,8 +205,10 @@ cd ../frontend && npm install && cp .env.example .env
 
 Phase 1 complete: a match can be recorded and listed end to end, verified in the browser.
 
-Phase 2 is split in two slices. **Slice A is done**: card search against TCGdex, with filters for
-format, category and ACE SPEC, plus a detail panel. `log_mentor/` holds ten entries.
+Phase 2 is split in two slices. **Slice A is done**: card search with filters for format, category
+and ACE SPEC, plus a detail panel. Served from MongoDB, not from a live TCGdex call — see the sync
+decision above. 14,901 Expanded-legal cards synced; re-run `card_sync` to refresh.
+`log_mentor/` holds fourteen entries.
 
 **Next — phase 2, slice B: decks.** Agreed rules:
 
