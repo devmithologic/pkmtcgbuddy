@@ -6,9 +6,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.db import card_repository
 from app.db.mongo import close_mongo_connection, connect_to_mongo
 from app.routers import cards, matches
-from app.services.card_source import close_card_source, connect_card_source
 
 
 @asynccontextmanager
@@ -28,12 +28,18 @@ async def lifespan(app: FastAPI):
     la misma función, así que es difícil olvidarse de cerrar lo que abriste.
     """
     await connect_to_mongo()
-    await connect_card_source()
+
+    # Idempotente: si los índices existen, no hace nada. Crearlos aquí evita que
+    # un despliegue nuevo empiece haciendo collection scans sin que nadie lo note.
+    await card_repository.ensure_indexes()
+
     yield
-    # Se cierran en orden inverso a la apertura, la misma disciplina que una pila
-    # de context managers anidados.
-    await close_card_source()
+
     await close_mongo_connection()
+
+    # El proceso web ya no abre cliente HTTP hacia TCGdex: nadie de fuera se
+    # consulta al atender una petición. Ese cliente vive ahora en el job de
+    # sincronización, que lo abre y lo cierra por su cuenta.
 
 
 app = FastAPI(

@@ -102,6 +102,19 @@ this.
 the rest of the codebase depends on our own card model rather than TCGdex's response shape. This
 keeps a provider swap to one file. It is also the lesson: isolate what you don't control.
 
+**Card data is synced into MongoDB, not fetched live.** The API serves searches from our own `cards`
+collection; `card_source.py` is now called only by the sync job, never by a request.
+
+The live proxy came first on purpose — understand the direct call before adopting the cache. On
+2026-08-09 the TCGdex API was down for hours (TLS handshake timeout, then connection refused) and
+card search stopped working entirely while our server and database were healthy. Measured
+alternatives at the time: `pokemontcg.io` succeeded 1 request in 10 and lacks `regulationMark`;
+Limitless has no cards endpoint at all, only tournaments and games; apitcg.com and Scrydex require
+registration. No provider is reliable enough to depend on per request.
+
+Syncing turns TCGdex from a runtime dependency into a deploy-time one. It also made searches ~600×
+faster: 0.8 ms locally versus ~500 ms proxied.
+
 ## Domain model (draft)
 
 - **Match** — one recorded game: date, opponent archetype, deck version played, result, notes.
@@ -155,8 +168,14 @@ cd frontend && npm run dev                                                 # :51
 # MongoDB — launchd service, starts at login. Aliases in ~/.zshrc:
 mongo-status · mongo-ping · mongo-start · mongo-stop · mongo-log
 
+# Sync the card catalogue from TCGdex into MongoDB. Run by hand, not on startup.
+# Expanded by default because it is a superset of Standard.
+cd backend && source .venv/bin/activate && python -m app.services.card_sync
+python -m app.services.card_sync --format standard
+
 # Inspect stored documents
 mongosh pkmtcgbuddy --eval 'db.matches.find().pretty()'
+mongosh pkmtcgbuddy --eval 'db.cards.countDocuments()'
 ```
 
 `brew services start mongodb-community` does **not** work: the `mongodb/brew` tap uses the old service
