@@ -115,6 +115,11 @@ registration. No provider is reliable enough to depend on per request.
 Syncing turns TCGdex from a runtime dependency into a deploy-time one. It also made searches ~600×
 faster: 0.8 ms locally versus ~500 ms proxied.
 
+**Sync scope is a real decision, and it is invisible at query time.** TCGdex holds 23,546 cards;
+14,901 are Expanded-legal and 3,345 Standard-legal. Syncing `--format standard` therefore omits promo
+printings that are not Standard-legal — which looks like missing data from the provider until you
+check. Sync Expanded unless there is a reason not to: it is a superset of Standard.
+
 ## Domain model (draft)
 
 - **Match** — one recorded game: date, opponent archetype, deck version played, result, notes.
