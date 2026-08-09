@@ -5,3 +5,4 @@ fastapi>=0.115           # framework web
 uvicorn[standard]>=0.32  # servidor ASGI que ejecuta la app
 pymongo>=4.13            # driver de MongoDB; incluye AsyncMongoClient (sustituye a Motor)
 pydantic-settings>=2.6   # carga configuración desde .env con validación de tipos
+httpx>=0.28              # cliente HTTP async; lo usamos para hablar con TCGdex

@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db.mongo import close_mongo_connection, connect_to_mongo
-from app.routers import matches
+from app.routers import cards, matches
+from app.services.card_source import close_card_source, connect_card_source
 
 
 @asynccontextmanager
@@ -27,7 +28,11 @@ async def lifespan(app: FastAPI):
     la misma función, así que es difícil olvidarse de cerrar lo que abriste.
     """
     await connect_to_mongo()
+    await connect_card_source()
     yield
+    # Se cierran en orden inverso a la apertura, la misma disciplina que una pila
+    # de context managers anidados.
+    await close_card_source()
     await close_mongo_connection()
 
 
@@ -52,6 +57,7 @@ app.add_middleware(
 
 # Todas las rutas del router quedan bajo /api: /api/matches.
 app.include_router(matches.router, prefix="/api")
+app.include_router(cards.router, prefix="/api")
 
 
 @app.get("/api/health")
