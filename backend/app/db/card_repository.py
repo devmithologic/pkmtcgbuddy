@@ -76,6 +76,7 @@ def card_to_document(card: Card) -> dict:
         "legal_standard": card.legal_standard,
         "legal_expanded": card.legal_expanded,
         "is_ace_spec": card.is_ace_spec,
+        "is_basic_energy": card.is_basic_energy,
         "synced_at": datetime.now(timezone.utc),
     }
 
@@ -91,6 +92,9 @@ def card_from_document(document: dict) -> Card:
         legal_standard=document["legal_standard"],
         legal_expanded=document["legal_expanded"],
         is_ace_spec=document["is_ace_spec"],
+        # .get con defecto: los documentos escritos antes de que existiera el
+        # campo no lo tienen. Una resincronización los completa.
+        is_basic_energy=document.get("is_basic_energy", False),
     )
 
 
@@ -186,6 +190,30 @@ async def get_card(card_id: str) -> Card | None:
     división en dos endpoints por compatibilidad con lo que ya usa el frontend."""
     document = await _collection().find_one({"_id": card_id})
     return card_from_document(document) if document else None
+
+
+async def get_cards_by_ids(card_ids: list[str]) -> dict[str, Card]:
+    """Resuelve varias cartas de una vez. Devuelve {card_id: Card}.
+
+    Existe para validar un mazo. Un mazo son hasta 60 entradas, y la regla de las
+    4 copias necesita el nombre de cada una — pedirlas de una en una serían 60
+    consultas: el problema N+1 de log_mentor/08, esta vez contra nuestra propia
+    base en lugar de contra una API.
+
+    `$in` las trae todas en una sola consulta, y el índice sobre _id la resuelve
+    directamente. Devolver un dict en vez de una lista es deliberado: quien valida
+    necesita buscar por id, y una lista le obligaría a recorrerla por cada carta.
+
+    Los ids que no existan simplemente no aparecen en el resultado; detectarlo es
+    trabajo de deck_rules, que emite UNKNOWN_CARD.
+    """
+    if not card_ids:
+        return {}
+
+    # set() elimina duplicados: una lista puede repetir el mismo id si el cliente
+    # manda dos entradas de la misma carta.
+    cursor = _collection().find({"_id": {"$in": list(set(card_ids))}})
+    return {doc["_id"]: card_from_document(doc) async for doc in cursor}
 
 
 async def count_cards() -> int:

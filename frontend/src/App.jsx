@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react'
 import { listMatches } from './api/matches'
 import CardSearch from './components/CardSearch'
+import DeckBuilder from './components/DeckBuilder'
+import DeckList from './components/DeckList'
 import MatchForm from './components/MatchForm'
 import MatchList from './components/MatchList'
 import './App.css'
 
 const TABS = [
   { id: 'matches', label: 'Partidas' },
+  { id: 'decks', label: 'Mazos' },
   { id: 'cards', label: 'Cartas' },
 ]
 
 export default function App() {
   const [tab, setTab] = useState('matches')
+  // Qué mazo está abierto. null = el listado. Es navegación, y con dos vistas no
+  // justifica todavía un router: una variable de estado dice lo mismo sin añadir
+  // una dependencia y un mecanismo nuevo.
+  const [openDeckId, setOpenDeckId] = useState(null)
 
   return (
     <main className="app">
@@ -23,7 +30,10 @@ export default function App() {
               key={t.id}
               type="button"
               className={tab === t.id ? 'active' : ''}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id)
+                setOpenDeckId(null)
+              }}
             >
               {t.label}
             </button>
@@ -34,7 +44,14 @@ export default function App() {
       {/* Renderizado condicional, no CSS: la pestaña oculta se DESMONTA. Eso
           cancela sus peticiones en vuelo, gracias a las limpiezas de useEffect.
           Ocultarla con display:none la dejaría viva y consultando TCGdex. */}
-      {tab === 'matches' ? <MatchesView /> : <CardSearch />}
+      {tab === 'matches' && <MatchesView />}
+      {tab === 'cards' && <CardSearch />}
+      {tab === 'decks' &&
+        (openDeckId ? (
+          <DeckBuilder deckId={openDeckId} onBack={() => setOpenDeckId(null)} />
+        ) : (
+          <DeckList onOpen={setOpenDeckId} />
+        ))}
     </main>
   )
 }

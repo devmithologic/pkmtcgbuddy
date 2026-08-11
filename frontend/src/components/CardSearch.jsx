@@ -4,11 +4,8 @@ import CardDetail from './CardDetail'
 
 const DEBOUNCE_MS = 350
 
-const EMPTY_FILTERS = {
-  q: '',
-  format: 'standard',
-  category: '',
-  ace_spec: false,
+function emptyFilters(format) {
+  return { q: '', format, category: '', ace_spec: false }
 }
 
 /**
@@ -26,8 +23,8 @@ const EMPTY_FILTERS = {
  *    la lenta aterriza después y pisa los resultados correctos con los antiguos.
  *    AbortController cancela la anterior antes de lanzar la siguiente.
  */
-export default function CardSearch() {
-  const [filters, setFilters] = useState(EMPTY_FILTERS)
+export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
+  const [filters, setFilters] = useState(() => emptyFilters(defaultFormat))
   const [results, setResults] = useState([])
   const [hasMore, setHasMore] = useState(false)
   const [page, setPage] = useState(1)
@@ -162,7 +159,15 @@ export default function CardSearch() {
       <ul className="card-grid">
         {results.map((card) => (
           <li key={card.id}>
-            <button type="button" onClick={() => setSelectedId(card.id)}>
+            {/* Un solo componente, dos usos. Sin onPick es un buscador que
+                abre el detalle; con onPick, un selector que añade al mazo.
+                Duplicar el componente para el segundo caso habría duplicado
+                también el debounce, la cancelación y la paginación. */}
+            <button
+              type="button"
+              onClick={() => (onPick ? onPick(card) : setSelectedId(card.id))}
+              title={onPick ? `Añadir ${card.name} al mazo` : card.name}
+            >
               {card.image_url ? (
                 // loading="lazy" evita descargar 24 imágenes de golpe: el
                 // navegador solo pide las que entran en pantalla.
@@ -188,7 +193,9 @@ export default function CardSearch() {
         </div>
       )}
 
-      {selectedId && <CardDetail cardId={selectedId} onClose={() => setSelectedId(null)} />}
+      {selectedId && !onPick && (
+        <CardDetail cardId={selectedId} onClose={() => setSelectedId(null)} />
+      )}
     </section>
   )
 }

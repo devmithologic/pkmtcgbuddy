@@ -351,3 +351,126 @@
   color: #c8484b;
   font-size: 0.875rem;
 }
+
+/* ============ Mazos ============ */
+
+/* El contenedor general son 42rem, cómodas para leer una columna de texto. El
+   constructor necesita dos columnas —la lista y el buscador— así que ensancha
+   solo cuando está presente. :has() consulta el contenido desde el padre, que es
+   justo lo que hacía falta y antes obligaba a subir una clase al ancestro. */
+.app:has(.deck-builder) { max-width: 68rem; }
+
+.deck-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.deck-list button {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 1rem;
+  align-items: baseline;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 1px solid rgb(128 128 128 / 0.25);
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+.deck-list button:hover { border-color: rgb(128 128 128 / 0.55); }
+.deck-name { font-weight: 600; }
+.deck-meta { font-size: 0.8rem; opacity: 0.65; }
+.deck-count {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.25rem;
+  background: rgb(128 128 128 / 0.15);
+}
+.deck-count.ok { background: rgb(46 158 91 / 0.18); color: #2e9e5b; }
+
+/* --- constructor --- */
+
+.builder-head { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.25rem; }
+.builder-head h2 { margin: 0; }
+.back {
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: inherit;
+  background: none;
+  border: 1px solid rgb(128 128 128 / 0.35);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.builder-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+@media (max-width: 60rem) { .builder-cols { grid-template-columns: 1fr; } }
+
+.builder-actions { display: flex; gap: 0.5rem; margin: 1rem 0 0.5rem; }
+.builder-actions button { padding: 0.5rem 1rem; font: inherit; cursor: pointer; }
+.builder-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.builder-actions .secondary { background: none; color: inherit; border: 1px solid rgb(128 128 128 / 0.4); border-radius: 0.25rem; }
+
+/* --- validación --- */
+
+.validation {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgb(128 128 128 / 0.3);
+  border-left: 4px solid #c8a04b;
+  border-radius: 0.35rem;
+}
+.validation.is-legal { border-left-color: #2e9e5b; }
+.validation.is-stale { border-left-color: rgb(128 128 128 / 0.5); }
+.validation.is-stale .bar-fill { background: rgb(128 128 128 / 0.55); }
+.validation.is-stale .count { opacity: 0.75; }
+.counter { display: flex; align-items: baseline; gap: 0.75rem; }
+.count { font-size: 1.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.count .of { font-size: 1rem; opacity: 0.5; font-weight: 400; }
+.verdict { font-size: 0.875rem; opacity: 0.75; }
+.bar { height: 4px; margin-top: 0.6rem; background: rgb(128 128 128 / 0.2); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; background: #c8a04b; transition: width 0.2s ease; }
+.validation.is-legal .bar-fill { background: #2e9e5b; }
+@media (prefers-reduced-motion: reduce) { .bar-fill { transition: none; } }
+.violations { margin: 0.75rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; opacity: 0.85; display: flex; flex-direction: column; gap: 0.25rem; }
+
+/* --- lista del mazo --- */
+
+.deck-groups { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.25rem; }
+.deck-group h4 { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.6; }
+.group-count { opacity: 0.6; font-weight: 400; }
+.deck-group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.deck-group li { display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem; align-items: center; padding: 0.3rem 0; }
+.deck-group li.illegal-row { opacity: 0.75; }
+
+.qty { display: flex; align-items: center; gap: 0.35rem; }
+.qty button {
+  width: 1.5rem; height: 1.5rem;
+  font: inherit; line-height: 1;
+  color: inherit; background: none;
+  border: 1px solid rgb(128 128 128 / 0.35);
+  border-radius: 0.2rem; cursor: pointer;
+}
+.qty span { min-width: 1.1rem; text-align: center; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+.deck-card-name { font-size: 0.9rem; }
+.remove { font-size: 1.1rem; line-height: 1; color: inherit; background: none; border: none; opacity: 0.4; cursor: pointer; }
+.remove:hover { opacity: 1; }
+
+.tag {
+  margin-left: 0.4rem; padding: 0.05rem 0.35rem;
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
+  border-radius: 0.2rem; vertical-align: middle;
+}
+.tag.ace { background: rgb(200 160 75 / 0.22); color: #c8a04b; }
+.tag.basic { background: rgb(128 128 128 / 0.18); opacity: 0.8; }
+.tag.illegal { background: rgb(200 72 75 / 0.2); color: #c8484b; }
+
+/* --- historial --- */
+
+.history { margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid rgb(128 128 128 / 0.2); }
+.history h4 { margin: 0 0 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.6; }
+.history ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.history li { display: grid; grid-template-columns: 2.5rem 1fr auto; gap: 0.75rem; font-size: 0.85rem; opacity: 0.7; }
+.history li.current { opacity: 1; font-weight: 600; }
+.vnum { font-variant-numeric: tabular-nums; }
+.vcount { opacity: 0.6; font-variant-numeric: tabular-nums; }

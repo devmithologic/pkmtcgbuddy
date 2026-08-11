@@ -62,6 +62,14 @@ class Card(CardSummary):
     # Derivado, no copiado: TCGdex lo expresa como rarity == "ACE SPEC Rare".
     is_ace_spec: bool
 
+    # También derivado, y con una traducción de vocabulario por medio: TCGdex
+    # llama "Normal" a lo que el reglamento llama energía *básica*. Guardamos el
+    # término del dominio, no el del proveedor.
+    #
+    # Importa porque la regla de "máximo 4 copias por nombre" exime justamente a
+    # la energía básica: un mazo puede llevar veinte Lightning Energy.
+    is_basic_energy: bool = False
+
     def is_legal_in(self, deck_format: DeckFormat) -> bool:
         """Regla de dominio, no dato del proveedor. La usará la validación de
         mazos en el siguiente slice."""

@@ -46,6 +46,10 @@ BASE_URL = "https://api.tcgdex.net/v2/en"
 # de la cadena en todo el proyecto; el resto del código pregunta por is_ace_spec.
 ACE_SPEC_RARITY = "ACE SPEC Rare"
 
+# TCGdex llama "Normal" a la energía básica. El reglamento la llama básica, y es
+# el término que usa el resto del proyecto. La traducción vive aquí y solo aquí.
+BASIC_ENERGY_TYPE = "Normal"
+
 # El cliente se abre en el lifespan de la app, igual que el de Mongo, y por el
 # mismo motivo: reutilizar conexiones TCP en vez de negociar TLS en cada búsqueda.
 _client: httpx.AsyncClient | None = None
@@ -150,6 +154,10 @@ def _to_card(payload: dict) -> Card:
             legal_standard=bool(legal.get("standard", False)),
             legal_expanded=bool(legal.get("expanded", False)),
             is_ace_spec=rarity == ACE_SPEC_RARITY,
+            is_basic_energy=(
+                payload["category"] == CardCategory.ENERGY.value
+                and payload.get("energyType") == BASIC_ENERGY_TYPE
+            ),
         )
     except (KeyError, ValueError, TypeError) as exc:
         raise CardSourceError(f"No se pudo interpretar la carta: {exc}") from exc
