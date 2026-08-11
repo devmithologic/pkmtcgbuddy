@@ -15,6 +15,9 @@ documentos publican dos modelos de carta incompatibles entre sí, así que la AP
 es la fuente más fiable de las dos.
 """
 
+import hashlib
+import json
+
 import httpx
 
 from app.models.card import (
@@ -141,6 +144,55 @@ def _to_summary(payload: dict) -> CardSummary:
         raise CardSourceError(f"Carta sin los campos mínimos: {exc}") from exc
 
 
+# Campos que determinan QUÉ carta es, frente a en qué set se imprimió.
+# Deliberadamente NO entran: set, rareza, ilustrador, imagen, variantes,
+# regulationMark ni legal. Dos impresiones de Boss's Orders difieren en todos
+# esos y siguen siendo la misma carta.
+# `energyType` NO entra, aunque parezca describir la carta: TCGdex es incoherente
+# con él. Las dos impresiones de Reversal Energy tienen el mismo texto y difieren
+# solo en ese campo ('Special' en una, 'Normal' en la otra), lo que las partiría
+# en dos identidades siendo la misma carta.
+_IDENTITY_FIELDS = (
+    "name", "category", "effect", "trainerType",
+    "hp", "stage", "evolveFrom", "suffix", "types",
+)
+
+
+def _identity(payload: dict) -> str:
+    """Huella de la carta, igual para todas sus reimpresiones.
+
+    Existe por la regla de reimpresión: si una carta se reimprime en un set
+    legal, las impresiones antiguas del mismo texto también se pueden jugar.
+    Boss's Orders tiene impresiones con marca D, F, G e I; las seis son legales
+    porque la de marca I lo es.
+
+    TCGdex no modela eso: marca la legalidad por impresión, así que sus
+    impresiones de marca G salen como ilegales. Agrupar por esta huella permite
+    reconstruir la regla real. Ver card_sync._apply_reprint_rule.
+
+    No basta el nombre. Dos Pokémon llamados "Pikachu" de sets distintos tienen
+    ataques distintos: son cartas diferentes, no reimpresiones. Por eso entran
+    también los ataques y las habilidades.
+    """
+    partes = {k: payload.get(k) for k in _IDENTITY_FIELDS}
+
+    # Ataques y habilidades, sin el ruido de formato.
+    partes["attacks"] = [
+        {"name": a.get("name"), "cost": a.get("cost"),
+         "damage": a.get("damage"), "effect": a.get("effect")}
+        for a in (payload.get("attacks") or [])
+    ]
+    partes["abilities"] = [
+        {"name": a.get("name"), "effect": a.get("effect"), "type": a.get("type")}
+        for a in (payload.get("abilities") or [])
+    ]
+
+    # sort_keys para que el orden de las claves no cambie la huella; hash para no
+    # guardar el texto completo de cada carta en cada documento.
+    canonico = json.dumps(partes, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha1(canonico.encode()).hexdigest()[:16]
+
+
 def _to_card(payload: dict) -> Card:
     """Traduce el JSON de TCGdex a nuestro modelo.
 
@@ -168,6 +220,7 @@ def _to_card(payload: dict) -> Card:
                 payload["category"] == CardCategory.ENERGY.value
                 and not payload.get("effect")
             ),
+            identity=_identity(payload),
         )
     except (KeyError, ValueError, TypeError) as exc:
         raise CardSourceError(f"No se pudo interpretar la carta: {exc}") from exc

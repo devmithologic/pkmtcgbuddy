@@ -115,6 +115,21 @@ registration. No provider is reliable enough to depend on per request.
 Syncing turns TCGdex from a runtime dependency into a deploy-time one. It also made searches ~600×
 faster: 0.8 ms locally versus ~500 ms proxied.
 
+**Card legality is per *card*, not per *printing*.** The tournament rule is that if a card is
+reprinted in a legal set, older printings of the same card are legal too — a Boss's Orders from
+Paldea Evolved (mark G) is playable because Mega Evolution reprinted it with mark I. TCGdex does not
+model this: it reports legality per printing, so its mark-G copies come back illegal.
+
+`card_sync` reconstructs the real rule in a second pass, grouping printings by a content signature
+(`Card.identity`: name plus text, never set or rarity) and promoting a whole group if any member is
+legal. Grouping by *name* would be wrong — 59 of the 65 cards named "Pikachu" are genuinely different
+cards, and Poké Ball has three distinct versions, one of which flips a coin.
+
+Known limit: Pokémon reworded card templates in the Scarlet & Violet era, so a card whose text was
+rewritten does not group with its older printings. Measured: 26 Trainer/Energy names, 94 printings,
+including Boss's Orders marks D and F. Matching those by name would wrongly legalise the coin-flip
+Poké Ball, so the gap is left open deliberately.
+
 **Sync scope is a real decision, and it is invisible at query time.** TCGdex holds 23,546 cards;
 14,901 are Expanded-legal and 3,345 Standard-legal. Syncing `--format standard` omits promo printings
 that are not Standard-legal — which looks like missing data from the provider until you check. Sync

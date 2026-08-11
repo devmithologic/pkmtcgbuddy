@@ -62,6 +62,14 @@ class Card(CardSummary):
     # Derivado, no copiado: TCGdex lo expresa como rarity == "ACE SPEC Rare".
     is_ace_spec: bool
 
+    # Huella de QUÉ carta es, compartida por todas sus reimpresiones. La calcula
+    # el adaptador a partir del nombre y el texto; no del set ni la rareza.
+    #
+    # Sirve para la regla de reimpresión: si Boss's Orders se reimprime en un set
+    # legal, las impresiones antiguas del mismo texto también se pueden jugar, y
+    # TCGdex no lo modela. Ver services/card_sync.py.
+    identity: str = ""
+
     # También derivado, y con una traducción de vocabulario por medio: TCGdex
     # llama "Normal" a lo que el reglamento llama energía *básica*. Guardamos el
     # término del dominio, no el del proveedor.

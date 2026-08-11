@@ -77,6 +77,7 @@ def card_to_document(card: Card) -> dict:
         "legal_expanded": card.legal_expanded,
         "is_ace_spec": card.is_ace_spec,
         "is_basic_energy": card.is_basic_energy,
+        "identity": card.identity,
         "synced_at": datetime.now(timezone.utc),
     }
 
@@ -95,6 +96,7 @@ def card_from_document(document: dict) -> Card:
         # .get con defecto: los documentos escritos antes de que existiera el
         # campo no lo tienen. Una resincronización los completa.
         is_basic_energy=document.get("is_basic_energy", False),
+        identity=document.get("identity", ""),
     )
 
 

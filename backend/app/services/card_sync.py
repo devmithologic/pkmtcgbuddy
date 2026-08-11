@@ -107,6 +107,53 @@ async def _fetch_details(ids: list[str]) -> list[dict]:
     return documents
 
 
+def _apply_reprint_rule(documents: list[dict]) -> int:
+    """Propaga la legalidad entre impresiones de la misma carta.
+
+    El reglamento dice que si una carta se reimprime en un set legal, las
+    impresiones antiguas del mismo texto también se pueden jugar. Boss's Orders
+    tiene impresiones con marca D, F, G e I: las seis son legales en Standard
+    porque la de marca I lo es.
+
+    TCGdex no modela eso. Marca la legalidad por impresión, así que reporta las
+    de marca G como ilegales. Sin esta pasada, la aplicación rechazaría la
+    Boss's Orders de Paldea Evolved que el jugador tiene en la mano.
+
+    El agrupamiento es por `identity` —nombre más texto— y no por nombre, porque
+    dos Pokémon llamados "Pikachu" de sets distintos tienen ataques distintos:
+    son cartas diferentes, no reimpresiones.
+
+    Se hace aquí y no en el adaptador por una razón de forma: el adaptador
+    traduce UNA carta y no puede saber nada de las demás. Esta regla necesita ver
+    el conjunto entero, y el sync ya lo tiene en memoria antes de escribir.
+    """
+    legales_std: set[str] = set()
+    legales_exp: set[str] = set()
+
+    for doc in documents:
+        if doc.get("identity"):
+            if doc["legal_standard"]:
+                legales_std.add(doc["identity"])
+            if doc["legal_expanded"]:
+                legales_exp.add(doc["identity"])
+
+    promovidas = 0
+    for doc in documents:
+        ident = doc.get("identity")
+        if not ident:
+            continue
+        cambio = False
+        if not doc["legal_standard"] and ident in legales_std:
+            doc["legal_standard"] = True
+            cambio = True
+        if not doc["legal_expanded"] and ident in legales_exp:
+            doc["legal_expanded"] = True
+            cambio = True
+        promovidas += cambio
+
+    return promovidas
+
+
 async def _write(documents: list[dict]) -> tuple[int, int]:
     """Escribe en lotes con upsert, para que resincronizar sea seguro.
 
@@ -154,6 +201,10 @@ async def sync(deck_format: DeckFormat) -> None:
             return
 
         documents = await _fetch_details(ids)
+
+        promovidas = _apply_reprint_rule(documents)
+        print(f"  regla de reimpresión: {promovidas} impresiones promovidas a legal")
+
         inserted, updated = await _write(documents)
 
         total = await card_repository.count_cards()
