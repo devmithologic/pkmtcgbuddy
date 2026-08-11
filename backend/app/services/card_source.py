@@ -46,9 +46,19 @@ BASE_URL = "https://api.tcgdex.net/v2/en"
 # de la cadena en todo el proyecto; el resto del código pregunta por is_ace_spec.
 ACE_SPEC_RARITY = "ACE SPEC Rare"
 
-# TCGdex llama "Normal" a la energía básica. El reglamento la llama básica, y es
-# el término que usa el resto del proyecto. La traducción vive aquí y solo aquí.
-BASIC_ENERGY_TYPE = "Normal"
+# Distinguir energía básica de especial resultó no ser directo, y la primera
+# versión de esto estaba mal.
+#
+# TCGdex tiene un campo `energyType` con valores "Normal" y "Special", y parece
+# la respuesta. No lo es: marca como "Normal" a Reversal Energy, Prism Energy,
+# Team Rocket's Energy y a las nueve energías especiales de tipo de Scarlet &
+# Violet. Eximirlas del límite de 4 copias permitiría mazos ilegales.
+#
+# La señal fiable es el texto de efecto: una energía básica no tiene ninguno,
+# porque no hace nada más que proveer energía. Comprobado sobre las 316 energías
+# legales en Standard: sin efecto salen exactamente los 8 tipos básicos (en sus
+# dos convenciones de nombre, "Fire Energy" y "Basic Fire Energy"), y con efecto
+# las 18 especiales. Cero solapamiento.
 
 # El cliente se abre en el lifespan de la app, igual que el de Mongo, y por el
 # mismo motivo: reutilizar conexiones TCP en vez de negociar TLS en cada búsqueda.
@@ -156,7 +166,7 @@ def _to_card(payload: dict) -> Card:
             is_ace_spec=rarity == ACE_SPEC_RARITY,
             is_basic_energy=(
                 payload["category"] == CardCategory.ENERGY.value
-                and payload.get("energyType") == BASIC_ENERGY_TYPE
+                and not payload.get("effect")
             ),
         )
     except (KeyError, ValueError, TypeError) as exc:
