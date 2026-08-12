@@ -6,9 +6,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.db import card_repository, deck_repository
+from app.db import card_repository, deck_repository, session_repository
 from app.db.mongo import close_mongo_connection, connect_to_mongo
-from app.routers import cards, decks, matches
+from app.routers import cards, decks, sessions
 
 
 @asynccontextmanager
@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
     # un despliegue nuevo empiece haciendo collection scans sin que nadie lo note.
     await card_repository.ensure_indexes()
     await deck_repository.ensure_indexes()
+    await session_repository.ensure_indexes()
 
     yield
 
@@ -62,8 +63,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Todas las rutas del router quedan bajo /api: /api/matches.
-app.include_router(matches.router, prefix="/api")
+# Todas las rutas quedan bajo /api: /api/sessions, /api/decks, /api/cards.
+app.include_router(sessions.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")
 

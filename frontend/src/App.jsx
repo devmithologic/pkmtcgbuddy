@@ -1,24 +1,30 @@
-import { useEffect, useState } from 'react'
-import { listMatches } from './api/matches'
+import { useState } from 'react'
 import CardSearch from './components/CardSearch'
 import DeckBuilder from './components/DeckBuilder'
 import DeckList from './components/DeckList'
-import MatchForm from './components/MatchForm'
-import MatchList from './components/MatchList'
+import SessionDetail from './components/SessionDetail'
+import SessionList from './components/SessionList'
 import './App.css'
 
 const TABS = [
-  { id: 'matches', label: 'Partidas' },
+  { id: 'sessions', label: 'Sesiones' },
   { id: 'decks', label: 'Mazos' },
   { id: 'cards', label: 'Cartas' },
 ]
 
 export default function App() {
-  const [tab, setTab] = useState('matches')
-  // Qué mazo está abierto. null = el listado. Es navegación, y con dos vistas no
-  // justifica todavía un router: una variable de estado dice lo mismo sin añadir
-  // una dependencia y un mecanismo nuevo.
+  const [tab, setTab] = useState('sessions')
+  // Qué mazo o sesión está abierto. null = el listado. Es navegación, y con dos
+  // niveles no justifica todavía un router: dos variables de estado dicen lo
+  // mismo sin añadir una dependencia y un mecanismo nuevo.
   const [openDeckId, setOpenDeckId] = useState(null)
+  const [openSessionId, setOpenSessionId] = useState(null)
+
+  function switchTab(id) {
+    setTab(id)
+    setOpenDeckId(null)
+    setOpenSessionId(null)
+  }
 
   return (
     <main className="app">
@@ -30,10 +36,7 @@ export default function App() {
               key={t.id}
               type="button"
               className={tab === t.id ? 'active' : ''}
-              onClick={() => {
-                setTab(t.id)
-                setOpenDeckId(null)
-              }}
+              onClick={() => switchTab(t.id)}
             >
               {t.label}
             </button>
@@ -43,57 +46,22 @@ export default function App() {
 
       {/* Renderizado condicional, no CSS: la pestaña oculta se DESMONTA. Eso
           cancela sus peticiones en vuelo, gracias a las limpiezas de useEffect.
-          Ocultarla con display:none la dejaría viva y consultando TCGdex. */}
-      {tab === 'matches' && <MatchesView />}
-      {tab === 'cards' && <CardSearch />}
+          Ocultarla con display:none la dejaría viva y consultando. */}
+      {tab === 'sessions' &&
+        (openSessionId ? (
+          <SessionDetail sessionId={openSessionId} onBack={() => setOpenSessionId(null)} />
+        ) : (
+          <SessionList onOpen={setOpenSessionId} />
+        ))}
+
       {tab === 'decks' &&
         (openDeckId ? (
           <DeckBuilder deckId={openDeckId} onBack={() => setOpenDeckId(null)} />
         ) : (
           <DeckList onOpen={setOpenDeckId} />
         ))}
+
+      {tab === 'cards' && <CardSearch />}
     </main>
-  )
-}
-
-function MatchesView() {
-  const [matches, setMatches] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    let active = true
-
-    listMatches()
-      .then((data) => {
-        if (active) setMatches(data)
-      })
-      .catch((err) => {
-        if (active) setError(err.message)
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [])
-
-  function handleCreated(match) {
-    setMatches((previous) => [match, ...previous])
-  }
-
-  return (
-    <>
-      <MatchForm onCreated={handleCreated} />
-
-      <section>
-        <h2>Partidas ({matches.length})</h2>
-        {loading && <p>Cargando…</p>}
-        {error && <p className="error">No se pudieron cargar las partidas: {error}</p>}
-        {!loading && !error && <MatchList matches={matches} />}
-      </section>
-    </>
   )
 }

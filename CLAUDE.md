@@ -146,9 +146,15 @@ pattern to a prefix. Neither is worth doing yet.
 
 ## Domain model (draft)
 
-- **Match** — one recorded game: date, opponent archetype, deck version played, result, notes.
-  `deck_version_id` is optional and stores only the *version*, never also the deck: the deck is
-  derived from the version, and duplicating it would allow the two to disagree.
+- **Session** — one event: a league night, a Cup, an afternoon of testing. Holds the date, the
+  session type (`league` · `cup` · `challenge` · `online` · `testing`), the deck version played, and
+  its rounds. The deck lives here, not on the match — you pick a deck once when the tournament
+  starts, not before every round.
+- **Match** — one round inside a session: opponent archetype, result, notes. **Embedded** in the
+  session document, unlike DeckVersion which is a separate collection. The criterion is the direction
+  of the references: nothing outside a session points at an individual match, whereas a session does
+  point at a deck version. The array is also bounded — a tournament is 4–9 rounds.
+- **Record** — a session's W–L–T, derived at read time, never stored.
 - **Deck** — a named deck owned by the user. Not a single card list — a list *plus a history*.
 - **DeckVersion** — a snapshot of the card list at a point in time with a message describing the
   change, like a Git commit. **Matches reference the version played, not just the deck**, so win

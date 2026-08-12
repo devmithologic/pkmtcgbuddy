@@ -1,5 +1,7 @@
 """Conexión a MongoDB: un único cliente compartido por toda la aplicación."""
 
+from bson import ObjectId
+from bson.errors import InvalidId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -37,3 +39,19 @@ def get_database() -> AsyncDatabase:
     if _client is None:
         raise RuntimeError("MongoDB no está conectado: ¿arrancó el lifespan de la app?")
     return _client[settings.db_name]
+
+
+def to_object_id(value: str) -> ObjectId | None:
+    """Convierte una cadena en ObjectId, o None si no lo es.
+
+    Vive aquí y no en un repositorio concreto porque no es cosa de mazos ni de
+    sesiones: es una preocupación de MongoDB, y la necesitan todos.
+
+    Existe porque un id inválido llega desde la URL, es decir, desde fuera.
+    Pasarlo directo a ObjectId() lanza InvalidId, que sin capturar acaba en un
+    500 — cuando lo correcto es un 404: el cliente pidió algo que no existe.
+    """
+    try:
+        return ObjectId(value)
+    except (InvalidId, TypeError):
+        return None

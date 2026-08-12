@@ -17,10 +17,9 @@ las versiones embebidas, la partida tendría que apuntar a un subdocumento.
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from bson.errors import InvalidId
 from pymongo import ASCENDING, DESCENDING
 
-from app.db.mongo import get_database
+from app.db.mongo import get_database, to_object_id  # noqa: F401  (reexportado)
 from app.models.card import DeckFormat
 from app.models.deck import DeckCard, DeckVersionSummary
 
@@ -41,19 +40,6 @@ async def ensure_indexes() -> None:
     # descendente sirve para pedir la última sin ordenar en memoria.
     await _versions().create_index([("deck_id", ASCENDING), ("version", DESCENDING)])
     await _decks().create_index([("updated_at", DESCENDING)])
-
-
-def to_object_id(value: str) -> ObjectId | None:
-    """Convierte una cadena en ObjectId, o None si no lo es.
-
-    Existe porque un id inválido llega desde la URL, es decir, desde fuera.
-    Pasarlo directo a ObjectId() lanza InvalidId, que sin capturar acaba en un
-    500 — cuando lo correcto es un 404: el cliente pidió algo que no existe.
-    """
-    try:
-        return ObjectId(value)
-    except (InvalidId, TypeError):
-        return None
 
 
 async def create_deck(name: str, deck_format: DeckFormat) -> str:
