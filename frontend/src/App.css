@@ -474,3 +474,91 @@
 .history li.current { opacity: 1; font-weight: 600; }
 .vnum { font-variant-numeric: tabular-nums; }
 .vcount { opacity: 0.6; font-variant-numeric: tabular-nums; }
+
+/* --- conmutador de vista --- */
+.view-toggle { display: flex; gap: 0.25rem; margin: 1.25rem 0 0.75rem; }
+.view-toggle button {
+  padding: 0.3rem 0.8rem; font: inherit; font-size: 0.8rem;
+  color: inherit; background: none;
+  border: 1px solid rgb(128 128 128 / 0.3); border-radius: 0.25rem;
+  cursor: pointer; opacity: 0.6;
+}
+.view-toggle button.active { opacity: 1; border-color: rgb(128 128 128 / 0.7); font-weight: 600; }
+
+/* --- rejilla de cartas del mazo --- */
+.deck-grid-groups { display: flex; flex-direction: column; gap: 1.5rem; }
+.deck-grid-groups h4 {
+  margin: 0 0 0.5rem; font-size: 0.8rem; text-transform: uppercase;
+  letter-spacing: 0.06em; opacity: 0.6;
+}
+.deck-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.6rem; list-style: none; margin: 0; padding: 0;
+}
+.deck-grid > li { display: flex; flex-direction: column; gap: 0.25rem; }
+.deck-grid > li.is-illegal .deck-card { outline: 2px solid #c8484b; outline-offset: 1px; }
+
+.deck-card { position: relative; }
+.deck-card img {
+  width: 100%; display: block; border-radius: 0.25rem;
+  /* Igual que en el buscador: reservar el hueco antes de que cargue evita que
+     la rejilla se desmorone con loading="lazy". Ver log_mentor/10. */
+  aspect-ratio: 245 / 342; background: rgb(128 128 128 / 0.1); object-fit: cover;
+}
+.deck-card .no-image {
+  display: grid; place-items: center; aspect-ratio: 245 / 342; padding: 0.3rem;
+  font-size: 0.6rem; text-align: center; opacity: 0.6;
+  border: 1px dashed rgb(128 128 128 / 0.4); border-radius: 0.25rem;
+}
+
+/* La cantidad, sobre la carta y abajo a la derecha, como en las listas publicadas */
+.qty-badge {
+  position: absolute; right: -0.3rem; bottom: -0.3rem;
+  min-width: 1.5rem; height: 1.5rem; padding: 0 0.25rem;
+  display: grid; place-items: center;
+  font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: #fff; background: #b3283a; border-radius: 0.75rem;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+.corner {
+  position: absolute; top: 0.2rem; left: 0.2rem;
+  padding: 0.05rem 0.3rem; font-size: 0.55rem; font-weight: 700;
+  letter-spacing: 0.04em; border-radius: 0.2rem;
+}
+.corner.ace { background: #c9a227; color: #1a1a1a; }
+.corner.illegal { background: #c8484b; color: #fff; }
+
+.grid-controls { display: flex; gap: 0.2rem; justify-content: center; }
+.grid-controls button {
+  width: 1.35rem; height: 1.35rem; padding: 0; line-height: 1;
+  font: inherit; font-size: 0.8rem; color: inherit; background: none;
+  border: 1px solid rgb(128 128 128 / 0.35); border-radius: 0.2rem; cursor: pointer;
+}
+.grid-controls .remove { border-color: transparent; opacity: 0.45; }
+.grid-controls .remove:hover { opacity: 1; }
+.grid-name { font-size: 0.62rem; line-height: 1.2; opacity: 0.7; text-align: center; }
+
+/* --- comparar con una versión anterior --- */
+.comparing {
+  margin-top: 1.75rem; padding: 1rem;
+  border: 1px dashed rgb(128 128 128 / 0.45); border-radius: 0.4rem;
+}
+.comparing h4 { display: flex; align-items: baseline; gap: 0.6rem; }
+.comparing h4 button {
+  font: inherit; font-size: 0.7rem; text-transform: none; letter-spacing: 0;
+  color: inherit; background: none; border: none; opacity: 0.6;
+  cursor: pointer; text-decoration: underline;
+}
+.history li { grid-template-columns: 2.5rem 1fr auto auto; }
+.peek {
+  font: inherit; font-size: 0.75rem; color: inherit; background: none;
+  border: none; opacity: 0.6; cursor: pointer; text-decoration: underline;
+}
+.peek:hover { opacity: 1; }
+
+/* --- mazo en la lista de partidas --- */
+.match__deck { grid-column: 1 / -1; font-size: 0.8rem; opacity: 0.7; }
+.vtag {
+  padding: 0.05rem 0.3rem; font-size: 0.7rem;
+  background: rgb(128 128 128 / 0.2); border-radius: 0.2rem;
+}

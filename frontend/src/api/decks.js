@@ -54,3 +54,8 @@ export function createVersion(deckId, message) {
 export function listVersions(deckId) {
   return request(`/api/decks/${deckId}/versions`)
 }
+
+/** GET /api/decks/{id}/versions/{vid} — una versión concreta con su lista. */
+export function getVersion(deckId, versionId) {
+  return request(`/api/decks/${deckId}/versions/${versionId}`)
+}

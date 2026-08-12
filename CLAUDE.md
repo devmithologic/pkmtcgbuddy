@@ -87,10 +87,13 @@ Rough sequence, not a contract. Each phase should end with something that runs.
 
 ## Decisions made
 
-**Card data source: [TCGdex](https://tcgdex.dev/).** No API key, official Python SDK, open source,
-includes card images, and serves 12+ languages. Rejected `pokemontcg.io` — it has been folded into
-the commercial Scrydex product and its public endpoint has been measured around 39% reliability.
-TCGdex has no pricing data; nothing in the planned feature set needs prices.
+**Card data source: [TCGdex](https://tcgdex.dev/).** No API key, open source, includes card images,
+and serves 12+ languages. Rejected `pokemontcg.io` — folded into the commercial Scrydex product, and
+measured at 1 successful request in 10 on 2026-08-09.
+
+Correction to an earlier note here: TCGdex *does* expose pricing (`cardmarket` and `tcgplayer`,
+updated daily). The original claim that it had none is no longer true. Nothing in the feature set
+needs prices yet, so we do not store them.
 
 **MongoDB driver: `pymongo.AsyncMongoClient`, not Motor.** Motor was the async MongoDB driver for
 years, but it has been superseded — MongoDB's own docs now publish a *"Migrate From Motor"* page, and
@@ -144,6 +147,8 @@ pattern to a prefix. Neither is worth doing yet.
 ## Domain model (draft)
 
 - **Match** — one recorded game: date, opponent archetype, deck version played, result, notes.
+  `deck_version_id` is optional and stores only the *version*, never also the deck: the deck is
+  derived from the version, and duplicating it would allow the two to disagree.
 - **Deck** — a named deck owned by the user. Not a single card list — a list *plus a history*.
 - **DeckVersion** — a snapshot of the card list at a point in time with a message describing the
   change, like a Git commit. **Matches reference the version played, not just the deck**, so win

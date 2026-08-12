@@ -130,6 +130,9 @@ class DeckSummary(BaseModel):
     name: str
     deck_format: DeckFormat
     current_version: int
+    # El id además del número: quien registra una partida necesita guardar A QUÉ
+    # versión se atribuye, y el número por sí solo no identifica el documento.
+    current_version_id: str
     total_cards: int
     is_legal: bool
     updated_at: datetime

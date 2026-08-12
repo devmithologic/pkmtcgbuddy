@@ -28,6 +28,11 @@ export default function MatchList({ matches }) {
           <span className="match__date">{match.played_at}</span>
           <span className="match__archetype">{match.opponent_archetype}</span>
           <span className="match__result">{RESULT_LABEL[match.result]}</span>
+          {match.deck_name && (
+            <span className="match__deck">
+              {match.deck_name} <span className="vtag">v{match.deck_version}</span>
+            </span>
+          )}
           {match.notes && <p className="match__notes">{match.notes}</p>}
         </li>
       ))}

@@ -85,6 +85,7 @@ async def list_decks() -> list[DeckSummary]:
                 name=doc["name"],
                 deck_format=deck_format,
                 current_version=current.get("version", 1),
+                current_version_id=str(doc["current_version_id"]),
                 total_cards=validation.total_cards,
                 is_legal=validation.is_legal,
                 updated_at=doc["updated_at"],

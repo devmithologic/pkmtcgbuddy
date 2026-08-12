@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { listDecks } from '../api/decks'
 import { createMatch } from '../api/matches'
 
 /** Fecha de hoy en formato YYYY-MM-DD, que es lo que espera <input type="date">. */
@@ -11,6 +12,7 @@ const EMPTY = {
   opponent_archetype: '',
   result: 'win',
   notes: '',
+  deck_id: '',
 }
 
 /**
@@ -23,8 +25,26 @@ const EMPTY = {
  */
 export default function MatchForm({ onCreated }) {
   const [form, setForm] = useState(EMPTY)
+  const [decks, setDecks] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  // Los mazos se cargan para poder elegir a cuál se atribuye la partida.
+  useEffect(() => {
+    let active = true
+    listDecks()
+      .then((data) => active && setDecks(data))
+      // Un fallo aquí no debe impedir registrar la partida: el mazo es opcional.
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
+  // Se elige el MAZO, y se guarda su versión ACTUAL. Es lo que corresponde a la
+  // realidad: juegas con la lista que tienes hoy. Si mañana la cambias, creas
+  // una versión nueva y las partidas de ayer siguen apuntando a la de ayer.
+  const selectedDeck = decks.find((d) => d.id === form.deck_id)
 
   /**
    * Estos son *componentes controlados*: el valor del <input> no lo guarda el
@@ -47,6 +67,7 @@ export default function MatchForm({ onCreated }) {
     try {
       const created = await createMatch({
         ...form,
+        deck_version_id: selectedDeck?.current_version_id ?? null,
         // El backend acepta null, no cadena vacía: "sin notas" y "notas vacías"
         // no son lo mismo.
         notes: form.notes.trim() || null,
@@ -87,6 +108,18 @@ export default function MatchForm({ onCreated }) {
           placeholder="Gardevoir ex"
           required
         />
+      </label>
+
+      <label>
+        Mazo jugado
+        <select name="deck_id" value={form.deck_id} onChange={handleChange}>
+          <option value="">— sin mazo propio —</option>
+          {decks.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name} (v{d.current_version})
+            </option>
+          ))}
+        </select>
       </label>
 
       <label>

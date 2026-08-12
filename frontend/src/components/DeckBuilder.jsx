@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getCard } from '../api/cards'
-import { createVersion, getDeck, listVersions, saveDeckCards } from '../api/decks'
+import { createVersion, getDeck, getVersion, listVersions, saveDeckCards } from '../api/decks'
 import CardSearch from './CardSearch'
 import DeckCardList from './DeckCardList'
+import DeckGrid from './DeckGrid'
 import DeckValidation from './DeckValidation'
 
 /**
@@ -23,6 +24,13 @@ export default function DeckBuilder({ deckId, onBack }) {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  // 'grid' o 'list'. La rejilla es el modo por defecto porque una lista de 60
+  // cartas se reconoce antes por las ilustraciones que por los nombres.
+  const [view, setView] = useState('grid')
+  // Versión antigua que se está consultando, si hay alguna. Se muestra al lado
+  // de la actual para poder comparar mientras editas, que es justo lo que falta
+  // cuando cambias cartas: ver de dónde vienes.
+  const [comparing, setComparing] = useState(null)
 
   // Carga inicial. Las dos peticiones van juntas porque ninguna depende de la
   // otra: en serie tardarían el doble sin motivo.
@@ -87,6 +95,19 @@ export default function DeckBuilder({ deckId, onBack }) {
       previous.map((c) => (c.card.id === cardId ? { ...c, quantity } : c)),
     )
     setDirty(true)
+  }
+
+  /** Carga una versión antigua para consultarla, o la cierra si ya está abierta. */
+  async function toggleCompare(version) {
+    if (comparing?.id === version.id) {
+      setComparing(null)
+      return
+    }
+    try {
+      setComparing(await getVersion(deckId, version.id))
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   function removeCard(cardId) {
@@ -186,11 +207,45 @@ export default function DeckBuilder({ deckId, onBack }) {
 
           {dirty && <p className="hint">Hay cambios sin guardar.</p>}
 
-          <DeckCardList
-            cards={cards}
-            onChangeQuantity={changeQuantity}
-            onRemove={removeCard}
-          />
+          <div className="view-toggle">
+            <button
+              type="button"
+              className={view === 'grid' ? 'active' : ''}
+              onClick={() => setView('grid')}
+            >
+              Cartas
+            </button>
+            <button
+              type="button"
+              className={view === 'list' ? 'active' : ''}
+              onClick={() => setView('list')}
+            >
+              Lista
+            </button>
+          </div>
+
+          {view === 'grid' ? (
+            <DeckGrid cards={cards} onChangeQuantity={changeQuantity} onRemove={removeCard} />
+          ) : (
+            <DeckCardList cards={cards} onChangeQuantity={changeQuantity} onRemove={removeCard} />
+          )}
+
+          {comparing && (
+            <section className="comparing">
+              <h4>
+                Consultando v{comparing.version} · {comparing.message}
+                <button type="button" onClick={() => setComparing(null)}>
+                  cerrar
+                </button>
+              </h4>
+              <p className="hint">
+                Solo lectura: las versiones anteriores están congeladas.
+              </p>
+              {/* readOnly quita los controles: ofrecer un botón que no puede
+                  hacer nada confunde más que ayudar. */}
+              <DeckGrid cards={comparing.cards} readOnly />
+            </section>
+          )}
 
           {versions.length > 0 && (
             <section className="history">
@@ -201,6 +256,11 @@ export default function DeckBuilder({ deckId, onBack }) {
                     <span className="vnum">v{v.version}</span>
                     <span className="vmsg">{v.message}</span>
                     <span className="vcount">{v.total_cards} cartas</span>
+                    {v.version !== deck.current_version.version && (
+                      <button type="button" className="peek" onClick={() => toggleCompare(v)}>
+                        {comparing?.id === v.id ? 'ocultar' : 'ver'}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
