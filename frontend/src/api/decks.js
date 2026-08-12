@@ -5,7 +5,7 @@
  * escrituras.
  */
 
-import { request } from './client'
+import { queryString, request } from './client'
 
 /** GET /api/decks — todos los mazos con su estado de validez. */
 export function listDecks() {
@@ -58,4 +58,14 @@ export function listVersions(deckId) {
 /** GET /api/decks/{id}/versions/{vid} — una versión concreta con su lista. */
 export function getVersion(deckId, versionId) {
   return request(`/api/decks/${deckId}/versions/${versionId}`)
+}
+
+/**
+ * GET /api/decks/{id}/stats — estadísticas agregadas del mazo.
+ *
+ * Acepta AbortSignal porque los filtros disparan una consulta nueva y las
+ * respuestas pueden llegar desordenadas.
+ */
+export function getDeckStats(deckId, filters = {}, signal) {
+  return request(`/api/decks/${deckId}/stats${queryString(filters)}`, { signal })
 }

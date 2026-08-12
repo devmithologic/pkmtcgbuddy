@@ -5,9 +5,11 @@ que aquí sí hay escritura. La validación se calcula en cada lectura y nunca s
 guarda.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from datetime import date
 
-from app.db import card_repository, deck_repository
+from fastapi import APIRouter, HTTPException, Query, status
+
+from app.db import card_repository, deck_repository, stats_repository
 from app.models.card import DeckFormat
 from app.models.deck import (
     DeckCard,
@@ -21,6 +23,8 @@ from app.models.deck import (
     DeckVersionSummary,
     NewVersionRequest,
 )
+from app.models.session import SessionType
+from app.models.stats import DeckStats, StatLine, StatsFilters, VersionStatLine
 from app.services.deck_rules import validate_deck
 
 router = APIRouter(prefix="/decks", tags=["decks"])
@@ -189,4 +193,78 @@ async def get_version(deck_id: str, version_id: str) -> DeckVersionOut:
         total_cards=validation.total_cards,
         created_at=version["created_at"],
         cards=resolved,
+    )
+
+
+@router.get("/{deck_id}/stats", response_model=DeckStats)
+async def deck_stats(
+    deck_id: str,
+    date_from: date | None = Query(default=None, description="Desde, inclusive"),
+    date_to: date | None = Query(default=None, description="Hasta, inclusive"),
+    session_type: SessionType | None = Query(default=None),
+) -> DeckStats:
+    """Estadísticas del mazo, agregadas sobre las sesiones jugadas con él.
+
+    El desglose por versión es la razón de ser de todo esto: saber si la v2 juega
+    mejor que la v1 es la pregunta que ningún tracker comercial responde.
+
+    Los filtros de periodo y tipo de evento no son adorno. Un win rate que mezcla
+    testing con torneo no describe ninguna de las dos cosas: contra tu amigo
+    pruebas líneas raras y aceptas perder.
+    """
+    deck = await _load_deck(deck_id)
+
+    # Una sesión referencia una VERSIÓN, así que para las estadísticas del mazo
+    # entero hay que reunir todas sus versiones primero.
+    versions = await deck_repository.list_versions(deck["_id"])
+    version_ids = [deck_repository.to_object_id(v.id) for v in versions]
+    por_id = {v.id: v for v in versions}
+
+    raw = await stats_repository.deck_stats(
+        version_ids, date_from=date_from, date_to=date_to, session_type=session_type
+    )
+
+    def linea(row: dict, label: str) -> StatLine:
+        return StatLine(
+            label=label, wins=row["wins"], losses=row["losses"], ties=row["ties"]
+        )
+
+    overall = (
+        linea(raw["overall"][0], deck["name"])
+        if raw["overall"]
+        else StatLine(label=deck["name"], wins=0, losses=0, ties=0)
+    )
+
+    by_version = []
+    for row in raw["by_version"]:
+        version = por_id.get(str(row["_id"]))
+        if version is None:
+            # Una sesión apunta a una versión que ya no existe. No debería pasar
+            # —no hay forma de borrar versiones— pero si pasara, se omite en vez
+            # de reventar la pantalla entera.
+            continue
+        by_version.append(
+            VersionStatLine(
+                label=f"v{version.version}",
+                version=version.version,
+                version_id=version.id,
+                message=version.message,
+                wins=row["wins"],
+                losses=row["losses"],
+                ties=row["ties"],
+            )
+        )
+    by_version.sort(key=lambda v: v.version)
+
+    return DeckStats(
+        deck_id=str(deck["_id"]),
+        deck_name=deck["name"],
+        filters=StatsFilters(
+            date_from=date_from, date_to=date_to, session_type=session_type
+        ),
+        sessions_counted=raw["sessions"],
+        overall=overall,
+        by_version=by_version,
+        by_archetype=[linea(r, r["_id"]) for r in raw["by_archetype"]],
+        by_session_type=[linea(r, r["_id"]) for r in raw["by_session_type"]],
     )

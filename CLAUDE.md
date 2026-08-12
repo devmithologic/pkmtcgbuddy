@@ -163,6 +163,10 @@ pattern to a prefix. Neither is worth doing yet.
 - **Archetype** — the opponent's deck type. Not available from any API; user-maintained. A controlled
   list produces far better statistics than free text.
 - **Matchup** — derived at query time, not stored: matches grouped by (deck version, archetype).
+  Computed in `db/stats_repository.py` with `$match` → `$unwind` → `$facet`. `$unwind` turns a
+  session's embedded rounds into one document each; `$facet` runs four groupings over that single
+  read. **`$facet` cannot be nested** (`$facet is not allowed to be used within a $facet stage`), so
+  the session count is a separate `count_documents` rather than a second branch.
 
 ## Planned layout
 

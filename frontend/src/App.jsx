@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import CardSearch from './components/CardSearch'
-import DeckBuilder from './components/DeckBuilder'
 import DeckList from './components/DeckList'
+import DeckScreen from './components/DeckScreen'
 import SessionDetail from './components/SessionDetail'
 import SessionList from './components/SessionList'
 import './App.css'
@@ -56,7 +56,7 @@ export default function App() {
 
       {tab === 'decks' &&
         (openDeckId ? (
-          <DeckBuilder deckId={openDeckId} onBack={() => setOpenDeckId(null)} />
+          <DeckScreen deckId={openDeckId} onBack={() => setOpenDeckId(null)} />
         ) : (
           <DeckList onOpen={setOpenDeckId} />
         ))}

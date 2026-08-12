@@ -623,3 +623,54 @@
   background: none; color: inherit;
   border: 1px solid rgb(128 128 128 / 0.4); border-radius: 0.25rem;
 }
+
+/* ============ Estadísticas ============ */
+
+.deck-modes { display: flex; gap: 0.25rem; margin-bottom: 1.25rem; }
+.deck-modes button {
+  padding: 0.4rem 1rem; font: inherit; font-size: 0.875rem;
+  color: inherit; background: none;
+  border: 1px solid rgb(128 128 128 / 0.3); border-radius: 0.25rem;
+  cursor: pointer; opacity: 0.6;
+}
+.deck-modes button.active { opacity: 1; font-weight: 600; border-color: rgb(128 128 128 / 0.7); }
+
+.stats-filters {
+  display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: flex-end;
+  margin: 1rem 0 2rem; padding-bottom: 1rem;
+  border-bottom: 1px solid rgb(128 128 128 / 0.2);
+}
+.stats-filters label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; }
+.stats-filters input, .stats-filters select {
+  padding: 0.4rem; font: inherit; color: inherit; background: transparent;
+  border: 1px solid rgb(128 128 128 / 0.4); border-radius: 0.25rem;
+}
+.stats-filters .clear {
+  padding-bottom: 0.5rem; font: inherit; font-size: 0.8rem; color: inherit;
+  background: none; border: none; opacity: 0.6; cursor: pointer; text-decoration: underline;
+}
+
+.overall { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
+.overall-pct { font-size: 3rem; font-weight: 700; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.overall-record { font-size: 1.25rem; font-variant-numeric: tabular-nums; opacity: 0.8; }
+.overall-sub { font-size: 0.85rem; opacity: 0.55; }
+
+.deck-stats h3 {
+  margin: 2rem 0 0.75rem; font-size: 0.8rem; text-transform: uppercase;
+  letter-spacing: 0.07em; opacity: 0.6;
+}
+.deck-stats h3:first-of-type { margin-top: 0; }
+
+.stat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.stat-row {
+  display: grid; grid-template-columns: minmax(7rem, 12rem) 1fr auto auto;
+  gap: 0.9rem; align-items: center; font-size: 0.9rem;
+}
+.stat-row.is-thin { opacity: 0.45; }
+.stat-label { display: flex; flex-direction: column; gap: 0.1rem; }
+.stat-sub { font-size: 0.7rem; opacity: 0.6; }
+.stat-bar { height: 0.5rem; background: rgb(128 128 128 / 0.18); border-radius: 0.25rem; overflow: hidden; }
+.stat-bar-fill { display: block; height: 100%; background: #2e9e5b; border-radius: 0.25rem; }
+.stat-row.is-thin .stat-bar-fill { background: rgb(128 128 128 / 0.6); }
+.stat-record { font-variant-numeric: tabular-nums; opacity: 0.7; font-size: 0.85rem; }
+.stat-pct { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 2.75rem; text-align: right; }
