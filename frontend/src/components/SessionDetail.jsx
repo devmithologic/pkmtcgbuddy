@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react'
 import { listDecks } from '../api/decks'
-import { addMatch, deleteMatch, getSession, updateMatch, updateSession } from '../api/sessions'
+import {
+  addMatch,
+  deleteMatch,
+  getSession,
+  listTags,
+  updateMatch,
+  updateSession,
+} from '../api/sessions'
 import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
 import PokemonPair from './PokemonPair'
+import TagInput from './TagInput'
 import PokemonPicker from './PokemonPicker'
 
 const RESULTS = [
@@ -42,6 +50,7 @@ export default function SessionDetail({ sessionId, onBack }) {
   const [editingHeader, setEditingHeader] = useState(false)
   const [header, setHeader] = useState(null)
   const [decks, setDecks] = useState([])
+  const [allTags, setAllTags] = useState([])
 
   useEffect(() => {
     let active = true
@@ -58,8 +67,12 @@ export default function SessionDetail({ sessionId, onBack }) {
   // Los mazos hacen falta para poder corregir con cuál se jugó.
   useEffect(() => {
     let active = true
-    listDecks()
-      .then((d) => active && setDecks(d))
+    Promise.all([listDecks(), listTags()])
+      .then(([d, t]) => {
+        if (!active) return
+        setDecks(d)
+        setAllTags(t)
+      })
       .catch(() => {})
     return () => {
       active = false
@@ -73,6 +86,7 @@ export default function SessionDetail({ sessionId, onBack }) {
       session_type: session.session_type,
       notes: session.notes ?? '',
       deck_version_id: session.deck_version_id,
+      tags: session.tags ?? [],
     })
     setEditingHeader(true)
   }
@@ -153,6 +167,15 @@ export default function SessionDetail({ sessionId, onBack }) {
             {session.played_at} · {TYPE_LABEL[session.session_type]} · {session.deck_name}{' '}
             <span className="vtag">v{session.deck_version}</span>
           </p>
+          {session.tags?.length > 0 && (
+            <span className="tag-chips read-only">
+              {session.tags.map((t) => (
+                <span key={t} className="tag-chip">
+                  {t}
+                </span>
+              ))}
+            </span>
+          )}
           {session.notes && <p className="session-notes">{session.notes}</p>}
           {!editingHeader && (
             <button type="button" className="peek" onClick={startEditHeader}>
@@ -219,6 +242,15 @@ export default function SessionDetail({ sessionId, onBack }) {
               value={header.name}
               onChange={(e) => setHeader({ ...header, name: e.target.value })}
               placeholder="League Cup Guadalajara"
+            />
+          </label>
+
+          <label>
+            Etiquetas <span className="optional">opcional</span>
+            <TagInput
+              value={header.tags}
+              suggestions={allTags}
+              onChange={(t) => setHeader({ ...header, tags: t })}
             />
           </label>
 

@@ -6,7 +6,7 @@
  * actualizada, así que el cliente nunca recalcula el récord.
  */
 
-import { request } from './client'
+import { queryString, request } from './client'
 
 const json = (method, body) => ({
   method,
@@ -15,8 +15,8 @@ const json = (method, body) => ({
 })
 
 /** GET /api/sessions — listado con mazo y récord. */
-export function listSessions() {
-  return request('/api/sessions')
+export function listSessions(tag) {
+  return request(`/api/sessions${queryString({ tag })}`)
 }
 
 /** GET /api/sessions/{id} — sesión con sus rondas. */
@@ -52,4 +52,14 @@ export function updateMatch(sessionId, round, match) {
 /** DELETE /api/sessions/{id}/matches/{round} — borra y renumera las siguientes. */
 export function deleteMatch(sessionId, round) {
   return request(`/api/sessions/${sessionId}/matches/${round}`, { method: 'DELETE' })
+}
+
+/** GET /api/sessions/tags — etiquetas en uso, con su número de sesiones. */
+export function listTags() {
+  return request('/api/sessions/tags')
+}
+
+/** DELETE /api/sessions/{id} — borra la sesión y sus rondas. Devuelve 204. */
+export function deleteSession(sessionId) {
+  return request(`/api/sessions/${sessionId}`, { method: 'DELETE' })
 }

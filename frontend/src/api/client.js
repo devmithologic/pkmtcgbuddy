@@ -24,6 +24,11 @@ export async function request(path, options) {
     throw new Error(await errorMessage(response))
   }
 
+  // 204 No Content no trae cuerpo, así que response.json() lanzaría
+  // "Unexpected end of JSON input". Lo devuelve DELETE, que dice "hecho" sin
+  // nada que entregar: devolver el recurso recién borrado sería contradictorio.
+  if (response.status === 204) return null
+
   return response.json()
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getDeckStats } from '../api/decks'
+import { listTags } from '../api/sessions'
 import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
 
 /**
@@ -11,7 +12,7 @@ import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
  */
 const MUESTRA_MINIMA = 5
 
-const EMPTY_FILTERS = { date_from: '', date_to: '', session_type: '' }
+const EMPTY_FILTERS = { date_from: '', date_to: '', session_type: '', tag: '' }
 
 function pct(rate) {
   return `${Math.round(rate * 100)}%`
@@ -52,6 +53,7 @@ function Row({ label, line, sub }) {
 export default function DeckStats({ deckId }) {
   const [stats, setStats] = useState(null)
   const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [tags, setTags] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -72,6 +74,17 @@ export default function DeckStats({ deckId }) {
     // llegar desordenadas. Ver log_mentor/09.
     return () => controller.abort()
   }, [deckId, filters])
+
+  // Las etiquetas se cargan una vez: no dependen del mazo ni de los filtros.
+  useEffect(() => {
+    let active = true
+    listTags()
+      .then((t) => active && setTags(t))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   function handleFilter(event) {
     const { name, value } = event.target
@@ -106,7 +119,21 @@ export default function DeckStats({ deckId }) {
             ))}
           </select>
         </label>
-        {(filters.date_from || filters.date_to || filters.session_type) && (
+        {tags.length > 0 && (
+          <label>
+            Etiqueta
+            <select name="tag" value={filters.tag} onChange={handleFilter}>
+              <option value="">Todas</option>
+              {tags.map((t) => (
+                <option key={t.tag} value={t.tag}>
+                  {t.tag} ({t.sessions})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {(filters.date_from || filters.date_to || filters.session_type || filters.tag) && (
           <button type="button" className="clear" onClick={() => setFilters(EMPTY_FILTERS)}>
             limpiar
           </button>

@@ -64,6 +64,7 @@ class StatsFilters(BaseModel):
     date_from: date | None = None
     date_to: date | None = None
     session_type: SessionType | None = None
+    tag: str | None = None
 
 
 class DeckStats(BaseModel):

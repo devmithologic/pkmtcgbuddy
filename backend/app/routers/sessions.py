@@ -10,7 +10,7 @@ Toda operación sobre una ronda devuelve la SESIÓN entera actualizada, igual qu
 hecho, y no hay dos versiones del cálculo que puedan discrepar.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.db import deck_repository, session_repository
 from app.db.mongo import to_object_id
@@ -22,6 +22,7 @@ from app.models.session import (
     SessionOut,
     SessionSummary,
     SessionUpdate,
+    TagCount,
     compute_record,
 )
 
@@ -51,6 +52,7 @@ def _to_out(session: dict, deck: dict | None) -> SessionOut:
         deck_name=(deck or {}).get("name"),
         deck_version=(deck or {}).get("version"),
         record=compute_record(session["matches"]),
+        tags=session.get("tags", []),
         matches=[MatchOut(**m) for m in session["matches"]],
         created_at=session["created_at"],
     )
@@ -83,9 +85,11 @@ async def create_session(payload: SessionCreate) -> SessionOut:
 
 
 @router.get("", response_model=list[SessionSummary])
-async def list_sessions() -> list[SessionSummary]:
+async def list_sessions(
+    tag: str | None = Query(default=None, description="Filtra por etiqueta"),
+) -> list[SessionSummary]:
     """Listado, de la sesión más reciente a la más antigua."""
-    sessions = await session_repository.list_sessions()
+    sessions = await session_repository.list_sessions(tag=tag)
     decks = await session_repository.resolve_decks(sessions)
 
     return [
@@ -97,15 +101,36 @@ async def list_sessions() -> list[SessionSummary]:
             deck_name=decks.get(s["deck_version_id"], {}).get("name"),
             deck_version=decks.get(s["deck_version_id"], {}).get("version"),
             record=compute_record(s["matches"]),
+            tags=s.get("tags", []),
         )
         for s in sessions
     ]
+
+
+# OJO: esta ruta va ANTES que /{session_id}. FastAPI resuelve por orden de
+# declaración, así que si /{session_id} fuera primero, "tags" se interpretaría
+# como un id de sesión y esto devolvería 404.
+@router.get("/tags", response_model=list[TagCount])
+async def list_tags() -> list[TagCount]:
+    """Etiquetas en uso, con su número de sesiones."""
+    return [TagCount(**t) for t in await session_repository.list_tags()]
 
 
 @router.get("/{session_id}", response_model=SessionOut)
 async def get_session(session_id: str) -> SessionOut:
     """Una sesión con sus rondas y su récord."""
     return await _respond(session_id)
+
+
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(session_id: str) -> None:
+    """Borra la sesión y todas sus rondas.
+
+    204 No Content: la operación fue bien y no hay nada que devolver. Devolver
+    la sesión borrada sería contradictorio.
+    """
+    session = await _load(session_id)
+    await session_repository.delete_session(session["_id"])
 
 
 @router.patch("/{session_id}", response_model=SessionOut)

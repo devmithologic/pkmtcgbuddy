@@ -605,7 +605,13 @@
 .optional { font-size: 0.75rem; opacity: 0.5; font-weight: 400; }
 
 .session-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-.session-list button {
+/* Acotado al botón PRINCIPAL de la fila, no a cualquier button que haya dentro.
+   La versión anterior era `.session-list button`, y cuando llegó la «×» de
+   borrar tambien la alcanzaba: `width: 100%` con especificidad (0,1,1) le ganaba
+   a `.delete-session { width: 2rem }` (0,1,0), la aspa ocupaba la fila entera y
+   aplastaba al resto. Es la colisión clásica entre un selector de tipo y uno de
+   clase; se arregla acotando, no subiendo la especificidad del otro. */
+.session-row > button:first-child {
   display: grid;
   grid-template-columns: 6rem auto 1fr auto auto;
   gap: 0.4rem 0.9rem; align-items: baseline;
@@ -613,7 +619,7 @@
   font: inherit; color: inherit; text-align: left; background: none;
   border: 1px solid var(--line); border-radius: 0.35rem; cursor: pointer;
 }
-.session-list button:hover { border-color: var(--line-strong); }
+.session-row > button:first-child:hover { border-color: var(--line-strong); }
 .s-date { font-size: 0.8rem; opacity: 0.65; font-variant-numeric: tabular-nums; }
 .s-type {
   padding: 0.1rem 0.45rem; font-size: 0.7rem; text-transform: uppercase;
@@ -813,3 +819,74 @@
 .session-head .peek { margin-top: 0.35rem; padding: 0; }
 .session-edit { margin-bottom: var(--gap-5); }
 .session-edit h3 { margin: 0 0 var(--gap-1); font-size: var(--step-1); }
+
+/* ============ Etiquetas ============ */
+
+.tag-input { position: relative; }
+.tag-chips {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap-1);
+  padding: 0.3rem; min-height: 2.1rem;
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+.tag-chips.read-only { border: none; padding: 0; min-height: 0; margin-top: 0.25rem; }
+.tag-chips input {
+  flex: 1; min-width: 8rem; padding: 0.2rem;
+  background: none; border: none; outline: none;
+}
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  padding: 0.1rem 0.4rem; font-size: var(--step--2);
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 1rem; white-space: nowrap;
+}
+.tag-chip button { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; line-height: 1; }
+.tag-chip button:hover { opacity: 1; }
+
+.tag-suggestions {
+  position: absolute; z-index: 20; top: calc(100% + 2px); left: 0;
+  min-width: 12rem; max-height: 12rem; overflow-y: auto;
+  list-style: none; margin: 0; padding: 0.2rem;
+  background: var(--surface); border: 1px solid var(--line-strong);
+  border-radius: var(--radius); box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
+}
+.tag-suggestions button {
+  display: flex; width: 100%; gap: var(--gap-2); align-items: baseline;
+  padding: 0.25rem 0.4rem; font-size: var(--step--1);
+  background: none; border: none; border-radius: var(--radius);
+  cursor: pointer; text-align: left;
+}
+.tag-suggestions button:hover { background: var(--surface-2); }
+.tag-count { margin-left: auto; opacity: 0.5; font-family: var(--mono); font-size: var(--step--2); }
+
+.tag-filters { display: flex; flex-wrap: wrap; gap: var(--gap-2); margin: var(--gap-5) 0 var(--gap-3); }
+.tag-filters button {
+  display: inline-flex; align-items: baseline; gap: 0.3rem;
+  padding: 0.25rem 0.7rem; font-size: var(--step--1);
+  background: none; color: var(--ink-3);
+  border: 1px solid var(--line); border-radius: 1rem; cursor: pointer;
+}
+.tag-filters button.active {
+  color: var(--accent); border-color: var(--accent); background: var(--accent-soft); font-weight: 600;
+}
+.filtered-by { font-size: var(--step-0); font-weight: 400; color: var(--accent); }
+
+/* --- borrar sesión --- */
+.session-row { display: flex; align-items: stretch; gap: var(--gap-2); }
+.session-row > button:first-child { flex: 1; }
+.delete-session {
+  flex-shrink: 0; width: 2rem;
+  font-size: var(--step-1); line-height: 1; color: var(--ink-3);
+  background: none; border: 1px solid transparent; border-radius: var(--radius);
+  cursor: pointer; opacity: 0.35;
+}
+.session-row:hover .delete-session { opacity: 1; }
+.delete-session:hover { color: var(--loss); border-color: var(--loss); }
+.confirm-delete {
+  display: inline-flex; align-items: center; gap: var(--gap-2);
+  padding: 0 var(--gap-3); font-size: var(--step--1); white-space: nowrap;
+  border: 1px solid var(--loss); border-radius: var(--radius); color: var(--loss);
+}
+.confirm-delete button {
+  font: inherit; font-size: var(--step--1); color: inherit;
+  background: none; border: none; cursor: pointer; text-decoration: underline;
+}

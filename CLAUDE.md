@@ -172,6 +172,14 @@ pattern to a prefix. Neither is worth doing yet.
   of the references: nothing outside a session points at an individual match, whereas a session does
   point at a deck version. The array is also bounded — a tournament is 4–9 rounds.
 - **Record** — a session's W–L–T, derived at read time, never stored.
+- **Tags** — free-text labels on a session: the store, the purpose, whatever groups it. Normalised on
+  write (lowercased, trimmed, deduped) because the risk is drift — "GameSmart", "gamesmart" and
+  "Game Smart" becoming three tags is the same failure as free-text archetypes. Filter the session
+  list and the deck stats.
+
+  Note the contrast with **season**, which is deliberately *not* a tag: a season is a date range and
+  `played_at` already holds it, so a tag could contradict it. Tag what the data cannot express;
+  derive what it can.
 - **Deck** — a named deck owned by the user. Not a single card list — a list *plus a history*.
 - **DeckVersion** — a snapshot of the card list at a point in time with a message describing the
   change, like a Git commit. **Matches reference the version played, not just the deck**, so win

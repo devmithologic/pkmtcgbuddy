@@ -43,6 +43,7 @@ async def deck_stats(
     date_from: date | None = None,
     date_to: date | None = None,
     session_type: SessionType | None = None,
+    tag: str | None = None,
 ) -> dict:
     """Agrega las partidas de un mazo, cortadas de cuatro formas.
 
@@ -68,6 +69,10 @@ async def deck_stats(
 
     if session_type:
         filtro["session_type"] = session_type.value
+
+    # Igualdad contra un array: casa si la sesión contiene esa etiqueta.
+    if tag:
+        filtro["tags"] = tag
 
     coleccion = get_database()["sessions"]
 

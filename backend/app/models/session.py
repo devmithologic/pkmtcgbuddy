@@ -24,7 +24,7 @@ que la documentación de MongoDB llama *one-to-few*.
 from datetime import date, datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.match import MatchResult
 from app.models.pokemon import PokemonRef
@@ -77,12 +77,46 @@ class MatchOut(MatchCreate):
     round: int
 
 
+def normalize_tags(tags: list[str] | None) -> list[str]:
+    """Recorta, pasa a minúsculas y quita duplicados, conservando el orden.
+
+    Es lo único que impide que las etiquetas se degraden. Sin esto, "GameSmart",
+    "gamesmart" y "  GameSmart " serían tres etiquetas distintas y el filtro
+    dejaría de servir — el mismo problema que CLAUDE.md señala con los
+    arquetipos escritos a mano.
+
+    Se normaliza AL GUARDAR y no al leer: si se hiciera al leer, la base
+    guardaría basura y cada consulta tendría que limpiarla otra vez.
+    """
+    if not tags:
+        return []
+
+    vistas: list[str] = []
+    for bruto in tags:
+        limpia = " ".join(bruto.strip().lower().split())
+        if limpia and limpia not in vistas:
+            vistas.append(limpia)
+    return vistas
+
+
 class SessionCreate(BaseModel):
     played_at: date
     session_type: SessionType
     deck_version_id: str
     name: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=1000)
+
+    # Etiquetas libres para categorizar: la tienda, el propósito, lo que haga
+    # falta. Varias por sesión porque "gamesmart" y "preparación regional" son
+    # ejes distintos y no compiten entre sí.
+    tags: list[str] = Field(default_factory=list, max_length=10)
+
+    @field_validator("tags")
+    @classmethod
+    def _normalizar(cls, v: list[str]) -> list[str]:
+        # El validador va en el modelo, no en el router: así se aplica venga la
+        # petición de donde venga, incluido el PATCH.
+        return normalize_tags(v)
 
 
 class SessionUpdate(BaseModel):
@@ -101,6 +135,12 @@ class SessionUpdate(BaseModel):
     deck_version_id: str | None = None
     name: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=1000)
+    tags: list[str] | None = Field(default=None, max_length=10)
+
+    @field_validator("tags")
+    @classmethod
+    def _normalizar(cls, v: list[str] | None) -> list[str] | None:
+        return normalize_tags(v) if v is not None else None
 
 
 class SessionRecord(BaseModel):
@@ -130,6 +170,18 @@ class SessionSummary(BaseModel):
     deck_name: str | None
     deck_version: int | None
     record: SessionRecord
+    tags: list[str] = Field(default_factory=list)
+
+
+class TagCount(BaseModel):
+    """Una etiqueta y cuántas sesiones la usan.
+
+    El recuento es lo que hace útil la lista: distingue una etiqueta que usas de
+    verdad de una que escribiste mal una vez.
+    """
+
+    tag: str
+    sessions: int
 
 
 class SessionOut(SessionSummary):

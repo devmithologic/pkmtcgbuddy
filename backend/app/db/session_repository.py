@@ -25,6 +25,9 @@ async def ensure_indexes() -> None:
     await _collection().create_index([("played_at", DESCENDING)])
     # La fase 4 agrupará por versión de mazo; el índice ya está listo.
     await _collection().create_index([("deck_version_id", ASCENDING)])
+    # Índice sobre un array: MongoDB crea una entrada por elemento, así que
+    # buscar {"tags": "gamesmart"} lo aprovecha igual que un campo simple.
+    await _collection().create_index([("tags", ASCENDING)])
 
 
 async def create_session(payload: SessionCreate) -> ObjectId:
@@ -38,6 +41,7 @@ async def create_session(payload: SessionCreate) -> ObjectId:
             "deck_version_id": ObjectId(payload.deck_version_id),
             "name": payload.name,
             "notes": payload.notes,
+            "tags": payload.tags,
             "matches": [],
             "created_at": now,
             "updated_at": now,
@@ -50,9 +54,43 @@ async def get_session(session_id: ObjectId) -> dict | None:
     return await _collection().find_one({"_id": session_id})
 
 
-async def list_sessions() -> list[dict]:
-    cursor = _collection().find().sort([("played_at", DESCENDING), ("_id", DESCENDING)])
+async def list_sessions(tag: str | None = None) -> list[dict]:
+    # {"tags": "x"} sobre un array casa si CUALQUIER elemento vale. No hace falta
+    # $elemMatch ni $in: MongoDB trata la igualdad contra un array como
+    # "contiene". Es el atajo que hace barato el filtro.
+    filtro = {"tags": tag} if tag else {}
+    cursor = (
+        _collection().find(filtro).sort([("played_at", DESCENDING), ("_id", DESCENDING)])
+    )
     return [doc async for doc in cursor]
+
+
+async def delete_session(session_id: ObjectId) -> bool:
+    """Borra la sesión entera, con sus rondas dentro.
+
+    Una sola operación precisamente porque las partidas están embebidas: no hay
+    huérfanos que limpiar en otra colección. Es una ventaja del modelo embebido
+    que no se ve hasta que toca borrar.
+    """
+    result = await _collection().delete_one({"_id": session_id})
+    return result.deleted_count > 0
+
+
+async def list_tags() -> list[dict]:
+    """Etiquetas en uso, con cuántas sesiones tiene cada una.
+
+    $unwind convierte cada elemento del array en un documento, y $group cuenta.
+    Es la misma técnica que usan las estadísticas con las rondas.
+    """
+    pipeline = [
+        {"$match": {"tags": {"$exists": True, "$ne": []}}},
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags", "sessions": {"$sum": 1}}},
+        # Más usadas primero; a igualdad, alfabético.
+        {"$sort": {"sessions": DESCENDING, "_id": ASCENDING}},
+    ]
+    cursor = await _collection().aggregate(pipeline)
+    return [{"tag": d["_id"], "sessions": d["sessions"]} async for d in cursor]
 
 
 async def update_session(session_id: ObjectId, payload: SessionUpdate) -> None:

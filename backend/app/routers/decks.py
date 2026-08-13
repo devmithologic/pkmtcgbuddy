@@ -232,6 +232,7 @@ async def deck_stats(
     date_from: date | None = Query(default=None, description="Desde, inclusive"),
     date_to: date | None = Query(default=None, description="Hasta, inclusive"),
     session_type: SessionType | None = Query(default=None),
+    tag: str | None = Query(default=None, description="Filtra por etiqueta de sesión"),
 ) -> DeckStats:
     """Estadísticas del mazo, agregadas sobre las sesiones jugadas con él.
 
@@ -251,7 +252,11 @@ async def deck_stats(
     por_id = {v.id: v for v in versions}
 
     raw = await stats_repository.deck_stats(
-        version_ids, date_from=date_from, date_to=date_to, session_type=session_type
+        version_ids,
+        date_from=date_from,
+        date_to=date_to,
+        session_type=session_type,
+        tag=tag,
     )
 
     def linea(row: dict, label: str) -> StatLine:
@@ -290,7 +295,7 @@ async def deck_stats(
         deck_id=str(deck["_id"]),
         deck_name=deck["name"],
         filters=StatsFilters(
-            date_from=date_from, date_to=date_to, session_type=session_type
+            date_from=date_from, date_to=date_to, session_type=session_type, tag=tag
         ),
         sessions_counted=raw["sessions"],
         overall=overall,
