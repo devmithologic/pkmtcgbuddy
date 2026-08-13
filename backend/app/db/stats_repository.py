@@ -86,7 +86,10 @@ async def deck_stats(
     # No se pueden anidar. Y hacerlo después de $unwind daría partidas en vez de
     # sesiones, porque para entonces cada ronda ya es un documento. Dos consultas
     # es la salida honesta, y la segunda es un contador con índice.
-    total_sesiones = await coleccion.count_documents(filtro)
+    # Se excluyen las sesiones sin rondas. El $unwind de abajo las descarta, así
+    # que contarlas aquí daría "3 sesiones" junto a totales sacados de una sola
+    # — y con ninguna ronda, "0-0-0 en 3 sesiones", que se lee como un error.
+    total_sesiones = await coleccion.count_documents({**filtro, "matches": {"$ne": []}})
 
     pipeline = [
         {"$match": filtro},

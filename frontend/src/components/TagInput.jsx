@@ -12,6 +12,11 @@ import { useState } from 'react'
  * llegan ya cargadas por props. Filtrar un array en memoria no necesita ni
  * retardo ni cancelación.
  */
+// El mismo tope que declara el backend en SessionCreate/SessionUpdate. Sin él,
+// la etiqueta 11 se acepta en pantalla y el guardado falla con un mensaje de
+// validación en bruto que no dice qué control lo causó.
+const MAX_TAGS = 10
+
 export default function TagInput({ value = [], suggestions = [], onChange }) {
   const [draft, setDraft] = useState('')
 
@@ -22,9 +27,11 @@ export default function TagInput({ value = [], suggestions = [], onChange }) {
         .slice(0, 6)
     : []
 
+  const lleno = value.length >= MAX_TAGS
+
   function add(tag) {
     const limpia = tag.trim().toLowerCase().replace(/\s+/g, ' ')
-    if (limpia && !value.includes(limpia)) onChange([...value, limpia])
+    if (limpia && !value.includes(limpia) && !lleno) onChange([...value, limpia])
     setDraft('')
   }
 
@@ -58,7 +65,10 @@ export default function TagInput({ value = [], suggestions = [], onChange }) {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleKey}
           onBlur={() => draft && add(draft)}
-          placeholder={value.length ? '' : 'gamesmart, preparación regional…'}
+          disabled={lleno}
+          placeholder={
+            lleno ? `máximo ${MAX_TAGS}` : value.length ? '' : 'gamesmart, preparación regional…'
+          }
         />
       </span>
 

@@ -82,7 +82,18 @@ export default function DeckBuilder({ deckId, onBack }) {
 
     try {
       const full = await getCard(summary.id)
-      setCards((previous) => [
+      setCards((previous) => {
+        // La comprobación va DENTRO del actualizador, no contra el `cards` del
+        // cierre. Entre el clic y la respuesta de getCard pasan milisegundos, y
+        // dos clics rápidos en la misma carta veían ambos una lista sin ella:
+        // se añadía dos veces, con la misma key de React y dos entradas del
+        // mismo card_id al guardar.
+        if (previous.some((c) => c.card.id === full.id)) {
+          return previous.map((c) =>
+            c.card.id === full.id ? { ...c, quantity: c.quantity + 1 } : c,
+          )
+        }
+        return [
         ...previous,
         {
           quantity: 1,
@@ -90,9 +101,11 @@ export default function DeckBuilder({ deckId, onBack }) {
           category: full.category,
           is_ace_spec: full.is_ace_spec,
           is_basic_energy: full.is_basic_energy,
-          legal_in_format: deck.deck_format === 'standard' ? full.legal_standard : full.legal_expanded,
+          legal_in_format:
+            deck.deck_format === 'standard' ? full.legal_standard : full.legal_expanded,
         },
-      ])
+        ]
+      })
       setDirty(true)
     } catch (err) {
       setError(err.message)

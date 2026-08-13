@@ -103,6 +103,19 @@ async def update_session(session_id: ObjectId, payload: SessionUpdate) -> None:
       deck_version_id  str  -> ObjectId  (para que el $lookup siga funcionando)
     """
     cambios = payload.model_dump(exclude_unset=True)
+
+    # Estos tres no admiten null. El tipo `T | None` de SessionUpdate solo existe
+    # para expresar "no lo mandes"; no es que la sesión pueda quedarse sin fecha.
+    #
+    # Sin esta poda, un PATCH con {"played_at": null} escribe null, y a partir de
+    # ahí date_from_bson(None) revienta al LEER — no solo esa sesión, sino
+    # GET /api/sessions entero. Un dato malo tumba la lista completa.
+    #
+    # name, notes y tags sí pueden ser null: vaciarlos es una operación legítima.
+    for obligatorio in ("played_at", "session_type", "deck_version_id"):
+        if obligatorio in cambios and cambios[obligatorio] is None:
+            del cambios[obligatorio]
+
     if not cambios:
         return
 

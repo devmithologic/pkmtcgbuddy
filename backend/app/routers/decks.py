@@ -88,13 +88,36 @@ async def create_deck(payload: DeckCreate) -> DeckOut:
 
 @router.get("", response_model=list[DeckSummary])
 async def list_decks() -> list[DeckSummary]:
-    """Listado con el estado de validez de cada mazo."""
-    summaries = []
+    """Listado con el estado de validez de cada mazo.
 
-    for doc in await deck_repository.list_decks():
+    El catálogo de TODOS los mazos se resuelve en UNA consulta antes del bucle.
+    La primera versión llamaba a `_resolve` dentro del bucle, y `_resolve` hace
+    su propio get_cards_by_ids: 20 mazos eran 21 viajes. El repositorio se había
+    molestado en usar un $lookup para evitar el N+1 y el router lo reintroducía
+    una capa más arriba — evitarlo en un sitio no sirve si se recrea en el otro.
+    """
+    docs = await deck_repository.list_decks()
+
+    todos_los_ids = [
+        c["card_id"]
+        for doc in docs
+        for c in (doc.get("current") or {}).get("cards", [])
+    ]
+    catalogo = await card_repository.get_cards_by_ids(todos_los_ids)
+
+    summaries = []
+    for doc in docs:
         current = doc.get("current") or {}
         deck_format = DeckFormat(doc["format"])
-        _, validation = await _resolve(current.get("cards", []), deck_format)
+        cards = [DeckCard(**c) for c in current.get("cards", [])]
+        validation = validate_deck(cards, catalogo, deck_format)
+
+        # Un mazo sin versión no debería existir —create_deck no es
+        # transaccional y un fallo entre las dos inserciones lo dejaría así—
+        # pero si existe, str(None) daría la cadena "None" y al empezar una
+        # sesión con él saldría un 422 desconcertante. Se omite del listado.
+        if doc.get("current_version_id") is None:
+            continue
 
         summaries.append(
             DeckSummary(

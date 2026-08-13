@@ -60,6 +60,11 @@ export default function DeckStats({ deckId }) {
   useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
+    // Limpiar el error al reintentar. Sin esto, un fallo pasajero —reiniciar el
+    // backend— dejaba el panel clavado en el mensaje de error: el componente
+    // hace `if (error) return`, así que aunque la siguiente consulta fuera bien
+    // no había forma de volver salvo desmontando.
+    setError(null)
 
     getDeckStats(deckId, filters, controller.signal)
       .then(setStats)

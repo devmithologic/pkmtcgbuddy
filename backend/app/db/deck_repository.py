@@ -50,6 +50,14 @@ async def update_deck(deck_id: ObjectId, payload: DeckUpdate) -> None:
     cambia el nombre borraría los iconos, porque llegarían como None por defecto.
     """
     cambios = payload.model_dump(exclude_unset=True)
+
+    # `name` no admite null, por lo mismo que en las sesiones: DeckSummary.name
+    # es `str`, así que un nombre nulo hace fallar la validación de la respuesta
+    # y GET /api/decks devuelve 500 para todos los mazos, no solo para este.
+    # Los dos Pokémon sí: quitarlos es lo que hace la × del selector.
+    if "name" in cambios and cambios["name"] is None:
+        del cambios["name"]
+
     if not cambios:
         return
 

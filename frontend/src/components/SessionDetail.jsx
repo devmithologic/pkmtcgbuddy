@@ -309,7 +309,15 @@ export default function SessionDetail({ sessionId, onBack }) {
               </button>
               <button
                 type="button"
-                onClick={() => mutate(() => deleteMatch(sessionId, m.round))}
+                onClick={() => {
+                  // Cancelar la corrección en curso ANTES de borrar. El
+                  // servidor renumera las rondas al borrar, así que un
+                  // editingRound=2 abierto pasaría a apuntar a otra ronda
+                  // distinta y al guardar sobrescribiría la equivocada, sin
+                  // error visible. Corrupción silenciosa.
+                  cancelEdit()
+                  mutate(() => deleteMatch(sessionId, m.round))
+                }}
                 disabled={busy}
               >
                 borrar

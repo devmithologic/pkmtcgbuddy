@@ -4,23 +4,40 @@ import { createSession, deleteSession, listSessions, listTags } from '../api/ses
 import TagInput from './TagInput'
 import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
 
+/**
+ * Hoy, en la zona horaria del usuario.
+ *
+ * toISOString() da la fecha UTC, y aquí estamos en UTC-6: a las 21:59 del día 12
+ * devuelve "2026-08-13". Justo la hora a la que se registra una liga de entre
+ * semana, así que la sesión nacía con la fecha de mañana.
+ *
+ * 'en-CA' se usa porque su formato de fecha es exactamente YYYY-MM-DD, que es lo
+ * que espera <input type="date">.
+ */
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return new Date().toLocaleDateString('en-CA')
 }
 
-const EMPTY = {
-  played_at: today(),
-  session_type: 'league',
-  deck_id: '',
-  name: '',
-  tags: [],
+/**
+ * Función y no constante: `const EMPTY = {played_at: today()}` se evalúa UNA vez
+ * al cargar el módulo, así que una pestaña abierta desde ayer seguiría
+ * proponiendo la fecha de ayer.
+ */
+function emptyForm() {
+  return {
+    played_at: today(),
+    session_type: 'league',
+    deck_id: '',
+    name: '',
+    tags: [],
+  }
 }
 
 /** Listado de sesiones y formulario para abrir una nueva. */
 export default function SessionList({ onOpen }) {
   const [sessions, setSessions] = useState([])
   const [decks, setDecks] = useState([])
-  const [form, setForm] = useState(EMPTY)
+  const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState(null)
