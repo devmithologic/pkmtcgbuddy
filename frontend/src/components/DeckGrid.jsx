@@ -19,7 +19,7 @@ const GROUPS = [
  * igual pero sin los controles de cantidad, porque ofrecer un botón que no puede
  * hacer nada es peor que no ofrecerlo.
  */
-export default function DeckGrid({ cards, onChangeQuantity, onRemove, readOnly = false }) {
+export default function DeckGrid({ cards, onChangeQuantity, onRemove, readOnly = false, size = 'm' }) {
   if (cards.length === 0) {
     return <p className="empty">Esta lista está vacía.</p>
   }
@@ -38,7 +38,7 @@ export default function DeckGrid({ cards, onChangeQuantity, onRemove, readOnly =
               {label} <span className="group-count">{count}</span>
             </h4>
 
-            <ul className="deck-grid">
+            <ul className="deck-grid" data-size={size}>
               {group.map((entry) => (
                 <li
                   key={entry.card.id}

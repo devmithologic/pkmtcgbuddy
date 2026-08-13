@@ -35,6 +35,11 @@ export default function DeckBuilder({ deckId, onBack }) {
   // 'grid' o 'list'. La rejilla es el modo por defecto porque una lista de 60
   // cartas se reconoce antes por las ilustraciones que por los nombres.
   const [view, setView] = useState('grid')
+  // Tamaño de carta elegido por el usuario. Por defecto 'm', que deja mandar a
+  // las container queries: la rejilla ya se adapta sola al ancho de su columna.
+  // Este control existe para cuando quieres verlas más grandes de lo que el
+  // hueco sugiere, o meter las 60 en pantalla de golpe.
+  const [gridSize, setGridSize] = useState('m')
   // Versión antigua que se está consultando, si hay alguna. Se muestra al lado
   // de la actual para poder comparar mientras editas, que es justo lo que falta
   // cuando cambias cartas: ver de dónde vienes.
@@ -256,10 +261,37 @@ export default function DeckBuilder({ deckId, onBack }) {
             >
               Lista
             </button>
+
+            {view === 'grid' && (
+              <span className="grid-size">
+                {[
+                  ['s', 'Cartas pequeñas'],
+                  ['m', 'Cartas medianas'],
+                  ['l', 'Cartas grandes'],
+                ].map(([valor, titulo]) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    className={gridSize === valor ? 'active' : ''}
+                    onClick={() => setGridSize(valor)}
+                    title={titulo}
+                    aria-label={titulo}
+                    aria-pressed={gridSize === valor}
+                  >
+                    {valor.toUpperCase()}
+                  </button>
+                ))}
+              </span>
+            )}
           </div>
 
           {view === 'grid' ? (
-            <DeckGrid cards={cards} onChangeQuantity={changeQuantity} onRemove={removeCard} />
+            <DeckGrid
+              cards={cards}
+              onChangeQuantity={changeQuantity}
+              onRemove={removeCard}
+              size={gridSize}
+            />
           ) : (
             <DeckCardList cards={cards} onChangeQuantity={changeQuantity} onRemove={removeCard} />
           )}
@@ -277,7 +309,7 @@ export default function DeckBuilder({ deckId, onBack }) {
               </p>
               {/* readOnly quita los controles: ofrecer un botón que no puede
                   hacer nada confunde más que ayudar. */}
-              <DeckGrid cards={comparing.cards} readOnly />
+              <DeckGrid cards={comparing.cards} readOnly size={gridSize} />
             </section>
           )}
 
