@@ -76,11 +76,16 @@ async def add_match(session_id: ObjectId, match: MatchCreate) -> None:
         {"_id": session_id},
         {
             "$push": {
+                # model_dump y no enumerar los campos a mano. La primera versión
+                # los listaba uno a uno, y al añadir los iconos del rival al
+                # modelo se guardaron todos menos esos dos: el modelo y la
+                # escritura habían quedado desincronizados en silencio.
+                #
+                # mode="json" convierte los Enum a su valor y los tipos anidados
+                # a estructuras que BSON sabe guardar.
                 "matches": {
                     "round": len(session["matches"]) + 1,
-                    "opponent_archetype": match.opponent_archetype,
-                    "result": match.result.value,
-                    "notes": match.notes,
+                    **match.model_dump(mode="json"),
                 }
             },
             "$set": {"updated_at": datetime.now(timezone.utc)},
@@ -94,13 +99,14 @@ async def update_match(session_id: ObjectId, round_no: int, match: MatchCreate) 
     `matches.$` es el *operador posicional*: actualiza el primer elemento del
     array que cumplió el filtro de la consulta, sin tener que saber su índice.
     """
+    # Se reemplaza el elemento entero en vez de campo a campo, por lo mismo:
+    # enumerar campos aquí obliga a acordarse de este fichero cada vez que el
+    # modelo crece.
     result = await _collection().update_one(
         {"_id": session_id, "matches.round": round_no},
         {
             "$set": {
-                "matches.$.opponent_archetype": match.opponent_archetype,
-                "matches.$.result": match.result.value,
-                "matches.$.notes": match.notes,
+                "matches.$": {"round": round_no, **match.model_dump(mode="json")},
                 "updated_at": datetime.now(timezone.utc),
             }
         },

@@ -6,9 +6,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.db import card_repository, deck_repository, session_repository
+from app.db import (
+    card_repository,
+    deck_repository,
+    pokemon_repository,
+    session_repository,
+)
 from app.db.mongo import close_mongo_connection, connect_to_mongo
-from app.routers import cards, decks, sessions
+from app.routers import cards, decks, pokemon, sessions
 
 
 @asynccontextmanager
@@ -34,6 +39,7 @@ async def lifespan(app: FastAPI):
     await card_repository.ensure_indexes()
     await deck_repository.ensure_indexes()
     await session_repository.ensure_indexes()
+    await pokemon_repository.ensure_indexes()
 
     yield
 
@@ -67,6 +73,7 @@ app.add_middleware(
 app.include_router(sessions.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")
+app.include_router(pokemon.router, prefix="/api")
 
 
 @app.get("/api/health")

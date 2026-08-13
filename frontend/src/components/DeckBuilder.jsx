@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
 import { getCard } from '../api/cards'
-import { createVersion, getDeck, getVersion, listVersions, saveDeckCards } from '../api/decks'
+import {
+  createVersion,
+  getDeck,
+  getVersion,
+  listVersions,
+  saveDeckCards,
+  updateDeck,
+} from '../api/decks'
 import CardSearch from './CardSearch'
 import DeckCardList from './DeckCardList'
 import DeckGrid from './DeckGrid'
 import DeckValidation from './DeckValidation'
+import PokemonPicker from './PokemonPicker'
 
 /**
  * Pantalla de armado de un mazo.
@@ -81,6 +89,21 @@ export default function DeckBuilder({ deckId, onBack }) {
         },
       ])
       setDirty(true)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  /**
+   * Cambia uno de los dos iconos del mazo.
+   *
+   * Se guarda al instante, sin pasar por «Guardar cambios». Es deliberado: ese
+   * botón guarda la LISTA de cartas, y mezclar dos cosas distintas bajo el mismo
+   * botón obligaría a explicar cuál guarda qué.
+   */
+  async function setPokemon(slot, pokemon) {
+    try {
+      setDeck(await updateDeck(deckId, { [slot]: pokemon }))
     } catch (err) {
       setError(err.message)
     }
@@ -177,6 +200,17 @@ export default function DeckBuilder({ deckId, onBack }) {
         </button>
         <div>
           <h2>{deck.name}</h2>
+          <div className="deck-pokemon">
+            <PokemonPicker
+              value={deck.primary_pokemon}
+              onSelect={(p) => setPokemon('primary_pokemon', p)}
+            />
+            <PokemonPicker
+              value={deck.secondary_pokemon}
+              onSelect={(p) => setPokemon('secondary_pokemon', p)}
+              placeholder="secundario"
+            />
+          </div>
           <p className="subtitle">
             {deck.deck_format === 'standard' ? 'Standard' : 'Expanded'} · versión{' '}
             {deck.current_version.version} · {deck.current_version.message}

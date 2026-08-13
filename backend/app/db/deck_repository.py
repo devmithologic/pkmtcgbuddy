@@ -21,7 +21,7 @@ from pymongo import ASCENDING, DESCENDING
 
 from app.db.mongo import get_database, to_object_id  # noqa: F401  (reexportado)
 from app.models.card import DeckFormat
-from app.models.deck import DeckCard, DeckVersionSummary
+from app.models.deck import DeckCard, DeckUpdate, DeckVersionSummary
 
 DECKS = "decks"
 VERSIONS = "deck_versions"
@@ -40,6 +40,21 @@ async def ensure_indexes() -> None:
     # descendente sirve para pedir la última sin ordenar en memoria.
     await _versions().create_index([("deck_id", ASCENDING), ("version", DESCENDING)])
     await _decks().create_index([("updated_at", DESCENDING)])
+
+
+async def update_deck(deck_id: ObjectId, payload: DeckUpdate) -> None:
+    """Aplica los cambios enviados y solo esos.
+
+    exclude_unset es la pieza clave de un PATCH: Pydantic distingue entre "el
+    cliente no mandó este campo" y "lo mandó a null". Sin ello, un PATCH que solo
+    cambia el nombre borraría los iconos, porque llegarían como None por defecto.
+    """
+    cambios = payload.model_dump(exclude_unset=True)
+    if not cambios:
+        return
+
+    cambios["updated_at"] = datetime.now(timezone.utc)
+    await _decks().update_one({"_id": deck_id}, {"$set": cambios})
 
 
 async def create_deck(name: str, deck_format: DeckFormat) -> str:

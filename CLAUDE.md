@@ -101,6 +101,18 @@ async support lives inside `pymongo` itself. Motor also carries a thread pool fo
 that `AsyncMongoClient` does without. Anything on the web recommending `motor.motor_asyncio` predates
 this.
 
+**Second external provider: PokeAPI**, for Pokémon sprites — the icons that identify a deck
+("Dragapult / Dusknoir") and each round's opponent. Same containment as TCGdex:
+`services/pokemon_source.py` is the only file that knows it exists, and it composes the sprite URL so
+a provider change is one line. The national dex is 1025 records synced once with
+`python -m app.services.pokemon_sync` (0.3 s); nothing is fetched live.
+
+Sprites are 1 KB each; the official artwork on the same host is 110–155 KB and is not an icon.
+
+**Icons live on the deck and on each round**, never on the session — in a five-round tournament you
+face five different decks. They coexist with the free-text `opponent_archetype` rather than replacing
+it: "Lost Box" is defined by Comfey and Sableye, and some deck names are not a Pokémon at all.
+
 **All external card calls go behind one adapter module** (`backend/app/services/card_source.py`), and
 the rest of the codebase depends on our own card model rather than TCGdex's response shape. This
 keeps a provider swap to one file. It is also the lesson: isolate what you don't control.

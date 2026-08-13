@@ -27,6 +27,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from app.models.match import MatchResult
+from app.models.pokemon import PokemonRef
 
 
 class SessionType(str, Enum):
@@ -54,6 +55,15 @@ class MatchCreate(BaseModel):
     opponent_archetype: str = Field(min_length=1, max_length=100)
     result: MatchResult
     notes: str | None = Field(default=None, max_length=1000)
+
+    # Los dos Pokémon del mazo rival. Van en la RONDA y no en la sesión porque en
+    # un torneo de cinco rondas te enfrentas a cinco mazos distintos.
+    #
+    # Conviven con opponent_archetype en vez de sustituirlo: "Lost Box" se define
+    # por Comfey y Sableye, y hay nombres de mazo que la gente usa y que no son
+    # ninguna criatura.
+    opponent_primary: PokemonRef | None = None
+    opponent_secondary: PokemonRef | None = None
 
 
 class MatchOut(MatchCreate):

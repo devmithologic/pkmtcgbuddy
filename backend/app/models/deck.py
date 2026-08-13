@@ -16,6 +16,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from app.models.card import CardSummary, DeckFormat
+from app.models.pokemon import PokemonRef
 
 # Reglas del formato. Van aquí, con nombre, y no como números sueltos dentro de
 # la validación: cuando alguien pregunte "¿por qué 4?", el nombre responde.
@@ -39,6 +40,24 @@ class DeckCard(BaseModel):
 class DeckCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     deck_format: DeckFormat
+    # Los dos Pokémon que identifican el mazo: "Dragapult / Dusknoir". Opcionales
+    # porque no todo arquetipo se reduce a una criatura, y porque al crear el
+    # mazo puede que aún no lo tengas claro.
+    primary_pokemon: PokemonRef | None = None
+    secondary_pokemon: PokemonRef | None = None
+
+
+class DeckUpdate(BaseModel):
+    """Cambios sobre un mazo ya creado: nombre e iconos.
+
+    Todo opcional porque es un PATCH: se manda solo lo que cambia. Distinguir
+    "no lo mandes" de "ponlo a null" con un solo campo opcional no se puede, así
+    que borrar un icono se hace mandando el objeto entero sin él.
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    primary_pokemon: PokemonRef | None = None
+    secondary_pokemon: PokemonRef | None = None
 
 
 class NewVersionRequest(BaseModel):
@@ -136,6 +155,8 @@ class DeckSummary(BaseModel):
     total_cards: int
     is_legal: bool
     updated_at: datetime
+    primary_pokemon: PokemonRef | None = None
+    secondary_pokemon: PokemonRef | None = None
 
 
 class DeckOut(BaseModel):
@@ -148,3 +169,5 @@ class DeckOut(BaseModel):
     validation: DeckValidation
     created_at: datetime
     updated_at: datetime
+    primary_pokemon: PokemonRef | None = None
+    secondary_pokemon: PokemonRef | None = None

@@ -18,6 +18,7 @@ from app.models.deck import (
     DeckCreate,
     DeckOut,
     DeckSummary,
+    DeckUpdate,
     DeckValidation,
     DeckVersionOut,
     DeckVersionSummary,
@@ -70,6 +71,18 @@ async def _load_deck(deck_id: str) -> dict:
 async def create_deck(payload: DeckCreate) -> DeckOut:
     """Crea un mazo con su versión 1, vacía."""
     deck_id = await deck_repository.create_deck(payload.name, payload.deck_format)
+
+    # Los iconos son opcionales al crear; si vinieron, se aplican en el mismo
+    # paso reutilizando el PATCH en lugar de duplicar la escritura.
+    if payload.primary_pokemon or payload.secondary_pokemon:
+        await deck_repository.update_deck(
+            deck_repository.to_object_id(deck_id),
+            DeckUpdate(
+                primary_pokemon=payload.primary_pokemon,
+                secondary_pokemon=payload.secondary_pokemon,
+            ),
+        )
+
     return await get_deck(deck_id)
 
 
@@ -93,6 +106,8 @@ async def list_decks() -> list[DeckSummary]:
                 total_cards=validation.total_cards,
                 is_legal=validation.is_legal,
                 updated_at=doc["updated_at"],
+                primary_pokemon=doc.get("primary_pokemon"),
+                secondary_pokemon=doc.get("secondary_pokemon"),
             )
         )
 
@@ -129,7 +144,22 @@ async def get_deck(deck_id: str) -> DeckOut:
         validation=validation,
         created_at=deck["created_at"],
         updated_at=deck["updated_at"],
+        primary_pokemon=deck.get("primary_pokemon"),
+        secondary_pokemon=deck.get("secondary_pokemon"),
     )
+
+
+@router.patch("/{deck_id}", response_model=DeckOut)
+async def update_deck(deck_id: str, payload: DeckUpdate) -> DeckOut:
+    """Cambia el nombre o los iconos de un mazo ya creado.
+
+    PATCH y no PUT porque se manda un cambio parcial, no el recurso entero. Es la
+    diferencia semántica entre los dos verbos, y aquí importa: un PUT obligaría a
+    reenviar el mazo completo solo para cambiar un icono.
+    """
+    deck = await _load_deck(deck_id)
+    await deck_repository.update_deck(deck["_id"], payload)
+    return await get_deck(deck_id)
 
 
 @router.put("/{deck_id}/cards", response_model=DeckOut)

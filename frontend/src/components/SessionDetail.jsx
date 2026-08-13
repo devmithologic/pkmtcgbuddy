@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { addMatch, deleteMatch, getSession, updateMatch } from '../api/sessions'
 import { TYPE_LABEL } from '../sessionTypes'
+import PokemonPair from './PokemonPair'
+import PokemonPicker from './PokemonPicker'
 
 const RESULTS = [
   { value: 'win', label: 'Victoria' },
@@ -8,7 +10,13 @@ const RESULTS = [
   { value: 'tie', label: 'Empate' },
 ]
 
-const EMPTY_ROUND = { opponent_archetype: '', result: 'win', notes: '' }
+const EMPTY_ROUND = {
+  opponent_archetype: '',
+  result: 'win',
+  notes: '',
+  opponent_primary: null,
+  opponent_secondary: null,
+}
 
 /**
  * Una sesión abierta: cabecera, récord, rondas, y el formulario para añadir la
@@ -74,6 +82,8 @@ export default function SessionDetail({ sessionId, onBack }) {
       opponent_archetype: match.opponent_archetype,
       result: match.result,
       notes: match.notes ?? '',
+      opponent_primary: match.opponent_primary ?? null,
+      opponent_secondary: match.opponent_secondary ?? null,
     })
   }
 
@@ -119,7 +129,14 @@ export default function SessionDetail({ sessionId, onBack }) {
         {session.matches.map((m) => (
           <li key={m.round} className={`round round--${m.result}`}>
             <span className="round-no">R{m.round}</span>
-            <span className="round-arch">{m.opponent_archetype}</span>
+            <span className="round-arch">
+              <PokemonPair
+                primary={m.opponent_primary}
+                secondary={m.opponent_secondary}
+                size={26}
+              />
+              {m.opponent_archetype}
+            </span>
             <span className="round-result">
               {RESULTS.find((r) => r.value === m.result)?.label}
             </span>
@@ -152,6 +169,22 @@ export default function SessionDetail({ sessionId, onBack }) {
             placeholder="Gardevoir ex"
             required
           />
+        </label>
+
+        <label>
+          Pokémon del rival <span className="optional">opcional</span>
+          <span className="pkm-two">
+            <PokemonPicker
+              value={form.opponent_primary}
+              onSelect={(p) => setForm({ ...form, opponent_primary: p })}
+              placeholder="gardevoir"
+            />
+            <PokemonPicker
+              value={form.opponent_secondary}
+              onSelect={(p) => setForm({ ...form, opponent_secondary: p })}
+              placeholder="segundo"
+            />
+          </span>
         </label>
 
         <label>

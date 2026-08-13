@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { createDeck, listDecks } from '../api/decks'
+import PokemonPair from './PokemonPair'
+import PokemonPicker from './PokemonPicker'
 
-const EMPTY = { name: '', deck_format: 'standard' }
+const EMPTY = { name: '', deck_format: 'standard', primary_pokemon: null, secondary_pokemon: null }
 
 /** Listado de mazos y formulario de creación. */
 export default function DeckList({ onOpen }) {
@@ -70,6 +72,21 @@ export default function DeckList({ onOpen }) {
           </select>
         </label>
 
+        <label>
+          Pokémon <span className="optional">opcional, identifica el mazo</span>
+          <span className="pkm-two">
+            <PokemonPicker
+              value={form.primary_pokemon}
+              onSelect={(p) => setForm({ ...form, primary_pokemon: p })}
+            />
+            <PokemonPicker
+              value={form.secondary_pokemon}
+              onSelect={(p) => setForm({ ...form, secondary_pokemon: p })}
+              placeholder="dusknoir"
+            />
+          </span>
+        </label>
+
         <button type="submit" disabled={creating}>
           {creating ? 'Creando…' : 'Crear mazo'}
         </button>
@@ -87,6 +104,11 @@ export default function DeckList({ onOpen }) {
         {decks.map((deck) => (
           <li key={deck.id}>
             <button type="button" onClick={() => onOpen(deck.id)}>
+              <PokemonPair
+                primary={deck.primary_pokemon}
+                secondary={deck.secondary_pokemon}
+                size={28}
+              />
               <span className="deck-name">{deck.name}</span>
               <span className="deck-meta">
                 {deck.deck_format === 'standard' ? 'Standard' : 'Expanded'} · v

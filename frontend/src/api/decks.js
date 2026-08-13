@@ -69,3 +69,17 @@ export function getVersion(deckId, versionId) {
 export function getDeckStats(deckId, filters = {}, signal) {
   return request(`/api/decks/${deckId}/stats${queryString(filters)}`, { signal })
 }
+
+/**
+ * PATCH /api/decks/{id} — cambia nombre o iconos de un mazo existente.
+ *
+ * PATCH y no PUT porque se manda solo lo que cambia. El backend usa
+ * exclude_unset, así que enviar {name} no borra los iconos.
+ */
+export function updateDeck(deckId, changes) {
+  return request(`/api/decks/${deckId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(changes),
+  })
+}
