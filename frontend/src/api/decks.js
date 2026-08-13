@@ -17,12 +17,23 @@ export function getDeck(deckId) {
   return request(`/api/decks/${deckId}`)
 }
 
-/** POST /api/decks — crea un mazo con su versión 1, vacía. */
-export function createDeck({ name, deck_format }) {
+/**
+ * POST /api/decks — crea un mazo con su versión 1, vacía.
+ *
+ * Recibe el objeto entero y lo manda entero. La primera versión desestructuraba
+ * `{ name, deck_format }`, y cuando el formulario ganó los dos iconos de Pokémon
+ * se quedaron por el camino: el mazo se creaba sin ellos y nadie avisaba.
+ *
+ * Es el mismo fallo que tuvo add_match en el repositorio de sesiones. Enumerar
+ * campos —al desestructurar aquí, al construir un documento allí— crea un filtro
+ * silencioso que hay que recordar actualizar cada vez que el modelo crece. Quien
+ * valida qué campos son válidos es el backend, que para eso tiene el modelo.
+ */
+export function createDeck(deck) {
   return request('/api/decks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, deck_format }),
+    body: JSON.stringify(deck),
   })
 }
 
