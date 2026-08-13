@@ -13,7 +13,7 @@ import time
 
 from app.db import pokemon_repository
 from app.db.mongo import close_mongo_connection, connect_to_mongo
-from app.services.pokemon_source import fetch_national_dex
+from app.services.pokemon_source import fetch_all
 
 
 async def sync() -> None:
@@ -23,8 +23,8 @@ async def sync() -> None:
     try:
         await pokemon_repository.ensure_indexes()
 
-        print("Descargando el Pokédex nacional…")
-        pokemon = await fetch_national_dex()
+        print("Descargando el Pokédex completo, con megas y formas…")
+        pokemon = await fetch_all()
         print(f"  {len(pokemon)} Pokémon")
 
         escritos = await pokemon_repository.replace_all(pokemon)

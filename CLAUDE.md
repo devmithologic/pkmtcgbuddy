@@ -104,8 +104,13 @@ this.
 **Second external provider: PokeAPI**, for Pokémon sprites — the icons that identify a deck
 ("Dragapult / Dusknoir") and each round's opponent. Same containment as TCGdex:
 `services/pokemon_source.py` is the only file that knows it exists, and it composes the sprite URL so
-a provider change is one line. The national dex is 1025 records synced once with
-`python -m app.services.pokemon_sync` (0.3 s); nothing is fetched live.
+a provider change is one line. All 1,351 PokeAPI entries are synced once with `python -m app.services.pokemon_sync` (0.6 s);
+nothing is fetched live. That is the 1,025 national dex **plus 326 forms** — including the 97 Mega
+Evolutions, which the TCG needs now that Mega Evolution sets exist, plus Gigantamax and regional
+variants.
+
+The id comes from the resource URL, never from the list position. Deriving it from the index works
+by coincidence for 1–1025 and breaks immediately above: Mega forms start at 10033.
 
 Sprites are 1 KB each; the official artwork on the same host is 110–155 KB and is not an icon.
 

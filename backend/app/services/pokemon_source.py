@@ -33,9 +33,16 @@ SPRITE_URL = (
     "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{}.png"
 )
 
-# El límite del Pokédex nacional en el momento de escribir esto. Se pide explícito
-# porque PokeAPI pagina de 20 en 20 por defecto.
-NATIONAL_DEX_SIZE = 1025
+# Todas las entradas de PokeAPI, no solo el Pokédex nacional.
+#
+# El nacional son 1025, pero por encima viven 326 formas más: las 97 MEGA
+# EVOLUCIONES, las Gigantamax, las variantes regionales y las formas alternas
+# (deoxys-attack, rotom-heat). Las megas hacen falta —el TCG tiene ahora mismo
+# sets de Mega Evolution— y el resto no estorba: son documentos de tres campos.
+#
+# Se pide un límite holgado en vez del count exacto para no encadenar dos
+# peticiones. PokeAPI devuelve lo que haya.
+FETCH_LIMIT = 3000
 
 
 class PokemonSourceError(RuntimeError):
@@ -56,22 +63,33 @@ def sprite_url(dex_id: int) -> str:
     return SPRITE_URL.format(dex_id)
 
 
-async def fetch_national_dex() -> list[PokemonRef]:
-    """Descarga el Pokédex nacional completo.
+def _id_from_url(url: str) -> int:
+    """Extrae el id de la URL del recurso: .../pokemon/10033/ -> 10033.
 
-    Una sola petición: PokeAPI acepta `limit`, y la lista viene ordenada por
-    número, así que el índice del array +1 ES el número nacional. No hace falta
-    una llamada por Pokémon —que serían 1025 y el problema N+1 de
-    log_mentor/08 en su forma más literal.
+    Hace falta porque el id NO se puede deducir de la posición en la lista.
+    La primera versión de este fichero usaba enumerate(), y funcionaba de
+    casualidad: del 1 al 1025 el índice coincide con el número nacional. Las
+    megas empiezan en 10033, así que en cuanto se pidió la lista completa el
+    supuesto se rompió y todas habrían quedado con el id equivocado.
+
+    Es el tipo de suposición que solo se ve cuando cambian los datos, no cuando
+    cambia el código.
+    """
+    return int(url.rstrip("/").rsplit("/", 1)[-1])
+
+
+async def fetch_all() -> list[PokemonRef]:
+    """Descarga todas las entradas: nacional, megas, Gigantamax y formas.
+
+    Una sola petición. Pedir el detalle de cada una serían 1351 llamadas: el
+    problema N+1 de log_mentor/08 en su forma más literal.
     """
     async with httpx.AsyncClient(
         base_url=BASE_URL,
         timeout=httpx.Timeout(connect=3.0, read=20.0, write=5.0, pool=2.0),
         headers={"User-Agent": "pkmtcgbuddy"},
     ) as client:
-        response = await client.get(
-            "/pokemon", params={"limit": NATIONAL_DEX_SIZE, "offset": 0}
-        )
+        response = await client.get("/pokemon", params={"limit": FETCH_LIMIT, "offset": 0})
         response.raise_for_status()
 
         try:
@@ -80,11 +98,14 @@ async def fetch_national_dex() -> list[PokemonRef]:
         except (ValueError, KeyError, TypeError) as exc:
             raise PokemonSourceError(f"Respuesta inesperada de PokeAPI: {exc}") from exc
 
-    return [
-        PokemonRef(
-            dex_id=indice,
-            name=entrada["name"],
-            sprite_url=sprite_url(indice),
+    referencias = []
+    for entrada in resultados:
+        try:
+            ident = _id_from_url(entrada["url"])
+        except (KeyError, ValueError):
+            # Una entrada con URL rara no debe tumbar la sincronización entera.
+            continue
+        referencias.append(
+            PokemonRef(dex_id=ident, name=entrada["name"], sprite_url=sprite_url(ident))
         )
-        for indice, entrada in enumerate(resultados, start=1)
-    ]
+    return referencias
