@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { addMatch, deleteMatch, getSession, updateMatch } from '../api/sessions'
-import { TYPE_LABEL } from '../sessionTypes'
+import { listDecks } from '../api/decks'
+import { addMatch, deleteMatch, getSession, updateMatch, updateSession } from '../api/sessions'
+import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
 import PokemonPair from './PokemonPair'
 import PokemonPicker from './PokemonPicker'
 
@@ -29,9 +30,18 @@ const EMPTY_ROUND = {
 export default function SessionDetail({ sessionId, onBack }) {
   const [session, setSession] = useState(null)
   const [form, setForm] = useState(EMPTY_ROUND)
-  const [editing, setEditing] = useState(null)
+  // Qué RONDA se está corrigiendo, o null. Nombre explícito para no
+  // confundirse con editingHeader, que es otra cosa.
+  const [editingRound, setEditingRound] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  // Edición de la CABECERA. Las rondas no pasan por aquí: cada una se guarda al
+  // añadirla, así que no hay estado pendiente que confirmar. Esto existe porque
+  // hasta ahora la sesión quedaba congelada al crearla, y equivocarse de fecha o
+  // de mazo no tenía arreglo.
+  const [editingHeader, setEditingHeader] = useState(false)
+  const [header, setHeader] = useState(null)
+  const [decks, setDecks] = useState([])
 
   useEffect(() => {
     let active = true
@@ -44,6 +54,40 @@ export default function SessionDetail({ sessionId, onBack }) {
       active = false
     }
   }, [sessionId])
+
+  // Los mazos hacen falta para poder corregir con cuál se jugó.
+  useEffect(() => {
+    let active = true
+    listDecks()
+      .then((d) => active && setDecks(d))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
+  function startEditHeader() {
+    setHeader({
+      name: session.name ?? '',
+      played_at: session.played_at,
+      session_type: session.session_type,
+      notes: session.notes ?? '',
+      deck_version_id: session.deck_version_id,
+    })
+    setEditingHeader(true)
+  }
+
+  async function saveHeader(event) {
+    event.preventDefault()
+    const ok = await mutate(() =>
+      updateSession(sessionId, {
+        ...header,
+        name: header.name.trim() || null,
+        notes: header.notes.trim() || null,
+      }),
+    )
+    if (ok) setEditingHeader(false)
+  }
 
   /** Envoltorio común: toda mutación devuelve la sesión entera y la reemplaza. */
   async function mutate(operation) {
@@ -65,19 +109,19 @@ export default function SessionDetail({ sessionId, onBack }) {
     const payload = { ...form, notes: form.notes.trim() || null }
 
     const ok = await mutate(() =>
-      editing === null
+      editingRound === null
         ? addMatch(sessionId, payload)
-        : updateMatch(sessionId, editing, payload),
+        : updateMatch(sessionId, editingRound, payload),
     )
 
     if (ok) {
       setForm(EMPTY_ROUND)
-      setEditing(null)
+      setEditingRound(null)
     }
   }
 
   function startEdit(match) {
-    setEditing(match.round)
+    setEditingRound(match.round)
     setForm({
       opponent_archetype: match.opponent_archetype,
       result: match.result,
@@ -88,7 +132,7 @@ export default function SessionDetail({ sessionId, onBack }) {
   }
 
   function cancelEdit() {
-    setEditing(null)
+    setEditingRound(null)
     setForm(EMPTY_ROUND)
   }
 
@@ -103,14 +147,101 @@ export default function SessionDetail({ sessionId, onBack }) {
         <button type="button" className="back" onClick={onBack}>
           ← Sesiones
         </button>
-        <div>
+        <div className="session-head">
           <h2>{session.name || TYPE_LABEL[session.session_type]}</h2>
           <p className="subtitle">
             {session.played_at} · {TYPE_LABEL[session.session_type]} · {session.deck_name}{' '}
             <span className="vtag">v{session.deck_version}</span>
           </p>
+          {session.notes && <p className="session-notes">{session.notes}</p>}
+          {!editingHeader && (
+            <button type="button" className="peek" onClick={startEditHeader}>
+              editar sesión
+            </button>
+          )}
         </div>
       </div>
+
+      {editingHeader && (
+        <form onSubmit={saveHeader} className="match-form session-edit">
+          <h3>Editar sesión</h3>
+
+          <label>
+            Fecha
+            <input
+              type="date"
+              value={header.played_at}
+              onChange={(e) => setHeader({ ...header, played_at: e.target.value })}
+              required
+            />
+          </label>
+
+          <label>
+            Tipo
+            <select
+              value={header.session_type}
+              onChange={(e) => setHeader({ ...header, session_type: e.target.value })}
+            >
+              {SESSION_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Mazo
+            <select
+              value={header.deck_version_id}
+              onChange={(e) => setHeader({ ...header, deck_version_id: e.target.value })}
+            >
+              {/* La versión actual de la sesión puede no ser la actual del mazo
+                  —jugaste con la v1 y hoy vas por la v3— así que se ofrece
+                  explícitamente para no perderla al abrir el desplegable. */}
+              <option value={session.deck_version_id}>
+                {session.deck_name} (v{session.deck_version}) — actual
+              </option>
+              {decks
+                .filter((d) => d.current_version_id !== session.deck_version_id)
+                .map((d) => (
+                  <option key={d.id} value={d.current_version_id}>
+                    {d.name} (v{d.current_version})
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          <label>
+            Nombre <span className="optional">opcional</span>
+            <input
+              type="text"
+              value={header.name}
+              onChange={(e) => setHeader({ ...header, name: e.target.value })}
+              placeholder="League Cup Guadalajara"
+            />
+          </label>
+
+          <label>
+            Notas del evento <span className="optional">opcional</span>
+            <textarea
+              value={header.notes}
+              onChange={(e) => setHeader({ ...header, notes: e.target.value })}
+              rows={2}
+              placeholder="Cómo fue el día, qué probaste…"
+            />
+          </label>
+
+          <div className="round-form-actions">
+            <button type="submit" disabled={busy}>
+              {busy ? 'Guardando…' : 'Guardar sesión'}
+            </button>
+            <button type="button" className="secondary" onClick={() => setEditingHeader(false)}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="record">
         <span className="record-figure">
@@ -158,7 +289,7 @@ export default function SessionDetail({ sessionId, onBack }) {
       </ol>
 
       <form onSubmit={handleAdd} className="match-form round-form">
-        <h3>{editing === null ? `Ronda ${session.matches.length + 1}` : `Corregir ronda ${editing}`}</h3>
+        <h3>{editingRound === null ? `Ronda ${session.matches.length + 1}` : `Corregir ronda ${editingRound}`}</h3>
 
         <label>
           Mazo del rival
@@ -213,9 +344,9 @@ export default function SessionDetail({ sessionId, onBack }) {
 
         <div className="round-form-actions">
           <button type="submit" disabled={busy}>
-            {editing === null ? 'Añadir ronda' : 'Guardar corrección'}
+            {editingRound === null ? 'Añadir ronda' : 'Guardar corrección'}
           </button>
-          {editing !== null && (
+          {editingRound !== null && (
             <button type="button" className="secondary" onClick={cancelEdit}>
               Cancelar
             </button>

@@ -85,6 +85,24 @@ class SessionCreate(BaseModel):
     notes: str | None = Field(default=None, max_length=1000)
 
 
+class SessionUpdate(BaseModel):
+    """Correcciones sobre una sesión ya creada.
+
+    Todo opcional porque es un PATCH: se manda solo lo que cambia, y
+    exclude_unset distingue "no lo mandes" de "ponlo a null".
+
+    Incluye deck_version_id a propósito. Equivocarse de mazo al registrar es
+    fácil y hoy no había forma de arreglarlo — la sesión quedaba atribuida para
+    siempre a un mazo que no jugaste, y con ella sus estadísticas.
+    """
+
+    played_at: date | None = None
+    session_type: SessionType | None = None
+    deck_version_id: str | None = None
+    name: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=1000)
+
+
 class SessionRecord(BaseModel):
     """El récord del evento: 3-1-1.
 

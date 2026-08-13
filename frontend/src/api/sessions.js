@@ -29,6 +29,16 @@ export function createSession(payload) {
   return request('/api/sessions', json('POST', payload))
 }
 
+/**
+ * PATCH /api/sessions/{id} — corrige fecha, tipo, mazo, nombre o notas.
+ *
+ * Solo la cabecera del evento. Las rondas tienen sus propios endpoints porque
+ * cada una se guarda al añadirla.
+ */
+export function updateSession(sessionId, changes) {
+  return request(`/api/sessions/${sessionId}`, json('PATCH', changes))
+}
+
 /** POST /api/sessions/{id}/matches — añade una ronda al final. */
 export function addMatch(sessionId, match) {
   return request(`/api/sessions/${sessionId}/matches`, json('POST', match))

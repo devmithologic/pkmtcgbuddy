@@ -21,6 +21,7 @@ from app.models.session import (
     SessionCreate,
     SessionOut,
     SessionSummary,
+    SessionUpdate,
     compute_record,
 )
 
@@ -104,6 +105,30 @@ async def list_sessions() -> list[SessionSummary]:
 @router.get("/{session_id}", response_model=SessionOut)
 async def get_session(session_id: str) -> SessionOut:
     """Una sesión con sus rondas y su récord."""
+    return await _respond(session_id)
+
+
+@router.patch("/{session_id}", response_model=SessionOut)
+async def update_session(session_id: str, payload: SessionUpdate) -> SessionOut:
+    """Corrige los datos de la sesión: fecha, tipo, mazo, nombre o notas.
+
+    Las rondas no pasan por aquí: cada una se guarda al añadirla. Esto es para
+    la cabecera del evento, que hasta ahora quedaba congelada al crearla.
+    """
+    session = await _load(session_id)
+
+    # Si se cambia de mazo, se valida igual que al crear. Sin esto, una
+    # corrección podría dejar la sesión apuntando a una versión inventada.
+    if payload.deck_version_id is not None:
+        oid = to_object_id(payload.deck_version_id)
+        version = await deck_repository.get_version(oid) if oid else None
+        if version is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"No existe la versión de mazo {payload.deck_version_id}",
+            )
+
+    await session_repository.update_session(session["_id"], payload)
     return await _respond(session_id)
 
 

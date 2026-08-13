@@ -802,3 +802,14 @@
 /* La versión actual del mazo, marcada con el acento: es el estado que hay que
    poder ver de un vistazo cuando comparas historial. */
 .history li.current .vnum { color: var(--accent); }
+
+/* --- cabecera de sesión editable --- */
+.session-head { display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; }
+.session-notes {
+  margin: 0.35rem 0 0; padding-left: 0.6rem;
+  font-size: var(--step--1); color: var(--ink-2);
+  border-left: 2px solid var(--line-strong);
+}
+.session-head .peek { margin-top: 0.35rem; padding: 0; }
+.session-edit { margin-bottom: var(--gap-5); }
+.session-edit h3 { margin: 0 0 var(--gap-1); font-size: var(--step-1); }

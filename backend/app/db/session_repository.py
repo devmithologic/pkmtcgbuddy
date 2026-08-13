@@ -12,7 +12,7 @@ from pymongo import ASCENDING, DESCENDING
 
 from app.db.mongo import get_database
 from app.models.match import date_to_bson
-from app.models.session import MatchCreate, SessionCreate
+from app.models.session import MatchCreate, SessionCreate, SessionUpdate
 
 COLLECTION = "sessions"
 
@@ -53,6 +53,30 @@ async def get_session(session_id: ObjectId) -> dict | None:
 async def list_sessions() -> list[dict]:
     cursor = _collection().find().sort([("played_at", DESCENDING), ("_id", DESCENDING)])
     return [doc async for doc in cursor]
+
+
+async def update_session(session_id: ObjectId, payload: SessionUpdate) -> None:
+    """Aplica solo los campos enviados.
+
+    Dos conversiones que el volcado no hace solo, porque el modelo habla en
+    tipos de Python y la base en BSON:
+
+      played_at        date -> datetime  (BSON no tiene fecha sin hora)
+      deck_version_id  str  -> ObjectId  (para que el $lookup siga funcionando)
+    """
+    cambios = payload.model_dump(exclude_unset=True)
+    if not cambios:
+        return
+
+    if "played_at" in cambios and cambios["played_at"] is not None:
+        cambios["played_at"] = date_to_bson(payload.played_at)
+    if "session_type" in cambios and cambios["session_type"] is not None:
+        cambios["session_type"] = payload.session_type.value
+    if "deck_version_id" in cambios and cambios["deck_version_id"] is not None:
+        cambios["deck_version_id"] = ObjectId(payload.deck_version_id)
+
+    cambios["updated_at"] = datetime.now(timezone.utc)
+    await _collection().update_one({"_id": session_id}, {"$set": cambios})
 
 
 async def add_match(session_id: ObjectId, match: MatchCreate) -> None:
