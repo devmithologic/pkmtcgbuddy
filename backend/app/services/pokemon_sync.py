@@ -13,6 +13,7 @@ import time
 
 from app.db import pokemon_repository
 from app.db.mongo import close_mongo_connection, connect_to_mongo
+from app.models.pokemon import PokemonRef
 from app.services.pokemon_source import fetch_all
 
 
@@ -24,7 +25,11 @@ async def sync() -> None:
         await pokemon_repository.ensure_indexes()
 
         print("Descargando el Pokédex completo, con megas y formas…")
-        pokemon = await fetch_all()
+        # fetch_all devuelve dicts planos; el modelo se construye aquí. Es este
+        # módulo el que hace de puente entre el adaptador y el modelo, para que
+        # ninguno de los dos tenga que importar al otro — ver el docstring de
+        # fetch_all.
+        pokemon = [PokemonRef(**entrada) for entrada in await fetch_all()]
         print(f"  {len(pokemon)} Pokémon")
 
         escritos = await pokemon_repository.replace_all(pokemon)

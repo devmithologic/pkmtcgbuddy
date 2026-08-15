@@ -240,10 +240,15 @@ async def resolve_decks(sessions: list[dict]) -> dict:
         d["_id"]: d async for d in db["decks"].find({"_id": {"$in": list(deck_ids)}})
     }
 
+    # Los Pokémon salen gratis: el documento del mazo ya está aquí, traído para
+    # sacar el nombre. Devolverlos no añade ni una consulta; lo que había antes
+    # era tirarlos.
     return {
         vid: {
             "name": decks.get(v["deck_id"], {}).get("name"),
             "version": v["version"],
+            "primary": decks.get(v["deck_id"], {}).get("primary_pokemon"),
+            "secondary": decks.get(v["deck_id"], {}).get("secondary_pokemon"),
         }
         for vid, v in versions.items()
     }

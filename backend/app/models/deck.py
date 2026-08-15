@@ -16,7 +16,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from app.models.card import CardSummary, DeckFormat
-from app.models.pokemon import PokemonRef
+from app.models.pokemon import PokemonRef, PokemonRefOut
 
 # Reglas del formato. Van aquí, con nombre, y no como números sueltos dentro de
 # la validación: cuando alguien pregunte "¿por qué 4?", el nombre responde.
@@ -45,6 +45,7 @@ class DeckCreate(BaseModel):
     # mazo puede que aún no lo tengas claro.
     primary_pokemon: PokemonRef | None = None
     secondary_pokemon: PokemonRef | None = None
+    folder_id: str | None = None
 
 
 class DeckUpdate(BaseModel):
@@ -58,6 +59,34 @@ class DeckUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     primary_pokemon: PokemonRef | None = None
     secondary_pokemon: PokemonRef | None = None
+    # None aquí SÍ significa algo: «sácalo de su carpeta». Como en FolderUpdate
+    # y al contrario que `name`, se distingue con exclude_unset.
+    folder_id: str | None = None
+    # Cambiar el formato NO toca las cartas: DeckValidation se calcula al leer,
+    # así que la lista se revalida sola y el panel dirá qué dejó de ser legal.
+    # Es lo correcto: un mazo ilegal se guarda igual y se informa.
+    deck_format: DeckFormat | None = None
+
+
+class DeckImport(BaseModel):
+    """Una lista de mazo en el formato de texto de PTCG Live."""
+
+    text: str = Field(min_length=1)
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    folder_id: str | None = None
+
+
+class DeckImportResult(BaseModel):
+    """El mazo creado y qué no se pudo traer.
+
+    `unresolved` va SIEMPRE, aunque esté vacío. Es la diferencia entre importar
+    y confiar: quien pega una lista de 60 cartas tiene derecho a saber si
+    entraron 60 o 57, y cuáles faltan escritas tal como él las mandó.
+    """
+
+    deck: "DeckOut"
+    imported_cards: int
+    unresolved: list[str] = Field(default_factory=list)
 
 
 class NewVersionRequest(BaseModel):
@@ -155,8 +184,12 @@ class DeckSummary(BaseModel):
     total_cards: int
     is_legal: bool
     updated_at: datetime
-    primary_pokemon: PokemonRef | None = None
-    secondary_pokemon: PokemonRef | None = None
+    # Out y no PokemonRef a secas: es una respuesta, así que lleva las URLs
+    # calculadas. Los modelos de entrada de arriba se quedan con PokemonRef,
+    # que es lo que se guarda.
+    primary_pokemon: PokemonRefOut | None = None
+    secondary_pokemon: PokemonRefOut | None = None
+    folder_id: str | None = None
 
 
 class DeckOut(BaseModel):
@@ -169,5 +202,6 @@ class DeckOut(BaseModel):
     validation: DeckValidation
     created_at: datetime
     updated_at: datetime
-    primary_pokemon: PokemonRef | None = None
-    secondary_pokemon: PokemonRef | None = None
+    primary_pokemon: PokemonRefOut | None = None
+    secondary_pokemon: PokemonRefOut | None = None
+    folder_id: str | None = None

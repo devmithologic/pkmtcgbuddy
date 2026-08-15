@@ -100,6 +100,8 @@ async def list_sessions(
             name=s.get("name"),
             deck_name=decks.get(s["deck_version_id"], {}).get("name"),
             deck_version=decks.get(s["deck_version_id"], {}).get("version"),
+            deck_primary=decks.get(s["deck_version_id"], {}).get("primary"),
+            deck_secondary=decks.get(s["deck_version_id"], {}).get("secondary"),
             record=compute_record(s["matches"]),
             tags=s.get("tags", []),
         )

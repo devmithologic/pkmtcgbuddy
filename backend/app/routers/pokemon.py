@@ -8,16 +8,16 @@ una petición. Es la misma decisión que con las cartas, y por el mismo motivo �
 from fastapi import APIRouter, Query
 
 from app.db import pokemon_repository
-from app.models.pokemon import PokemonRef
+from app.models.pokemon import PokemonRefOut
 
 router = APIRouter(prefix="/pokemon", tags=["pokemon"])
 
 
-@router.get("", response_model=list[PokemonRef])
+@router.get("", response_model=list[PokemonRefOut])
 async def search_pokemon(
     q: str = Query(min_length=2, description="Parte del nombre"),
     limit: int = Query(default=20, ge=1, le=50),
-) -> list[PokemonRef]:
+) -> list[PokemonRefOut]:
     """Busca Pokémon por nombre, por subcadena.
 
     min_length=2 por lo mismo que en el buscador de cartas: una sola letra

@@ -10,7 +10,7 @@ import re
 from pymongo import ASCENDING
 
 from app.db.mongo import get_database
-from app.models.pokemon import PokemonRef
+from app.models.pokemon import PokemonRef, PokemonRefOut
 
 COLLECTION = "pokemon"
 
@@ -27,22 +27,22 @@ def to_document(pokemon: PokemonRef) -> dict:
     # El número nacional como _id: es una clave natural, única y estable, así que
     # resincronizar es un upsert trivial. Mismo criterio que el id de TCGdex en
     # la colección de cartas.
+    #
+    # Sin URL: se calcula al leer. Los documentos sincronizados antes conservan
+    # su clave `sprite_url` porque replace_all usa $set, que no borra lo que no
+    # menciona. Es basura inerte —nadie la lee— y limpiarla no compensa un
+    # $unset sobre 1351 documentos.
     return {
         "_id": pokemon.dex_id,
         "name": pokemon.name,
-        "sprite_url": pokemon.sprite_url,
     }
 
 
-def from_document(document: dict) -> PokemonRef:
-    return PokemonRef(
-        dex_id=document["_id"],
-        name=document["name"],
-        sprite_url=document["sprite_url"],
-    )
+def from_document(document: dict) -> PokemonRefOut:
+    return PokemonRefOut(dex_id=document["_id"], name=document["name"])
 
 
-async def search(query: str, limit: int = 20) -> list[PokemonRef]:
+async def search(query: str, limit: int = 20) -> list[PokemonRefOut]:
     """Busca por nombre, por subcadena y sin distinguir mayúsculas.
 
     Subcadena y no prefijo por coherencia con el buscador de cartas, y porque los
@@ -64,7 +64,7 @@ async def search(query: str, limit: int = 20) -> list[PokemonRef]:
     return [from_document(doc) async for doc in cursor]
 
 
-async def get_many(dex_ids: list[int]) -> dict[int, PokemonRef]:
+async def get_many(dex_ids: list[int]) -> dict[int, PokemonRefOut]:
     """Resuelve varios de una vez. Una consulta, no una por Pokémon."""
     if not dex_ids:
         return {}

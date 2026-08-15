@@ -56,7 +56,7 @@ export default function PokemonPicker({ value, onSelect, placeholder = 'dragapul
     <div className="pkm-picker">
       {value ? (
         <span className="pkm-chosen">
-          <img src={value.sprite_url} alt={value.name} width={32} height={32} />
+          <img src={value.icon_url} alt={value.name} width={32} height={32} />
           <span>{value.name}</span>
           <button type="button" onClick={() => onSelect(null)} aria-label={`Quitar ${value.name}`}>
             ×
@@ -77,7 +77,9 @@ export default function PokemonPicker({ value, onSelect, placeholder = 'dragapul
           {results.map((p) => (
             <li key={p.dex_id}>
               <button type="button" onClick={() => choose(p)}>
-                <img src={p.sprite_url} alt="" width={28} height={28} />
+                {/* icon_url y no art_url a propósito: aquí hay 20 a la vez.
+                    Con los renders de HOME, cada búsqueda serían 2.5 MB. */}
+                <img src={p.icon_url} alt="" width={28} height={28} />
                 <span>{p.name}</span>
                 <span className="pkm-dex">#{p.dex_id}</span>
               </button>

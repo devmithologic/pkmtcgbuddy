@@ -27,7 +27,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.match import MatchResult
-from app.models.pokemon import PokemonRef
+from app.models.pokemon import PokemonRef, PokemonRefOut
 
 
 class SessionType(str, Enum):
@@ -75,6 +75,13 @@ class MatchOut(MatchCreate):
     """
 
     round: int
+
+    # Redeclarados, no heredados. MatchCreate los tiene como PokemonRef —lo que
+    # entra y lo que se guarda— y aquí hace falta la variante con las URLs
+    # calculadas. Una subclase puede estrechar el tipo de un campo heredado
+    # siempre que el nuevo sea subtipo del anterior, y PokemonRefOut lo es.
+    opponent_primary: PokemonRefOut | None = None
+    opponent_secondary: PokemonRefOut | None = None
 
 
 def normalize_tags(tags: list[str] | None) -> list[str]:
@@ -169,6 +176,14 @@ class SessionSummary(BaseModel):
     name: str | None
     deck_name: str | None
     deck_version: int | None
+    # Los Pokémon DEL MAZO, no de la sesión: el prefijo deck_ los distingue,
+    # igual que en deck_name y deck_version. Un mazo se reconoce antes por su
+    # par de iconos que por su nombre escrito.
+    #
+    # PokemonRefOut y no PokemonRef: es una respuesta, así que las URLs se
+    # calculan al leer y no hay nada nuevo que guardar.
+    deck_primary: PokemonRefOut | None = None
+    deck_secondary: PokemonRefOut | None = None
     record: SessionRecord
     tags: list[str] = Field(default_factory=list)
 

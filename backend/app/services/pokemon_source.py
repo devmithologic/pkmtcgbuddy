@@ -18,19 +18,30 @@ Dos diferencias con el adaptador de cartas, ambas por el tamaño del problema:
 
 import httpx
 
-from app.models.pokemon import PokemonRef
-
 BASE_URL = "https://pokeapi.co/api/v2"
 
-# Los sprites viven en el repositorio de imágenes de PokeAPI, no en su API. Son
-# ficheros estáticos servidos por el CDN de GitHub: ~1 KB cada uno, con fondo
-# transparente.
+# Las imágenes viven en el repositorio de sprites de PokeAPI, no en su API. Son
+# ficheros estáticos servidos por el CDN de GitHub, con fondo transparente.
 #
-# La ilustración oficial existe en la misma ruta bajo other/official-artwork/,
-# pero pesa entre 110 y 155 KB. Para un icono de 32 píxeles sería tirar ancho de
-# banda a la basura.
-SPRITE_URL = (
+# Se usan DOS juegos, porque no hay uno solo que sirva para los dos trabajos.
+# Medido sobre una muestra de 150 de nuestros 1351 ids:
+#
+#   juego                         encontrados  megas   peso mediano   tamaño
+#   sprites/pokemon/              148          63/65     1.2 KB        96×96
+#   other/home/                   148          63/65   124.0 KB      512×512
+#   other/official-artwork/       147          62/65   125.1 KB      475×475
+#   versions/generation-viii/…    81           27/40     0.5 KB        68×56
+#
+# HOME gana: misma cobertura exacta que el sprite pequeño —los dos huecos, 10159
+# y 10264, faltan en ambos— y las megas incluidas. La ilustración oficial pesa lo
+# mismo y está peor encuadrada. Los iconos de caja de Sword/Shield son ideales de
+# tamaño pero pierden un tercio de las megas: en ese juego no existen.
+ICON_URL = (
     "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{}.png"
+)
+ART_URL = (
+    "https://raw.githubusercontent.com/PokeAPI/sprites/master"
+    "/sprites/pokemon/other/home/{}.png"
 )
 
 # Todas las entradas de PokeAPI, no solo el Pokédex nacional.
@@ -53,14 +64,21 @@ class PokemonSourceError(RuntimeError):
     """
 
 
-def sprite_url(dex_id: int) -> str:
-    """Compone la URL del sprite a partir del número nacional.
+def icon_url(dex_id: int) -> str:
+    """El sprite ligero, para donde hay muchos a la vez.
 
-    Vive aquí, y solo aquí, para que un cambio de proveedor o de ruta sea un
-    cambio de una línea. Es exactamente lo que hace `_image_url` en el adaptador
-    de cartas con las imágenes de TCGdex.
+    Los 20 resultados del buscador y las cinco rondas de una sesión. A 1.2 KB,
+    una búsqueda entera cuesta 24 KB; con los renders costaría 2.5 MB.
     """
-    return SPRITE_URL.format(dex_id)
+    return ICON_URL.format(dex_id)
+
+
+def art_url(dex_id: int) -> str:
+    """El render de Pokémon HOME, para donde la imagen *es* la cabecera.
+
+    La ficha del mazo y el listado de mazos: pocas imágenes y grandes.
+    """
+    return ART_URL.format(dex_id)
 
 
 def _id_from_url(url: str) -> int:
@@ -78,11 +96,19 @@ def _id_from_url(url: str) -> int:
     return int(url.rstrip("/").rsplit("/", 1)[-1])
 
 
-async def fetch_all() -> list[PokemonRef]:
+async def fetch_all() -> list[dict]:
     """Descarga todas las entradas: nacional, megas, Gigantamax y formas.
 
     Una sola petición. Pedir el detalle de cada una serían 1351 llamadas: el
     problema N+1 de log_mentor/08 en su forma más literal.
+
+    Devuelve dicts planos —{dex_id, name}— y no objetos PokemonRef, y eso es
+    deliberado: `models/pokemon.py` necesita importar icon_url y art_url de aquí
+    para poder calcularlas al leer. Si además este fichero importara PokemonRef,
+    los dos módulos se importarían mutuamente y Python fallaría al arrancar con
+    un ImportError. Quitando el import de este lado, la dependencia queda en un
+    solo sentido —modelo → adaptador— y quien construye los PokemonRef es
+    pokemon_sync, que ya importa los dos.
     """
     async with httpx.AsyncClient(
         base_url=BASE_URL,
@@ -105,7 +131,5 @@ async def fetch_all() -> list[PokemonRef]:
         except (KeyError, ValueError):
             # Una entrada con URL rara no debe tumbar la sincronización entera.
             continue
-        referencias.append(
-            PokemonRef(dex_id=ident, name=entrada["name"], sprite_url=sprite_url(ident))
-        )
+        referencias.append({"dex_id": ident, "name": entrada["name"]})
     return referencias
