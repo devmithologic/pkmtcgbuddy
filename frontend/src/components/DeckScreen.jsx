@@ -9,7 +9,7 @@ import DeckStats from './DeckStats'
  * navegación además de con el armado. Cada uno pide sus propios datos: la vista
  * de estadísticas no necesita la lista de cartas, y al revés.
  */
-export default function DeckScreen({ deckId, onBack }) {
+export default function DeckScreen({ deckId, isNew = false, onBack }) {
   const [view, setView] = useState('build')
 
   return (
@@ -34,7 +34,7 @@ export default function DeckScreen({ deckId, onBack }) {
       {/* Condicional, no CSS: la vista oculta se desmonta y cancela sus
           peticiones en vuelo. */}
       {view === 'build' ? (
-        <DeckBuilder deckId={deckId} onBack={onBack} />
+        <DeckBuilder deckId={deckId} isNew={isNew} onBack={onBack} />
       ) : (
         <>
           <button type="button" className="back" onClick={onBack}>

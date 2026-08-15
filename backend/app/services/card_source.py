@@ -15,6 +15,7 @@ documentos publican dos modelos de carta incompatibles entre sí, así que la AP
 es la fuente más fiable de las dos.
 """
 
+import asyncio
 import hashlib
 import json
 
@@ -44,6 +45,11 @@ class CardSourceError(RuntimeError):
 
 
 BASE_URL = "https://api.tcgdex.net/v2/en"
+
+# Peticiones simultáneas contra TCGdex. El mismo número que usa el sync de
+# cartas: bastante para que 218 sets tarden segundos, poco para no parecer un
+# ataque a un servicio gratuito que ya se cayó una vez.
+CONCURRENCY = 10
 
 # TCGdex marca las ACE SPEC como una rareza. Esta constante es la única aparición
 # de la cadena en todo el proyecto; el resto del código pregunta por is_ace_spec.
@@ -304,3 +310,59 @@ async def get_card(card_id: str) -> Card | None:
         raise CardSourceError("TCGdex devolvió algo que no es JSON") from exc
 
     return _to_card(payload)
+
+
+async def fetch_sets() -> list[dict]:
+    """Todos los sets, cada uno con su ABREVIATURA OFICIAL.
+
+    La abreviatura es la pieza que hace posible importar y exportar listas: el
+    formato de texto que usan PTCG Live y las herramientas de la red identifica
+    cada carta como `<abreviatura> <número>` —`MEG 77`, `TEF 129`— y ese código
+    no aparece en el id de TCGdex, que es `me01-077`.
+
+    Son DOS pasadas y no una porque el listado `/sets` no trae la abreviatura:
+    hay que pedir cada set por separado. Son 218 peticiones, acotadas con el
+    mismo Semaphore que el sync de cartas para no abrir 218 conexiones a la vez.
+
+    De los 218 sets, unos 188 tienen abreviatura. Los que no la tienen son casi
+    todos mazos de demostración y promos antiguas, que nadie escribe en una
+    lista; se omiten en vez de inventarles un código.
+    """
+    listado = await _require_client().get("/sets")
+    listado.raise_for_status()
+
+    try:
+        resumenes = listado.json()
+    except ValueError as exc:
+        raise CardSourceError("TCGdex devolvió algo que no es JSON") from exc
+
+    semaphore = asyncio.Semaphore(CONCURRENCY)
+    sets: list[dict] = []
+
+    async def detalle(set_id: str) -> None:
+        async with semaphore:
+            try:
+                r = await _require_client().get(f"/sets/{set_id}")
+                if r.status_code != 200:
+                    return
+                d = r.json()
+            except (httpx.HTTPError, ValueError):
+                # Un set que falla no debe tumbar la sincronización entera; su
+                # ausencia solo significa que sus cartas no se podrán importar
+                # por código, y eso el importador ya sabe reportarlo.
+                return
+
+        abbr = (d.get("abbreviation") or {}).get("official")
+        if not abbr:
+            return
+
+        sets.append(
+            {
+                "_id": d["id"],
+                "name": d.get("name", ""),
+                "abbreviation": abbr.upper(),
+            }
+        )
+
+    await asyncio.gather(*(detalle(s["id"]) for s in resumenes if s.get("id")))
+    return sets

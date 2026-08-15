@@ -8,14 +8,17 @@ guarda.
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import PlainTextResponse
 
-from app.db import card_repository, deck_repository, stats_repository
+from app.db import card_repository, deck_repository, set_repository, stats_repository
 from app.models.card import DeckFormat
 from app.models.deck import (
     DeckCard,
     DeckCardOut,
     DeckCardsUpdate,
     DeckCreate,
+    DeckImport,
+    DeckImportResult,
     DeckOut,
     DeckSummary,
     DeckUpdate,
@@ -26,6 +29,7 @@ from app.models.deck import (
 )
 from app.models.session import SessionType
 from app.models.stats import DeckStats, StatLine, StatsFilters, VersionStatLine
+from app.services import deck_text
 from app.services.deck_rules import validate_deck
 
 router = APIRouter(prefix="/decks", tags=["decks"])
@@ -70,7 +74,11 @@ async def _load_deck(deck_id: str) -> dict:
 @router.post("", response_model=DeckOut, status_code=status.HTTP_201_CREATED)
 async def create_deck(payload: DeckCreate) -> DeckOut:
     """Crea un mazo con su versión 1, vacía."""
-    deck_id = await deck_repository.create_deck(payload.name, payload.deck_format)
+    deck_id = await deck_repository.create_deck(
+        payload.name,
+        payload.deck_format,
+        deck_repository.to_object_id(payload.folder_id) if payload.folder_id else None,
+    )
 
     # Los iconos son opcionales al crear; si vinieron, se aplican en el mismo
     # paso reutilizando el PATCH en lugar de duplicar la escritura.
@@ -131,10 +139,115 @@ async def list_decks() -> list[DeckSummary]:
                 updated_at=doc["updated_at"],
                 primary_pokemon=doc.get("primary_pokemon"),
                 secondary_pokemon=doc.get("secondary_pokemon"),
+                folder_id=str(doc["folder_id"]) if doc.get("folder_id") else None,
             )
         )
 
     return summaries
+
+
+@router.post("/import", response_model=DeckImportResult, status_code=status.HTTP_201_CREATED)
+async def import_deck(payload: DeckImport) -> DeckImportResult:
+    """Crea un mazo a partir de una lista en el formato de texto de PTCG Live.
+
+    Va declarada ANTES que `/{deck_id}` — FastAPI resuelve por orden, y con la
+    otra primero «import» se leería como un id de mazo. Es la misma trampa que
+    ya documenta `/sessions/tags`.
+
+    Importa lo que reconoce y devuelve lo que no, en vez de rechazar la lista
+    entera por una línea. Una lista ajena puede traer una carta de un set que no
+    hemos sincronizado, y quedarse sin nada por eso es peor que quedarse con 57
+    de 60 sabiendo cuáles faltan.
+    """
+    lineas, sueltas = deck_text.parse(payload.text)
+    if not lineas:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "No se reconoció ninguna carta. El formato es «3 Riolu PRE 50», una por línea.",
+        )
+
+    abreviaturas = await set_repository.abbreviation_map()
+
+    # Una sola consulta para toda la lista: se acumulan los ids candidatos de
+    # cada línea y se piden juntos. Resolver línea a línea serían 23 viajes.
+    candidatos: list[str] = []
+    por_linea: list[tuple[deck_text.ParsedLine, list[str]]] = []
+    for linea in lineas:
+        set_id = abreviaturas.get(linea.set_code)
+        ids = deck_text.candidate_ids(set_id, linea.number) if set_id else []
+        candidatos.extend(ids)
+        por_linea.append((linea, ids))
+
+    catalogo = await card_repository.get_cards_by_ids(candidatos)
+
+    cards: list[DeckCard] = []
+    no_resueltas: list[str] = list(sueltas)
+    for linea, ids in por_linea:
+        encontrado = next((i for i in ids if i in catalogo), None)
+        if encontrado:
+            cards.append(DeckCard(card_id=encontrado, quantity=linea.quantity))
+        else:
+            no_resueltas.append(linea.raw)
+
+    if not cards:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Ninguna carta de la lista está en el catálogo. "
+            "¿Has sincronizado los sets con `python -m app.services.set_sync`?",
+        )
+
+    # El formato de texto no dice el formato de torneo ni el nombre del mazo:
+    # ninguno de los dos viaja en la lista. El nombre lo pone quien importa, y
+    # el formato se deja en Standard, que es lo que se juega y se cambia en la
+    # cabecera del constructor con un clic.
+    deck_id = await deck_repository.create_deck(
+        payload.name or "Mazo importado",
+        DeckFormat.STANDARD,
+        deck_repository.to_object_id(payload.folder_id) if payload.folder_id else None,
+    )
+    deck = await deck_repository.get_deck(deck_repository.to_object_id(deck_id))
+    await deck_repository.replace_cards(deck["current_version_id"], cards)
+
+    return DeckImportResult(
+        deck=await get_deck(deck_id),
+        imported_cards=sum(c.quantity for c in cards),
+        unresolved=no_resueltas,
+    )
+
+
+@router.get("/{deck_id}/export", response_class=PlainTextResponse)
+async def export_deck(deck_id: str) -> str:
+    """La lista actual del mazo en el formato de texto, lista para pegar.
+
+    Se devuelve como text/plain y no dentro de un JSON: es un documento, no un
+    dato, y así `curl` o el navegador ya dan algo que se copia tal cual.
+    """
+    deck = await _load_deck(deck_id)
+    version = await deck_repository.get_version(deck["current_version_id"])
+    entradas = [DeckCard(**c) for c in (version or {}).get("cards", [])]
+
+    catalogo = await card_repository.get_cards_by_ids([e.card_id for e in entradas])
+    codigos = await set_repository.id_map()
+
+    salida = []
+    for entrada in entradas:
+        carta = catalogo.get(entrada.card_id)
+        if not carta:
+            continue
+        set_id, _, numero = entrada.card_id.rpartition("-")
+        salida.append(
+            {
+                "quantity": entrada.quantity,
+                "name": carta.name,
+                "category": carta.category.value,
+                "set_code": codigos.get(set_id),
+                # Sin ceros a la izquierda: es como lo escriben las demás
+                # herramientas, y como se imprime en la carta.
+                "number": deck_text.normalize_number(numero),
+            }
+        )
+
+    return deck_text.render(salida)
 
 
 @router.get("/{deck_id}", response_model=DeckOut)
@@ -169,7 +282,39 @@ async def get_deck(deck_id: str) -> DeckOut:
         updated_at=deck["updated_at"],
         primary_pokemon=deck.get("primary_pokemon"),
         secondary_pokemon=deck.get("secondary_pokemon"),
+        folder_id=str(deck["folder_id"]) if deck.get("folder_id") else None,
     )
+
+
+@router.delete("/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_deck(deck_id: str) -> None:
+    """Borra un mazo y su historial de versiones.
+
+    **Se niega si alguna sesión se jugó con él**, y devuelve 409 diciendo
+    cuántas. No es prudencia genérica: la idea central de esta aplicación es que
+    cada partida se atribuye a la VERSIÓN con la que se jugó, así que borrar el
+    mazo dejaría esas sesiones apuntando a un documento inexistente. El récord
+    seguiría existiendo, pero ya no se sabría de qué lista era: exactamente el
+    dato que la aplicación existe para conservar.
+
+    409 Conflict y no 400: la petición está bien formada, lo que pasa es que
+    choca con el estado actual del recurso. Y no 403, que hablaría de permisos.
+
+    Deja al usuario la salida: borrar antes esas sesiones, o quedarse el mazo.
+    Borrarlas en cascada sería decidir por él lo más destructivo.
+    """
+    deck = await _load_deck(deck_id)
+
+    en_uso = await deck_repository.sessions_using(deck["_id"])
+    if en_uso:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"No se puede borrar: {en_uso} "
+            f"{'sesión se jugó' if en_uso == 1 else 'sesiones se jugaron'} con este mazo. "
+            "Bórralas primero si de verdad quieres eliminarlo.",
+        )
+
+    await deck_repository.delete_deck(deck["_id"])
 
 
 @router.patch("/{deck_id}", response_model=DeckOut)

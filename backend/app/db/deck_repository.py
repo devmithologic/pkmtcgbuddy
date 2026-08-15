@@ -58,6 +58,29 @@ async def update_deck(deck_id: ObjectId, payload: DeckUpdate) -> None:
     if "name" in cambios and cambios["name"] is None:
         del cambios["name"]
 
+    # La carpeta es el caso opuesto al nombre: aquí un null SÍ es una orden
+    # —«saca el mazo de su carpeta»— así que se conserva, y solo hay que
+    # convertirlo a ObjectId cuando trae valor. El texto que llega del cliente no
+    # casaría nunca con el _id guardado.
+    if "folder_id" in cambios:
+        cambios["folder_id"] = (
+            ObjectId(cambios["folder_id"]) if cambios["folder_id"] else None
+        )
+
+    # El campo de la API se llama `deck_format`; la clave del documento es
+    # `format` —así lo escribe create_deck y así lo leen los routers—. Sin este
+    # renombrado, el $set crearía un campo `deck_format` que nadie lee: sin
+    # error, sin excepción, y el formato sin cambiar. Es el peor tipo de fallo,
+    # el que no se queja.
+    if "deck_format" in cambios:
+        formato = cambios.pop("deck_format")
+        if formato is None:
+            # Un formato nulo solo puede ser ruido del cliente: un mazo siempre
+            # tiene uno. Mismo criterio que `name`.
+            pass
+        else:
+            cambios["format"] = DeckFormat(formato).value
+
     if not cambios:
         return
 
@@ -65,7 +88,9 @@ async def update_deck(deck_id: ObjectId, payload: DeckUpdate) -> None:
     await _decks().update_one({"_id": deck_id}, {"$set": cambios})
 
 
-async def create_deck(name: str, deck_format: DeckFormat) -> str:
+async def create_deck(
+    name: str, deck_format: DeckFormat, folder_id: ObjectId | None = None
+) -> str:
     """Crea el mazo y su versión 1, vacía. Devuelve el id del mazo.
 
     Son dos inserciones y no hay transacción: si la segunda fallara, quedaría un
@@ -80,6 +105,7 @@ async def create_deck(name: str, deck_format: DeckFormat) -> str:
             {
                 "name": name,
                 "format": deck_format.value,
+                "folder_id": folder_id,
                 "current_version_id": None,
                 "created_at": now,
                 "updated_at": now,
@@ -104,6 +130,31 @@ async def create_deck(name: str, deck_format: DeckFormat) -> str:
     )
 
     return str(deck_id)
+
+
+async def sessions_using(deck_id: ObjectId) -> int:
+    """Cuántas sesiones se jugaron con alguna versión de este mazo."""
+    version_ids = [v["_id"] async for v in _versions().find({"deck_id": deck_id}, {"_id": 1})]
+    if not version_ids:
+        return 0
+    return await get_database()["sessions"].count_documents(
+        {"deck_version_id": {"$in": version_ids}}
+    )
+
+
+async def delete_deck(deck_id: ObjectId) -> None:
+    """Borra el mazo y todas sus versiones.
+
+    NO comprueba nada: quien decide si se puede borrar es el router, porque la
+    respuesta es un 409 con un mensaje, no un dato. Aquí solo se ejecuta.
+
+    Las versiones se borran primero. Al revés quedaría una ventana en la que
+    existen versiones cuyo deck_id no apunta a nada, y si el proceso muere en
+    medio se quedan así para siempre. Borrar de la hoja hacia la raíz deja como
+    peor caso un mazo vacío, que sí se puede volver a borrar.
+    """
+    await _versions().delete_many({"deck_id": deck_id})
+    await _decks().delete_one({"_id": deck_id})
 
 
 async def get_deck(deck_id: ObjectId) -> dict | None:

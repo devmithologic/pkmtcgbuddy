@@ -94,3 +94,42 @@ export function updateDeck(deckId, changes) {
     body: JSON.stringify(changes),
   })
 }
+
+/**
+ * DELETE /api/decks/{id} — borra el mazo y su historial de versiones.
+ *
+ * Puede fallar con 409 si alguna sesión se jugó con él. No es un error del
+ * cliente que haya que evitar preguntando antes: es la respuesta correcta, y el
+ * mensaje que trae dice cuántas sesiones lo usan. `request` ya lo convierte en
+ * una excepción con ese texto.
+ */
+export function deleteDeck(deckId) {
+  return request(`/api/decks/${deckId}`, { method: 'DELETE' })
+}
+
+/**
+ * POST /api/decks/import — crea un mazo desde una lista en texto.
+ *
+ * Devuelve `{deck, imported_cards, unresolved}`. `unresolved` llega siempre,
+ * aunque venga vacío: quien pega 60 cartas tiene derecho a saber si entraron 60
+ * o 57, y cuáles no, escritas tal como las mandó.
+ */
+export function importDeck(payload) {
+  return request('/api/decks/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+/**
+ * GET /api/decks/{id}/export — la lista en texto, lista para pegar.
+ *
+ * No pasa por `request`: ese envoltorio hace response.json(), y esto es
+ * text/plain. Un documento, no un dato.
+ */
+export async function exportDeck(deckId) {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/decks/${deckId}/export`)
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
+  return response.text()
+}
