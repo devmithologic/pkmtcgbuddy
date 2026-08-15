@@ -61,217 +61,89 @@ integration problems (CORS, serialization, async, error shapes) early, while the
 At the end of a slice, briefly recap what was built, what concept it demonstrated, and what's next.
 It's fine — encouraged — to ask whether something landed before building on top of it.
 
-## Learning roadmap
+### Write the log, but don't write it yourself
 
-Rough sequence, not a contract. Each phase should end with something that runs.
+The `log-mentor` skill **dispatches a subagent** (`.claude/agents/log-mentor.md`, `model: haiku`)
+rather than writing the entry in the main conversation. Two reasons: 150 lines of reference prose
+would eat the working session's context, and it is templated writing that does not need the most
+expensive model.
 
-| Phase | Build | Concepts it teaches |
-| ----- | ----- | ------------------- |
-| 1. First slice | Record a match; list matches | HTTP, REST, JSON, async Python, React state, fetch, CORS |
-| 2. Real domain | Decks and deck versions | Data modeling, relationships in a document DB, migrations-by-hand |
-| 3. External data | Card lookup via TCGdex | Third-party APIs, adapters, caching, sync jobs, failure handling |
-| 4. Analysis | Matchup + win-rate stats | Aggregation pipelines, derived data, charting |
-| 5. Quality | Tests, validation, error handling | pytest, Pydantic validation, HTTP error semantics |
-| 6. Containerize | Docker + docker-compose | Images, layers, service networking, env config |
-| 7. Deploy *(stretch)* | Put it online | CI, secrets, production config |
-
-## Stack
-
-| Layer    | Choice           | Notes                                          |
-| -------- | ---------------- | ---------------------------------------------- |
-| Frontend | React            | Vite as the build tool unless decided otherwise |
-| Backend  | FastAPI (Python) | Pydantic models, async endpoints                |
-| Database | MongoDB          | The "M" in FARM                                 |
-| Card data| TCGdex           | See decision below                              |
-| Deploy   | Docker           | Deliberately deferred to phase 6                |
-
-## Decisions made
-
-**Card data source: [TCGdex](https://tcgdex.dev/).** No API key, open source, includes card images,
-and serves 12+ languages. Rejected `pokemontcg.io` — folded into the commercial Scrydex product, and
-measured at 1 successful request in 10 on 2026-08-09.
-
-Correction to an earlier note here: TCGdex *does* expose pricing (`cardmarket` and `tcgplayer`,
-updated daily). The original claim that it had none is no longer true. Nothing in the feature set
-needs prices yet, so we do not store them.
-
-**MongoDB driver: `pymongo.AsyncMongoClient`, not Motor.** Motor was the async MongoDB driver for
-years, but it has been superseded — MongoDB's own docs now publish a *"Migrate From Motor"* page, and
-async support lives inside `pymongo` itself. Motor also carries a thread pool for network operations
-that `AsyncMongoClient` does without. Anything on the web recommending `motor.motor_asyncio` predates
-this.
-
-**Second external provider: PokeAPI**, for Pokémon sprites — the icons that identify a deck
-("Dragapult / Dusknoir") and each round's opponent. Same containment as TCGdex:
-`services/pokemon_source.py` is the only file that knows it exists, and it composes the sprite URL so
-a provider change is one line. All 1,351 PokeAPI entries are synced once with `python -m app.services.pokemon_sync` (0.6 s);
-nothing is fetched live. That is the 1,025 national dex **plus 326 forms** — including the 97 Mega
-Evolutions, which the TCG needs now that Mega Evolution sets exist, plus Gigantamax and regional
-variants.
-
-The id comes from the resource URL, never from the list position. Deriving it from the index works
-by coincidence for 1–1025 and breaks immediately above: Mega forms start at 10033.
-
-Sprites are 1 KB each; the official artwork on the same host is 110–155 KB and is not an icon.
-
-**Icons live on the deck and on each round**, never on the session — in a five-round tournament you
-face five different decks. They coexist with the free-text `opponent_archetype` rather than replacing
-it: "Lost Box" is defined by Comfey and Sableye, and some deck names are not a Pokémon at all.
-
-**All external card calls go behind one adapter module** (`backend/app/services/card_source.py`), and
-the rest of the codebase depends on our own card model rather than TCGdex's response shape. This
-keeps a provider swap to one file. It is also the lesson: isolate what you don't control.
-
-**Card data is synced into MongoDB, not fetched live.** The API serves searches from our own `cards`
-collection; `card_source.py` is now called only by the sync job, never by a request.
-
-The live proxy came first on purpose — understand the direct call before adopting the cache. On
-2026-08-09 the TCGdex API was down for hours (TLS handshake timeout, then connection refused) and
-card search stopped working entirely while our server and database were healthy. Measured
-alternatives at the time: `pokemontcg.io` succeeded 1 request in 10 and lacks `regulationMark`;
-Limitless has no cards endpoint at all, only tournaments and games; apitcg.com and Scrydex require
-registration. No provider is reliable enough to depend on per request.
-
-Syncing turns TCGdex from a runtime dependency into a deploy-time one. It also made searches ~600×
-faster: 0.8 ms locally versus ~500 ms proxied.
-
-**Card legality is per *card*, not per *printing*.** The tournament rule is that if a card is
-reprinted in a legal set, older printings of the same card are legal too — a Boss's Orders from
-Paldea Evolved (mark G) is playable because Mega Evolution reprinted it with mark I. TCGdex does not
-model this: it reports legality per printing, so its mark-G copies come back illegal.
-
-`card_sync` reconstructs the real rule in a second pass, grouping printings by a content signature
-(`Card.identity`: name plus text, never set or rarity) and promoting a whole group if any member is
-legal. Grouping by *name* would be wrong — 59 of the 65 cards named "Pikachu" are genuinely different
-cards, and Poké Ball has three distinct versions, one of which flips a coin.
-
-Known limit: Pokémon reworded card templates in the Scarlet & Violet era, so a card whose text was
-rewritten does not group with its older printings. Measured: 26 Trainer/Energy names, 94 printings,
-including Boss's Orders marks D and F. Matching those by name would wrongly legalise the coin-flip
-Poké Ball, so the gap is left open deliberately.
-
-**Sync scope is a real decision, and it is invisible at query time.** TCGdex holds 23,546 cards;
-14,901 are Expanded-legal and 3,345 Standard-legal. Syncing `--format standard` omits promo printings
-that are not Standard-legal — which looks like missing data from the provider until you check. Sync
-Expanded: it is a superset of Standard. The database currently holds the full Expanded set.
-
-**Substring search does not use an index.** `name` matching is an unanchored `$regex`, which has to
-examine every candidate document. Measured: 0.8 ms over 3,318 cards, 6.1 ms over 14,901 — still ~80×
-faster than the live proxy, but the cost grows with the collection. If it ever matters, the options
-are a MongoDB text index (word-based, would stop `rod` matching `Aerodactyl`) or anchoring the
-pattern to a prefix. Neither is worth doing yet.
-
-## Domain model (draft)
-
-- **Session** — one event: a league night, a Cup, an afternoon of testing. Holds the date, the
-  session type (`league` · `cup` · `challenge` · `online` · `testing`), the deck version played, and
-  its rounds. The deck lives here, not on the match — you pick a deck once when the tournament
-  starts, not before every round.
-- **Match** — one round inside a session: opponent archetype, result, notes. **Embedded** in the
-  session document, unlike DeckVersion which is a separate collection. The criterion is the direction
-  of the references: nothing outside a session points at an individual match, whereas a session does
-  point at a deck version. The array is also bounded — a tournament is 4–9 rounds.
-- **Record** — a session's W–L–T, derived at read time, never stored.
-- **Tags** — free-text labels on a session: the store, the purpose, whatever groups it. Normalised on
-  write (lowercased, trimmed, deduped) because the risk is drift — "GameSmart", "gamesmart" and
-  "Game Smart" becoming three tags is the same failure as free-text archetypes. Filter the session
-  list and the deck stats.
-
-  Note the contrast with **season**, which is deliberately *not* a tag: a season is a date range and
-  `played_at` already holds it, so a tag could contradict it. Tag what the data cannot express;
-  derive what it can.
-- **Deck** — a named deck owned by the user. Not a single card list — a list *plus a history*.
-- **DeckVersion** — a snapshot of the card list at a point in time with a message describing the
-  change, like a Git commit. **Matches reference the version played, not just the deck**, so win
-  rates can be attributed to specific builds. This is the central design idea of the app; retrofitting
-  version references onto existing match records later is painful.
-- **Archetype** — the opponent's deck type. Not available from any API; user-maintained. A controlled
-  list produces far better statistics than free text.
-- **Matchup** — derived at query time, not stored: matches grouped by (deck version, archetype).
-  Computed in `db/stats_repository.py` with `$match` → `$unwind` → `$facet`. `$unwind` turns a
-  session's embedded rounds into one document each; `$facet` runs four groupings over that single
-  read. **`$facet` cannot be nested** (`$facet is not allowed to be used within a $facet stage`), so
-  the session count is a separate `count_documents` rather than a second branch.
-
-## Planned layout
-
-```
-backend/
-  app/
-    main.py         ASGI entrypoint
-    models/         Pydantic schemas
-    routers/        One module per resource
-    services/       Business logic, external adapters
-    db/             Mongo client + collection access
-  tests/
-frontend/
-  src/
-    components/
-    pages/
-    api/            The only place that talks to the backend
-```
+The consequence to work around: **that subagent never saw the conversation.** It recovers the *why*
+from `git diff`, from `docs/decisions.md`, and from the code comments — which in this repo explain
+the failure a line prevents, not what the line does. If something only existed in
+conversation — an alternative that was tried and rejected, a measurement taken and not written down —
+say it in the dispatch prompt, because nothing else can.
 
 ## Conventions
 
 Short and real. Add entries as they become true, delete ones that stop being true.
 
 - Backend: type-annotated Python; Pydantic models at the API boundary.
-- API: REST under `/api`, plural resource names (`/api/decks`, `/api/matches`).
+- API: REST under `/api`, plural resource names (`/api/decks`, `/api/sessions`).
 - Frontend components never call `fetch` directly — all backend access goes through `src/api/`.
 - Secrets in `.env`, never committed; `.env.example` documents the required keys.
+- **Separate the model that comes in from the model that goes out.** `Create`/`Update` versus `Out`,
+  everywhere. It is not ceremony: it is what stops a `@computed_field` from being written back to
+  Mongo by `model_dump()`, and what stops mass assignment.
+- **Never enumerate fields by hand** when passing a whole object through. `**payload.model_dump()` on
+  the backend, the whole object on the frontend. Enumerating has silently dropped data twice — round
+  icons in `add_match`, deck icons in `createDeck` — because a filter written once is not updated when
+  the model grows. The backend's model is what decides which fields are valid.
+- **PATCH means `exclude_unset`.** Distinguish "the client did not send this" from "the client sent
+  null". Which one null *means* differs per field and must be decided per field: null `name` is
+  client noise and is dropped; null `folder_id` and null `parent_id` are instructions.
+- Comments explain the mechanism and the failure they prevent, not what the line does. The repo is a
+  learning artifact; a comment restating the code is dead weight, and a comment naming the bug that
+  bit us is the whole point.
+- Code and comments are written in Spanish; `CLAUDE.md` and `log_mentor/` in English. Do not mix
+  within a file.
 
-## Commands
+## Before you act: read the decision record
 
-All verified. Three processes; MongoDB runs as a service, the other two need a terminal each.
+Everything that was below the guidelines has moved out of this file. It is history and reference —
+valuable, but it does not need to be in context before you have done anything. What stays here is the
+index, so you always know a decision **exists** on a topic and can go read why.
 
-```bash
-# Backend — terminal 1
-cd backend && source .venv/bin/activate && uvicorn app.main:app --reload   # :8000
+**`docs/decisions.md`** — the stack, and the reasoning behind every choice. Read it before proposing
+an architecture, swapping a provider, or reopening any of these:
 
-# Frontend — terminal 2
-cd frontend && npm run dev                                                 # :5173
+| Decision | Why, in short |
+| --- | --- |
+| Card data comes from TCGdex | `pokemontcg.io` measured at 1 successful request in 10 |
+| Driver is `pymongo.AsyncMongoClient` | Motor is superseded; anything recommending it is stale |
+| Pokémon sprites come from PokeAPI | second provider, same containment as the first |
+| Two image sets, chosen by measurement | small icon for dense lists, HOME render for headings |
+| The image URL is derived, never stored | it is a provider detail, not immutable data |
+| Icons live on the deck and on each round | in a five-round tournament you may not play one deck |
+| Cards are synced into Mongo, not fetched live | TCGdex was down for hours on 2026-08-09 |
+| Every external call sits behind one adapter | `card_source.py`, `pokemon_source.py` |
+| Legality is per card, not per printing | a reprint makes older printings legal too |
+| Sync scope is Expanded | it is a superset of Standard |
+| Substring search does not use an index | measured, and deliberately left alone |
+| A `<button>` cannot contain interactive content | Space activated the button instead of typing |
+| One `Menu` component for every popover | the only `document` listener in the app |
+| Deck lists import/export as PTCG Live text | the interop format; needs the `sets` collection |
+| Import takes what it resolves and reports the rest | a friend's list may cite an unsynced set |
 
-# MongoDB — launchd service, starts at login. Aliases in ~/.zshrc:
-mongo-status · mongo-ping · mongo-start · mongo-stop · mongo-log
+**`docs/domain.md`** — Session, Match, Record, Tags, Deck, DeckVersion, Folder, Archetype, Matchup,
+and the deck legality rules. Read it before touching a model or adding a field. It also holds three
+decisions that are about the shape of the domain rather than the stack, so look for them here and
+not in the table above:
 
-# Sync the card catalogue from TCGdex into MongoDB. Run by hand, not on startup.
-# Expanded by default because it is a superset of Standard.
-cd backend && source .venv/bin/activate && python -m app.services.card_sync
-python -m app.services.card_sync --format standard
+| Decision | Why, in short |
+| --- | --- |
+| Deck folders are a tree of parent references | chosen for collection size, not elegance |
+| Deleting a deck is refused if sessions used it | 409, never a cascade |
+| Width is chosen per content type | `--shell` caps the page, `--measure` caps forms |
 
-# Inspect stored documents
-mongosh pkmtcgbuddy --eval 'db.matches.find().pretty()'
-mongosh pkmtcgbuddy --eval 'db.cards.countDocuments()'
-```
+**`docs/architecture.md`** — what each file is for; the dependency points routers → services → db →
+models. Read it before adding a module or when you cannot find where something lives.
 
-`brew services start mongodb-community` does **not** work: the `mongodb/brew` tap uses the old service
-format and Homebrew 6.x generates a plist with empty `ProgramArguments` (`Bootstrap failed: 5`). The
-service is loaded into launchd directly from the formula's own plist.
+**`docs/api.md`** — the 29 endpoints across five routers, their parameters and their non-obvious
+responses. Read it before touching `routers/` or `frontend/src/api/`.
 
-First-time setup, after cloning:
+**`docs/operations.md`** — how to run everything, the sync jobs, the current status and the known
+gaps. Read it first if you need to start the app or check what is already built.
 
-```bash
-cd backend && python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt && cp .env.example .env
-cd ../frontend && npm install && cp .env.example .env
-```
-
-## Status
-
-Phase 1 complete: a match can be recorded and listed end to end, verified in the browser.
-
-Phase 2 is split in two slices. **Slice A is done**: card search with filters for format, category
-and ACE SPEC, plus a detail panel. Served from MongoDB, not from a live TCGdex call — see the sync
-decision above. 14,901 Expanded-legal cards synced; re-run `card_sync` to refresh.
-`log_mentor/` holds fourteen entries.
-
-**Next — phase 2, slice B: decks.** Agreed rules:
-
-- 60 cards exactly; at most 4 copies of a card by name, basic Energy exempt.
-- At most **1 ACE SPEC** per deck. Detected via `Card.is_ace_spec`, never by string matching.
-- A deck declares a format (`standard` or `expanded`); every card must be legal in it.
-- **Incomplete decks are saved anyway.** The API stores whatever state the deck is in and reports
-  what makes it illegal. Building a deck is iterative; refusing to save until it is legal is the
-  wrong shape. Keep input validation separate from these business rules.
-- `DeckVersion` lands here, not later. Matches must reference the version played — retrofitting that
-  onto existing records is the one thing `CLAUDE.md` warns about most.
+Keep them current when the shape changes: a stale map is worse than no map, and this table must gain
+a row when a new decision is made.
