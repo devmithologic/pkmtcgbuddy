@@ -18,12 +18,28 @@ export default function App() {
   // niveles no justifica todavía un router: dos variables de estado dicen lo
   // mismo sin añadir una dependencia y un mecanismo nuevo.
   const [openDeckId, setOpenDeckId] = useState(null)
+  // Si el mazo abierto se acaba de crear. Lo usa el constructor para enfocar el
+  // nombre provisional; va aparte del id porque son dos cosas distintas.
+  const [deckIsNew, setDeckIsNew] = useState(false)
+  // En qué carpeta está parado el listado de mazos. Vive aquí porque DeckList se
+  // desmonta al abrir un mazo, y al volver hay que aterrizar donde estabas.
+  const [deckFolderId, setDeckFolderId] = useState(null)
   const [openSessionId, setOpenSessionId] = useState(null)
+  // Si la sesión se abre para editarla. Va aparte del id y no dentro de él
+  // porque son dos cosas distintas: cuál está abierta, y en qué modo.
+  const [editSessionOnOpen, setEditSessionOnOpen] = useState(false)
+
+  function openSession(id, editar = false) {
+    setOpenSessionId(id)
+    setEditSessionOnOpen(editar)
+  }
 
   function switchTab(id) {
     setTab(id)
     setOpenDeckId(null)
+    setDeckIsNew(false)
     setOpenSessionId(null)
+    setEditSessionOnOpen(false)
   }
 
   return (
@@ -49,16 +65,34 @@ export default function App() {
           Ocultarla con display:none la dejaría viva y consultando. */}
       {tab === 'sessions' &&
         (openSessionId ? (
-          <SessionDetail sessionId={openSessionId} onBack={() => setOpenSessionId(null)} />
+          <SessionDetail
+            sessionId={openSessionId}
+            startEditing={editSessionOnOpen}
+            onBack={() => openSession(null)}
+          />
         ) : (
-          <SessionList onOpen={setOpenSessionId} />
+          <SessionList onOpen={openSession} />
         ))}
 
       {tab === 'decks' &&
         (openDeckId ? (
-          <DeckScreen deckId={openDeckId} onBack={() => setOpenDeckId(null)} />
+          <DeckScreen
+            deckId={openDeckId}
+            isNew={deckIsNew}
+            onBack={() => {
+              setOpenDeckId(null)
+              setDeckIsNew(false)
+            }}
+          />
         ) : (
-          <DeckList onOpen={setOpenDeckId} />
+          <DeckList
+            currentId={deckFolderId}
+            setCurrentId={setDeckFolderId}
+            onOpen={(id, nuevo = false) => {
+              setOpenDeckId(id)
+              setDeckIsNew(nuevo)
+            }}
+          />
         ))}
 
       {tab === 'cards' && <CardSearch />}

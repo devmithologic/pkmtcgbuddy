@@ -9,11 +9,13 @@ from app.config import settings
 from app.db import (
     card_repository,
     deck_repository,
+    folder_repository,
+    set_repository,
     pokemon_repository,
     session_repository,
 )
 from app.db.mongo import close_mongo_connection, connect_to_mongo
-from app.routers import cards, decks, pokemon, sessions
+from app.routers import cards, decks, folders, pokemon, sessions
 
 
 @asynccontextmanager
@@ -40,6 +42,8 @@ async def lifespan(app: FastAPI):
     await deck_repository.ensure_indexes()
     await session_repository.ensure_indexes()
     await pokemon_repository.ensure_indexes()
+    await folder_repository.ensure_indexes()
+    await set_repository.ensure_indexes()
 
     yield
 
@@ -74,6 +78,7 @@ app.include_router(sessions.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")
 app.include_router(pokemon.router, prefix="/api")
+app.include_router(folders.router, prefix="/api")
 
 
 @app.get("/api/health")
