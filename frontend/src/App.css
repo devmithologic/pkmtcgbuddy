@@ -2,11 +2,56 @@
    El diseño de verdad llega cuando haya algo que diseñar. */
 
 .app {
-  max-width: 42rem;
+  max-width: var(--shell);
   margin: 0 auto;
-  padding: 2rem 1rem 4rem;
+  padding: 2rem 1.5rem 4rem;
   text-align: left;
 }
+
+/* --- Pantalla de dos columnas: acción | contenido ---------------------
+   El formulario de alta a un lado y la lista al otro. Antes el formulario
+   estaba ENCIMA, así que en Sesiones y en Mazos había que bajar para ver lo
+   que ya tenías: la pantalla dedicaba el primer pliegue a crear algo, que es
+   lo que menos veces haces.
+
+   minmax(0, …) en las dos columnas y no `auto 1fr`: sin el mínimo 0, un hijo
+   que no quepa —una fila larga, una rejilla— ensancha su columna y desborda la
+   rejilla en vez de encogerse. Es el fallo clásico de CSS Grid, y el mismo
+   truco que ya usa .builder-cols.
+
+   El umbral es 60rem, igual que el del constructor. Por debajo vuelve a una
+   columna, con el formulario primero: en un móvil el orden del DOM es el orden
+   visual y no hay hueco para poner nada al lado. */
+.screen-split {
+  display: grid;
+  grid-template-columns: minmax(0, var(--measure)) minmax(0, 1fr);
+  gap: var(--gap-6);
+  align-items: start;
+}
+
+/* Variante con la columna estrecha a la DERECHA.
+   En el detalle de sesión el orden natural del documento es «las rondas y luego
+   el formulario para añadir otra», y ese orden es el que lee un lector de
+   pantalla y el que sigue el tabulador. Invertir el DOM para que el formulario
+   cayera en la primera columna habría roto ese orden a cambio de nada: mover la
+   columna es trabajo de la rejilla, no del marcado. */
+.screen-split--end {
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--measure));
+}
+
+@media (max-width: 60rem) {
+  .screen-split,
+  .screen-split--end { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* En dos columnas el formulario ya no separa nada de lo que viene debajo:
+   su margen inferior solo dejaría un hueco muerto al final de la columna. */
+.screen-split > .match-form { margin-bottom: 0; }
+
+/* La columna de contenido: sus hijos se apilan, y es ella la que da a la
+   rejilla de cartas y a las listas el ancho que les queda. */
+.pane { display: flex; flex-direction: column; min-width: 0; }
+.pane > h2:first-child { margin-top: 0; }
 
 .app header {
   margin-bottom: 2rem;
@@ -248,6 +293,10 @@
   gap: 0.75rem;
   padding: 1.25rem;
   margin-bottom: 2.5rem;
+  /* Su propia medida, para que no herede el ancho del contenedor. Un
+     formulario de una columna con campos de 1400 px es peor que uno de 550:
+     la etiqueta queda a un lado y el valor al otro. */
+  max-width: var(--measure);
   border: 1px solid var(--line);
   border-radius: 0.5rem;
 }
@@ -356,14 +405,22 @@
 
 /* ============ Mazos ============ */
 
-/* El contenedor general son 42rem, cómodas para leer una columna de texto. El
-   constructor necesita dos columnas —la lista y el buscador— así que ensancha
-   solo cuando está presente. :has() consulta el contenido desde el padre, que es
-   justo lo que hacía falta y antes obligaba a subir una clase al ancestro. */
-.app:has(.deck-builder) { max-width: 68rem; }
+/* Aquí vivía `.app:has(.deck-builder) { max-width: 68rem }`: el contenedor
+   general eran 42rem y el constructor era la única pantalla que necesitaba más,
+   así que se ensanchaba con :has() cuando estaba presente.
+
+   Esa excepción era la señal de que la regla general estaba mal. El
+   constructor no era un caso raro: era la primera pantalla en pedir el ancho
+   que todas necesitaban. Ahora el tope es --shell para todo y quien acota es
+   --measure, por contenido. Una excepción que se repite deja de ser excepción. */
 
 .deck-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-.deck-list button {
+/* Acotado al botón PRINCIPAL de la fila, igual que en el listado de sesiones y
+   por el mismo motivo, que ya está contado unas líneas más abajo: cuando llegó
+   el menú «⋮», `.deck-list button` (0,1,1) también lo alcanzaba y le imponía
+   width:100%, borde y rejilla, así que el menú salía como una caja ancha
+   separada de la fila. La segunda vez que muerde el mismo perro. */
+.deck-row > .row-main {
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 1rem;
@@ -378,7 +435,7 @@
   border-radius: 0.35rem;
   cursor: pointer;
 }
-.deck-list button:hover { border-color: var(--line-strong); }
+.deck-row > .row-main:hover { border-color: var(--line-strong); }
 .deck-name { font-weight: 600; }
 .deck-meta { font-size: 0.8rem; opacity: 0.65; }
 .deck-count {
@@ -406,7 +463,15 @@
   white-space: nowrap;
 }
 
-.builder-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+/* El mazo manda: es en lo que estás trabajando, y el buscador es la herramienta
+   con la que lo haces. Al 50/50 la rejilla del mazo salía a cuatro cartas por
+   fila mientras el buscador desperdiciaba media pantalla en un formulario de
+   tres campos. 1.7fr / 1fr deja el mazo en ~63%, como las listas publicadas. */
+.builder-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 2rem; align-items: start;
+}
 @media (max-width: 60rem) { .builder-cols { grid-template-columns: 1fr; } }
 
 .builder-actions { display: flex; gap: 0.5rem; margin: 1rem 0 0.5rem; }
@@ -607,30 +672,88 @@
 .session-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 /* Acotado al botón PRINCIPAL de la fila, no a cualquier button que haya dentro.
    La versión anterior era `.session-list button`, y cuando llegó la «×» de
-   borrar tambien la alcanzaba: `width: 100%` con especificidad (0,1,1) le ganaba
-   a `.delete-session { width: 2rem }` (0,1,0), la aspa ocupaba la fila entera y
-   aplastaba al resto. Es la colisión clásica entre un selector de tipo y uno de
-   clase; se arregla acotando, no subiendo la especificidad del otro. */
+   borrar también la alcanzaba: `width: 100%` con especificidad (0,1,1) le ganaba
+   al `width: 2rem` de la aspa (0,1,0), que ocupaba la fila entera y aplastaba al
+   resto. Es la colisión clásica entre un selector de tipo y uno de clase; se
+   arregla acotando, no subiendo la especificidad del otro.
+
+   Sigue importando: el menú «⋮» que sustituyó a la aspa mete ahora tres botones
+   más en la fila, y con el selector viejo los tres habrían salido al 100%. */
+/* La segunda columna es un CARRIL FIJO para la cápsula de tipo.
+   Antes era `auto`, o sea que la medía su contenido: con LIGA quedaba en 40 px
+   y con TESTING en 63, así que el nombre de cada sesión arrancaba en una x
+   distinta y el borde izquierdo de la lista salía dentado.
+   6rem porque la etiqueta más larga, CHALLENGE, ocupa 79 px con su relleno. Si
+   se añade un tipo de nombre más largo hay que subir esto, y se nota enseguida
+   porque sale con puntos suspensivos.
+
+   Medir ese número tiene dos trampas, y caí en las dos:
+     - `canvas.measureText` sobre el texto del nodo se queda corto, porque
+       `text-transform: uppercase` cambia lo que se PINTA y no lo que hay en el
+       DOM: mide "Challenge", no "CHALLENGE".
+     - `scrollWidth` no sirve para saber cuánto NECESITA un elemento: cuando el
+       contenido cabe, vale exactamente lo mismo que `clientWidth`. Verlos
+       iguales significa «no desborda», no «va justo».
+   Lo que sí sirve: clonar el elemento con `width:auto` y `white-space:nowrap`,
+   medirlo fuera de la rejilla y quitarlo.
+
+   El menú «⋮» no es una columna de esta rejilla: es hermano del botón, porque
+   tiene que poder pulsarse sin abrir la sesión. */
 .session-row > button:first-child {
   display: grid;
-  grid-template-columns: 6rem auto 1fr auto auto;
-  gap: 0.4rem 0.9rem; align-items: baseline;
+  grid-template-columns: 6rem 6rem minmax(0, 1fr) auto auto;
+  grid-template-areas: 'fecha tipo nombre mazo record';
+  /* center y no baseline: la celda del mazo tiene dos líneas apiladas, y
+     alinear la fila por la primera línea base del texto descuadra el resto. */
+  gap: 0.4rem 0.9rem; align-items: center;
   width: 100%; padding: 0.8rem 1rem;
   font: inherit; color: inherit; text-align: left; background: none;
   border: 1px solid var(--line); border-radius: 0.35rem; cursor: pointer;
 }
 .session-row > button:first-child:hover { border-color: var(--line-strong); }
-.s-date { font-size: 0.8rem; opacity: 0.65; font-variant-numeric: tabular-nums; }
+.s-date { grid-area: fecha; font-size: 0.8rem; opacity: 0.65; font-variant-numeric: tabular-nums; }
+/* La cápsula ocupa el carril entero. Fijar solo la columna alinearía los
+   nombres, pero dejaría recuadros de tres anchos distintos uno debajo de otro;
+   estirarla hace que todas midan igual, que es lo pedido. */
 .s-type {
-  padding: 0.1rem 0.45rem; font-size: 0.7rem; text-transform: uppercase;
+  grid-area: tipo;
+  width: 100%; text-align: center;
+  padding: 0.15rem 0.35rem; font-size: 0.7rem; text-transform: uppercase;
   letter-spacing: 0.05em; border-radius: 0.25rem; background: var(--surface-2);
+  /* Un tipo con nombre largo se recorta antes que romper la rejilla. */
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .s-type--cup { background: var(--warn-soft); color: var(--warn); }
 .s-type--challenge { background: var(--accent-soft); color: var(--accent); }
 .s-type--testing { background: var(--surface-2); opacity: 0.8; }
-.s-name { font-weight: 600; }
-.s-deck { font-size: 0.8rem; opacity: 0.6; }
-.s-record { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.95rem; }
+.s-name { grid-area: nombre; font-weight: 600; }
+
+/* El mazo: iconos arriba, nombre debajo. */
+.s-deck {
+  grid-area: mazo;
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  font-size: 0.8rem; opacity: 0.6;
+}
+.s-deck-name { white-space: nowrap; }
+.s-record { grid-area: record; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.95rem; }
+
+/* Estrecho: la fila de cinco columnas no cabe en un móvil — sumadas piden más
+   de 500 px y a 400 se desbordaban las cinco. Se reparte en tres renglones en
+   vez de encogerlas, porque encoger la fecha o el récord los hace ilegibles.
+   Las áreas con nombre hacen el reparto explícito: se lee la maqueta entera en
+   tres líneas de CSS, sin recolocar nada en el JSX. */
+@media (max-width: 48rem) {
+  .session-row > button:first-child {
+    grid-template-columns: auto 6rem minmax(0, 1fr);
+    grid-template-areas:
+      'fecha tipo record'
+      'nombre nombre nombre'
+      'mazo mazo mazo';
+    justify-items: start;
+  }
+  .s-record { justify-self: end; }
+  .s-deck { flex-direction: row; align-items: center; gap: 0.5rem; }
+}
 
 /* --- sesión abierta --- */
 .record { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 1.5rem; }
@@ -723,10 +846,21 @@
 .pkm-pair { display: inline-flex; align-items: center; gap: 0.15rem; vertical-align: middle; }
 .pkm-pair img {
   width: var(--pkm-size, 32px); height: var(--pkm-size, 32px);
-  image-rendering: pixelated;  /* los sprites son de baja resolución: escalarlos
-                                  suavizado los emborrona */
   flex-shrink: 0;
 }
+
+/* image-rendering va acotado a la variante, no en .pkm-pair img, porque las dos
+   imágenes necesitan lo contrario:
+     icon  sprite de 96px que se AMPLÍA -> pixelated, o el suavizado lo emborrona
+     art   render de 512px que se REDUCE -> suavizado, o salen dientes de sierra
+   Es el mismo ajuste aplicado al revés según la dirección del escalado. */
+.pkm-icon img { image-rendering: pixelated; }
+.pkm-art img { image-rendering: auto; }
+
+/* Los renders vienen recortados justos y con bastante aire transparente
+   alrededor; un poco de solape los junta sin que se toquen. */
+.pkm-art { gap: 0; }
+.pkm-art img + img { margin-left: -0.35rem; }
 .pkm-label { margin-left: 0.25rem; }
 
 .pkm-two { display: flex; gap: 0.5rem; flex-wrap: wrap; }
@@ -767,8 +901,22 @@
 .pkm-results img { image-rendering: pixelated; flex-shrink: 0; }
 .pkm-dex { margin-left: auto; opacity: 0.45; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
 
-.deck-list button { grid-template-columns: auto 1fr auto auto; }
+/* La primera columna mide lo mismo en todas las filas: es el carril de los dos
+   iconos, y así los nombres arrancan alineados aunque un mazo no tenga ninguno.
+   Con `auto` la medía su contenido, y cada fila salía distinta. */
+.deck-row > .row-main { grid-template-columns: 7rem 1fr auto auto; }
 .round-arch { display: flex; align-items: center; gap: 0.4rem; }
+
+/* Carril de ancho fijo para el par de iconos.
+   El mismo problema en dos listas: PokemonPair devuelve null cuando el mazo o
+   el rival no tienen Pokémon, y un mazo puede tener uno o dos. Sin un carril
+   reservado, el texto arranca en un sitio distinto en cada fila y el borde
+   izquierdo queda dentado — que es justo el borde por el que se recorre una
+   lista. El hueco existe siempre; lo que varía es lo que hay dentro. */
+.pkm-slot { display: flex; justify-content: center; flex-shrink: 0; min-width: 0; }
+/* En los mazos el ancho ya lo fija la columna de la rejilla (7rem); en las
+   rondas es flexbox, así que el carril lo declara aquí. */
+.round-arch .pkm-slot { width: 3.5rem; }
 
 /* ============ Control de densidad del mazo ============ */
 
@@ -870,17 +1018,45 @@
 }
 .filtered-by { font-size: var(--step-0); font-weight: 400; color: var(--accent); }
 
-/* --- borrar sesión --- */
+/* --- acciones de la fila --- */
 .session-row { display: flex; align-items: stretch; gap: var(--gap-2); }
 .session-row > button:first-child { flex: 1; }
-.delete-session {
-  flex-shrink: 0; width: 2rem;
+
+/* El menú «⋮». Sustituye a la «×» suelta: una fila tiene dos acciones, y
+   colgarlas las dos del margen las convierte en ruido que se lee en cada
+   fila aunque casi nunca se usen. */
+.row-menu { position: relative; flex-shrink: 0; display: flex; align-items: center; }
+.row-menu-trigger {
+  width: 2rem; height: 2rem;
   font-size: var(--step-1); line-height: 1; color: var(--ink-3);
   background: none; border: 1px solid transparent; border-radius: var(--radius);
   cursor: pointer; opacity: 0.35;
 }
-.session-row:hover .delete-session { opacity: 1; }
-.delete-session:hover { color: var(--loss); border-color: var(--loss); }
+/* Visible al pasar por encima de la fila, y SIEMPRE cuando el menú está
+   abierto o el botón tiene el foco: si no, al llegar con el tabulador el
+   control estaría enfocado y casi invisible. */
+.session-row:hover .row-menu-trigger,
+.row-menu-trigger:focus-visible,
+.row-menu-trigger[aria-expanded='true'] { opacity: 1; }
+.row-menu-trigger:hover { color: var(--ink); border-color: var(--line-strong); }
+
+.row-menu-items {
+  position: absolute; z-index: 30; top: calc(100% + 2px); right: 0;
+  display: flex; flex-direction: column; min-width: 8rem; padding: 0.2rem;
+  background: var(--surface); border: 1px solid var(--line-strong);
+  border-radius: var(--radius); box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
+}
+.row-menu-items button {
+  display: flex; align-items: center; gap: var(--gap-2);
+  /* Una opción de menú no se parte en dos líneas: el menú crece a lo ancho. */
+  white-space: nowrap;
+  padding: 0.35rem 0.5rem; font: inherit; font-size: var(--step--1);
+  color: inherit; text-align: left; background: none; border: none;
+  border-radius: 0.2rem; cursor: pointer;
+}
+.row-menu-items button:hover { background: var(--surface-2); }
+.row-menu-items button.danger { color: var(--loss); }
+.row-menu-items button.danger:hover { background: var(--loss-soft); }
 .confirm-delete {
   display: inline-flex; align-items: center; gap: var(--gap-2);
   padding: 0 var(--gap-3); font-size: var(--step--1); white-space: nowrap;
@@ -890,3 +1066,155 @@
   font: inherit; font-size: var(--step--1); color: inherit;
   background: none; border: none; cursor: pointer; text-decoration: underline;
 }
+
+/* ============ Carpetas de mazos ============ */
+
+/* La pantalla de mazos ya no es .screen-split: al irse el formulario del
+   lateral no queda nada que poner al lado, así que ocupa una columna sola.
+
+   Con su propia medida, no la del contenedor. Sin tope, una fila medía 1268 px
+   con el nombre a la izquierda y el 60/60 a la derecha: el ojo tiene que cruzar
+   la pantalla entera para leer un renglón. Es la misma regla que puso --measure
+   en los formularios, aplicada a una lista: el ancho lo pide el contenido, y
+   una fila de cuatro datos no necesita mil pixeles. */
+.decks-screen {
+  display: flex; flex-direction: column; min-width: 0;
+  max-width: 64rem;
+}
+
+.deck-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--gap-3); flex-wrap: wrap; margin-bottom: var(--gap-4);
+}
+.toolbar-right { display: flex; align-items: center; gap: var(--gap-3); }
+
+/* --- miga de pan --- */
+.breadcrumb { display: flex; align-items: center; gap: 0.15rem; flex-wrap: wrap; }
+.breadcrumb button {
+  padding: 0.2rem 0.35rem; font: inherit; font-size: var(--step-1); font-weight: 600;
+  color: var(--ink-3); background: none; border: none; border-radius: var(--radius);
+  cursor: pointer;
+}
+.breadcrumb button:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
+/* El tramo actual se deshabilita en vez de ocultarse: sigue siendo el título de
+   la pantalla, solo que no lleva a ningún sitio nuevo. */
+.breadcrumb button:disabled { color: var(--ink); cursor: default; }
+.breadcrumb .sep { color: var(--ink-3); opacity: 0.5; }
+.breadcrumb .crumb-current { padding: 0.2rem 0.35rem; font-size: var(--step-1); font-weight: 600; color: var(--ink); }
+.breadcrumb-title { margin: 0; font-size: var(--step-1); }
+
+.new-menu .row-menu-trigger {
+  width: auto; height: auto; padding: 0.4rem 0.9rem;
+  font-size: var(--step--1); font-weight: 600;
+  color: var(--accent-ink); background: var(--accent);
+  border-color: var(--accent); opacity: 1;
+}
+.new-menu .row-menu-trigger:hover { color: var(--accent-ink); filter: brightness(1.1); }
+.row-menu-items.align-left { right: auto; left: 0; }
+
+.view-switch { display: inline-flex; gap: 0; }
+.view-switch button {
+  padding: 0.3rem 0.7rem; font: inherit; font-size: var(--step--1);
+  color: var(--ink-3); background: none; cursor: pointer;
+  border: 1px solid var(--line-strong);
+}
+.view-switch button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.view-switch button:last-child { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
+.view-switch button.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+
+/* --- filas --- */
+.deck-row { display: flex; align-items: stretch; gap: var(--gap-2); }
+.deck-row > .row-main { flex: 1; }
+.deck-row:hover .row-menu-trigger { opacity: 1; }
+
+/* La carpeta ocupa el carril de los iconos con su emoji, así el nombre de una
+   carpeta y el de un mazo arrancan en la misma x. */
+.row-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 7rem; font-size: 1.6rem;
+}
+.folder-row > .row-main { padding-block: 0.55rem; }
+
+/* --- renombrar en el sitio --- */
+.rename { display: flex; }
+.rename input {
+  width: 100%; padding: 0.2rem 0.4rem; font: inherit; font-weight: 600;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--accent); border-radius: var(--radius);
+}
+
+
+/* --- cabecera del constructor --- */
+/* La cabecera envuelve. Sin esto, a 420 px el campo del nombre (12rem de
+   mínimo), los dos botones de guardar y los dos selectores de Pokémon suman más
+   que la pantalla y la desbordan hacia la derecha: se veía scroll horizontal en
+   el constructor y en ningún otro sitio. */
+.builder-head { flex-wrap: wrap; }
+.builder-id { flex: 1; min-width: 0; }
+/* El nombre y las acciones en la misma línea: guardar tiene que verse cuando
+   hay algo que guardar, y antes vivía al final de una columna de 60 cartas. */
+.builder-title {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--gap-4); flex-wrap: wrap;
+}
+.deck-title {
+  /* min-width: 0 y no 12rem: un mínimo en un hijo flexible es un suelo que la
+     rejilla no puede bajar, y es lo que empujaba la fila fuera de pantalla. */
+  flex: 1; min-width: 0; max-width: 26rem;
+  padding: 0.3rem 0.5rem;
+  font: inherit; font-size: var(--step-2); font-weight: 700;
+  color: var(--ink); background: transparent;
+  border: 1px solid transparent; border-radius: var(--radius);
+}
+/* Sin borde hasta que lo tocas: se lee como el título que es, pero al pasar por
+   encima se ve que es editable. */
+.deck-title:hover { border-color: var(--line); }
+.deck-title:focus { border-color: var(--accent); background: var(--surface); outline: none; }
+
+.builder-head .builder-actions { margin: 0; flex-shrink: 0; }
+.builder-meta { display: flex; align-items: center; gap: var(--gap-2); flex-wrap: wrap; }
+.builder-meta select {
+  padding: 0.15rem 0.3rem; font: inherit; font-size: var(--step--1);
+  color: inherit; background: transparent;
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+
+/* Estrecho: la cabecera del constructor se apila en vez de desbordar. Los dos
+   selectores de Pokémon tienen 9rem de mínimo cada uno; juntos no caben en un
+   móvil, así que se ponen uno debajo del otro. */
+@media (max-width: 48rem) {
+  .builder-head .builder-actions { flex-shrink: 1; flex-wrap: wrap; }
+  .builder-head .deck-pokemon { flex-wrap: wrap; }
+  .deck-title { max-width: none; }
+}
+
+/* --- importar y exportar listas --- */
+.deck-import, .deck-export {
+  display: flex; flex-direction: column; gap: var(--gap-3);
+  max-width: 44rem;
+}
+.deck-import h3 { margin: 0; }
+.deck-import label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.875rem; }
+.deck-import input[type='text'],
+.deck-import textarea,
+.deck-export textarea {
+  padding: 0.5rem; font: inherit; color: inherit; background: transparent;
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+}
+/* La lista es texto tabular con códigos de set: en monoespaciada las columnas
+   se alinean y una errata en un número se ve. */
+.deck-import textarea,
+.deck-export textarea { font-family: var(--mono); font-size: var(--step--1); resize: vertical; }
+
+.deck-export { margin-bottom: var(--gap-5); }
+
+/* El informe no es un error —la importación funcionó— pero tampoco es un éxito
+   limpio: usa el color de aviso, no el de fallo. */
+.import-report {
+  padding: var(--gap-3); font-size: var(--step--1);
+  background: var(--warn-soft); color: var(--warn);
+  border: 1px solid var(--warn); border-radius: var(--radius);
+}
+.import-report p { margin: 0 0 var(--gap-2); }
+.import-report p:last-child { margin: var(--gap-2) 0 0; opacity: 0.85; }
+.import-report ul { margin: 0; padding-left: 1.2rem; font-family: var(--mono); }

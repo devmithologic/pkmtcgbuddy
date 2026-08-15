@@ -35,7 +35,26 @@ const EMPTY_ROUND = {
  * entera ya recalculada por el servidor, así que solo hay una implementación del
  * cálculo y no puede haber dos que discrepen.
  */
-export default function SessionDetail({ sessionId, onBack }) {
+/**
+ * Los campos editables de la cabecera, a partir de una sesión.
+ *
+ * Recibe la sesión como argumento en vez de leer el estado porque hace falta
+ * llamarla en dos momentos distintos: al pulsar «editar sesión», cuando el
+ * estado ya está puesto, y nada más llegar la respuesta del servidor, cuando
+ * todavía no lo está.
+ */
+function headerFrom(s) {
+  return {
+    name: s.name ?? '',
+    played_at: s.played_at,
+    session_type: s.session_type,
+    notes: s.notes ?? '',
+    deck_version_id: s.deck_version_id,
+    tags: s.tags ?? [],
+  }
+}
+
+export default function SessionDetail({ sessionId, startEditing = false, onBack }) {
   const [session, setSession] = useState(null)
   const [form, setForm] = useState(EMPTY_ROUND)
   // Qué RONDA se está corrigiendo, o null. Nombre explícito para no
@@ -56,13 +75,29 @@ export default function SessionDetail({ sessionId, onBack }) {
     let active = true
 
     getSession(sessionId)
-      .then((s) => active && setSession(s))
+      .then((s) => {
+        if (!active) return
+        setSession(s)
+
+        // Abrir ya editando, cuando se llega desde el lápiz del listado.
+        //
+        // Tiene que ser AQUÍ y no en el useState de editingHeader: el
+        // formulario se rellena a partir de la sesión, y al montar la sesión
+        // todavía es null. Sembrarlo antes daría un TypeError en
+        // header.played_at en el primer render. Se siembra con `s`, el dato
+        // recién llegado, no con el estado `session`, que en esta misma vuelta
+        // aún no se ha actualizado.
+        if (startEditing) {
+          setHeader(headerFrom(s))
+          setEditingHeader(true)
+        }
+      })
       .catch((err) => active && setError(err.message))
 
     return () => {
       active = false
     }
-  }, [sessionId])
+  }, [sessionId, startEditing])
 
   // Los mazos hacen falta para poder corregir con cuál se jugó.
   useEffect(() => {
@@ -80,14 +115,7 @@ export default function SessionDetail({ sessionId, onBack }) {
   }, [])
 
   function startEditHeader() {
-    setHeader({
-      name: session.name ?? '',
-      played_at: session.played_at,
-      session_type: session.session_type,
-      notes: session.notes ?? '',
-      deck_version_id: session.deck_version_id,
-      tags: session.tags ?? [],
-    })
+    setHeader(headerFrom(session))
     setEditingHeader(true)
   }
 
@@ -275,6 +303,11 @@ export default function SessionDetail({ sessionId, onBack }) {
         </form>
       )}
 
+      {/* Las rondas a la izquierda, el formulario de la siguiente a la derecha.
+          Antes el formulario iba debajo de la lista, así que en un torneo de
+          cinco rondas había que bajar hasta el final para apuntar la sexta. */}
+      <div className="screen-split screen-split--end">
+      <div className="pane">
       <div className="record">
         <span className="record-figure">
           {record.wins}–{record.losses}–{record.ties}
@@ -293,11 +326,15 @@ export default function SessionDetail({ sessionId, onBack }) {
           <li key={m.round} className={`round round--${m.result}`}>
             <span className="round-no">R{m.round}</span>
             <span className="round-arch">
-              <PokemonPair
-                primary={m.opponent_primary}
-                secondary={m.opponent_secondary}
-                size={26}
-              />
+              {/* Carril fijo: un rival puede tener dos iconos, uno o ninguno,
+                  y sin él los nombres de mazo no arrancan alineados. */}
+              <span className="pkm-slot">
+                <PokemonPair
+                  primary={m.opponent_primary}
+                  secondary={m.opponent_secondary}
+                  size={26}
+                />
+              </span>
               {m.opponent_archetype}
             </span>
             <span className="round-result">
@@ -327,6 +364,7 @@ export default function SessionDetail({ sessionId, onBack }) {
           </li>
         ))}
       </ol>
+      </div>
 
       <form onSubmit={handleAdd} className="match-form round-form">
         <h3>{editingRound === null ? `Ronda ${session.matches.length + 1}` : `Corregir ronda ${editingRound}`}</h3>
@@ -393,6 +431,7 @@ export default function SessionDetail({ sessionId, onBack }) {
           )}
         </div>
       </form>
+      </div>
     </div>
   )
 }

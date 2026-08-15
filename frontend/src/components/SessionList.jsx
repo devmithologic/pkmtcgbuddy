@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { listDecks } from '../api/decks'
 import { createSession, deleteSession, listSessions, listTags } from '../api/sessions'
+import PokemonPair from './PokemonPair'
+import Menu from './Menu'
 import TagInput from './TagInput'
 import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
 
@@ -118,7 +120,7 @@ export default function SessionList({ onOpen }) {
   }
 
   return (
-    <section>
+    <section className="screen-split">
       <form onSubmit={handleSubmit} className="match-form">
         <h2>Nueva sesión</h2>
 
@@ -187,6 +189,11 @@ export default function SessionList({ onOpen }) {
         {error && <p className="error">{error}</p>}
       </form>
 
+      {/* Todo lo que no es el formulario va junto en una columna. El envoltorio
+          hace falta porque .screen-split es una rejilla y sus hijos DIRECTOS son
+          las celdas: sin él, los filtros, el título y la lista serían tres
+          celdas sueltas y se repartirían por las columnas. */}
+      <div className="pane">
       {tags.length > 0 && (
         <div className="tag-filters">
           <button
@@ -227,14 +234,32 @@ export default function SessionList({ onOpen }) {
                 {TYPE_LABEL[s.session_type]}
               </span>
               <span className="s-name">{s.name || s.deck_name}</span>
+
+              {/* El mazo: sus dos Pokémon encima del nombre. El par de iconos
+                  identifica un mazo más rápido que su nombre escrito, que es
+                  para lo que existen. */}
               <span className="s-deck">
-                {s.deck_name} <span className="vtag">v{s.deck_version}</span>
+                <span className="pkm-slot">
+                  <PokemonPair
+                    primary={s.deck_primary}
+                    secondary={s.deck_secondary}
+                    size={30}
+                    variant="art"
+                  />
+                </span>
+                <span className="s-deck-name">
+                  {s.deck_name} <span className="vtag">v{s.deck_version}</span>
+                </span>
               </span>
+
               <span className="s-record">
                 {s.record.wins}–{s.record.losses}–{s.record.ties}
               </span>
             </button>
 
+            {/* La confirmación sigue existiendo: el menú cambia de dónde sale la
+                acción, no que borrar un torneo de cinco rondas sea
+                irreversible. */}
             {confirming === s.id ? (
               <span className="confirm-delete">
                 ¿Borrar?
@@ -242,19 +267,29 @@ export default function SessionList({ onOpen }) {
                 <button type="button" onClick={() => setConfirming(null)}>No</button>
               </span>
             ) : (
-              <button
-                type="button"
-                className="delete-session"
-                onClick={() => setConfirming(s.id)}
-                aria-label={`Borrar la sesión ${s.name || s.played_at}`}
-                title="Borrar sesión"
-              >
-                ×
-              </button>
+              <Menu
+                label={`Acciones de ${s.name || s.played_at}`}
+                actions={[
+                  {
+                    icon: '✏️',
+                    label: 'Editar',
+                    // El segundo argumento abre la sesión con el formulario de
+                    // cabecera ya desplegado, en vez de duplicarlo aquí.
+                    onSelect: () => onOpen(s.id, true),
+                  },
+                  {
+                    icon: '✕',
+                    label: 'Borrar',
+                    danger: true,
+                    onSelect: () => setConfirming(s.id),
+                  },
+                ]}
+              />
             )}
           </li>
         ))}
       </ul>
+      </div>
     </section>
   )
 }

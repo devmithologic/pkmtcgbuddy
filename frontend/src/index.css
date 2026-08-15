@@ -73,6 +73,25 @@
   --radius: 0.375rem;
   --radius-lg: 0.5rem;
 
+  /* --- medidas ---------------------------------------------------------
+     Dos anchos, no uno, y esa es la corrección.
+
+     La aplicación entera vivía en 42rem. Esa cifra es la *medida de lectura*
+     clásica —unos 70 caracteres, el ancho al que un párrafo se lee sin que el
+     ojo pierda el renglón al volver— y es correcta para prosa y para un
+     formulario. No lo es para una lista de sesiones con cinco columnas ni para
+     una rejilla de cartas: ahí el límite no es el renglón, es cuánto cabe.
+
+     Aplicar la medida de un párrafo a una tabla es el error; el ancho se elige
+     por tipo de contenido, no una vez para toda la aplicación.
+
+       --shell    tope del contenedor. Con tope y no fluido porque una fila de
+                  1700 px deja la fecha en un extremo y el récord en el otro.
+       --measure  formularios y prosa. Un campo de fecha no mejora por medir
+                  1400 px; empeora. */
+  --shell: 90rem;
+  --measure: 34rem;
+
   /* Ancho mínimo de una carta en la rejilla del mazo. Lo mueve el control de
      densidad; ver .deck-grid en App.css. */
   --card-min: 6rem;

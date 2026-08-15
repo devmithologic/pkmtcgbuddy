@@ -32,6 +32,25 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
   const [error, setError] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
 
+  /**
+   * Sigue al formato del mazo cuando este cambia.
+   *
+   * `useState(() => emptyFilters(defaultFormat))` solo corre AL MONTAR, así que
+   * al cambiar el mazo a Expanded el buscador se quedaba en Standard y ofrecía
+   * cartas del formato equivocado — que es el error que más caro sale aquí,
+   * porque la carta entra en la lista y solo lo dices el panel de validación
+   * después.
+   *
+   * El efecto depende solo de `defaultFormat`, no de `filters`: si el usuario
+   * cambia el desplegable a mano para curiosear otro formato, su elección se
+   * respeta hasta que el mazo cambie de verdad.
+   */
+  useEffect(() => {
+    setFilters((previous) => ({ ...previous, format: defaultFormat }))
+    // La página actual deja de significar nada al cambiar el conjunto.
+    setPage(1)
+  }, [defaultFormat])
+
   // El backend exige 2 caracteres como mínimo; con menos, ni lo intentamos.
   const nameQuery = filters.q.trim()
   const hasUsableName = nameQuery.length >= 2
