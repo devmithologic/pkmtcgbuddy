@@ -10,6 +10,7 @@ All under `/api`. Route order matters in FastAPI: `/sessions/tags` is declared *
 GET    /api/health
 
 GET    /api/cards ?q &format &category &ace_spec_only &page &page_size
+                                           one printing per basic energy, newest plain one first
 GET    /api/cards/{card_id}
 
 POST   /api/decks/import                   creates a deck from PTCG Live text;

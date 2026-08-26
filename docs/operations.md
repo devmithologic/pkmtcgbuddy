@@ -22,9 +22,15 @@ mongo-status · mongo-ping · mongo-start · mongo-stop · mongo-log
 cd backend && source .venv/bin/activate && python -m app.services.card_sync
 python -m app.services.card_sync --format standard
 
-# Sync the set abbreviations (MEG, TEF, PRE…) from TCGdex. ~4 s, 218 requests.
-# REQUIRED for deck import/export: the abbreviation is not in the card id.
+# Sync the sets from TCGdex: all 218, with the 188 official abbreviations and the
+# release dates. ~4 s, 218 requests.
+# REQUIRED for deck import/export (the abbreviation is not in the card id) and for
+# card search order (the date is what makes the newest printing win).
 cd backend && source .venv/bin/activate && python -m app.services.set_sync
+
+# Re-derive the search fields of the 15k cards already stored. No network, ~0.5 s.
+# Run after set_sync, and after any change to the ordering or reprint rules.
+python -m app.services.card_sync --resort
 
 # Sync the Pokedex from PokeAPI: 1,351 entries, one request, ~0.6 s.
 # Needed once; re-run only when a new generation ships.
@@ -36,7 +42,7 @@ mongosh pkmtcgbuddy --eval 'db.sessions.find().pretty()'
 mongosh pkmtcgbuddy --eval 'db.cards.countDocuments()'
 ```
 
-Seven collections: `cards` (~15k), `pokemon` (1,351), `sets` (188), `decks`, `deck_versions`, `sessions`, `folders`.
+Seven collections: `cards` (~15k), `pokemon` (1,351), `sets` (218), `decks`, `deck_versions`, `sessions`, `folders`.
 The last four hold the user's own data and are small — single digits — which is why several
 repositories fetch them whole and work in memory.
 

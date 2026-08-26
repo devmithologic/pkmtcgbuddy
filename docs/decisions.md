@@ -100,20 +100,73 @@ reprinted in a legal set, older printings of the same card are legal too — a B
 Paldea Evolved (mark G) is playable because Mega Evolution reprinted it with mark I. TCGdex does not
 model this: it reports legality per printing, so its mark-G copies come back illegal.
 
-`card_sync` reconstructs the real rule in a second pass, grouping printings by a content signature
-(`Card.identity`: name plus text, never set or rarity) and promoting a whole group if any member is
-legal. Grouping by *name* would be wrong — 59 of the 65 cards named "Pikachu" are genuinely different
-cards, and Poké Ball has three distinct versions, one of which flips a coin.
+`card_sync` reconstructs the real rule in a second pass, promoting a whole group if any member is
+legal. **What counts as "the same card" depends on the category, because the game's own rule does.**
 
-Known limit: Pokémon reworded card templates in the Scarlet & Violet era, so a card whose text was
-rewritten does not group with its older printings. Measured: 26 Trainer/Energy names, 94 printings,
-including Boss's Orders marks D and F. Matching those by name would wrongly legalise the coin-flip
-Poké Ball, so the gap is left open deliberately.
+- **Pokémon group by content signature** (`Card.identity`: name plus text and attacks, never set or
+  rarity). Grouping them by name would be wrong — 59 of the 65 cards named "Pikachu" are genuinely
+  different cards, and by measurement 1,235 Pokémon names carry more than one signature.
+- **Trainer and Energy group by name**, with TCGdex's art suffix stripped: `Boss's Orders (Giovanni)`
+  is Boss's Orders, and the parenthesis is the provider's, not the card's.
+
+The Trainer/Energy half replaced signature grouping on 2026-08-15, and the reason it could is worth
+recording. Signature grouping left a documented gap: Pokémon reworded the card templates in the
+Scarlet & Violet era, so `Switch 1 of your opponent's Benched Pokémon with their Active Pokémon` did
+not group with `Switch in 1 of your opponent's Benched Pokémon to the Active Spot` — the same card.
+Measured at the time of the fix: **25 names, 192 printings**, including the Boss's Orders that a real
+deck in this app was being told was illegal.
+
+The gap had been left open because matching by name would have legalised the coin-flip Poké Ball.
+**That blocker expired**: all three Poké Ball printings flip a coin, including the currently legal one
+(`me03-080`, Mega Evolution). The game reprinted the coin-flip version, so it is the legal one.
+
+Normalising the text instead — quotes, capitalisation, `Colorless` versus `{C}` — was measured and
+rejected: it merges 2 of the 25 names. The other 23 are real rewrites, not typography.
+
+Why name is the right key for a Trainer and not for a Pokémon: two Trainers with the same name cannot
+be legal at once, and the rules say an older printing is played **with the current text**. So a
+difference in wording does not make it a different card. A Pokémon's attacks do.
 
 **Sync scope is a real decision, and it is invisible at query time.** TCGdex holds 23,546 cards;
 14,901 are Expanded-legal and 3,345 Standard-legal. Syncing `--format standard` omits promo printings
 that are not Standard-legal — which looks like missing data from the provider until you check. Sync
 Expanded: it is a superset of Standard. The database currently holds the full Expanded set.
+
+**The card search offers one printing of a basic energy, and it is the newest ordinary one.**
+The deck builder was showing gold secret rares where the basic energies should be, and the reason was
+not the interface. TCGdex names the secret rare `Basic Metal Energy` and the ordinary one
+`Metal Energy`, so an alphabetical sort put the gold one first — always, whatever its date or rarity.
+Every deck version already stored had hyper rares inside it. They were not chosen; they were the only
+ones visible. Those decks are left alone: they are legal and they export correctly.
+
+Three derived fields fix it, and each one earns its place:
+
+- `sort_name` — the name without the `basic ` prefix, and **only** for basic energies, so the secret
+  rare sorts inside the same group instead of winning the alphabet. `Basic Research Note` is not a
+  reprint of anything.
+- `printing_rank` — `0` for an ordinary printing, `1` for a secret one. Scoped to basic energies on
+  purpose: for a real card the printing you pick is a legitimate choice, because the art matters. For
+  a basic energy it is the same card with a better photo.
+- `set_release_date` — copied from the `sets` collection, because `$lookup` cannot feed an indexed
+  sort.
+
+The order is `sort_name ASC, printing_rank ASC, set_release_date DESC, _id ASC`, and the compound
+index matches it field by field and direction by direction — otherwise Mongo sorts in memory against a
+32 MB ceiling. The trailing `_id` is the total order that keeps pagination deterministic.
+
+Ordering alone was not enough: 313 of the 322 basic-energy printings are now **hidden**
+(`is_energy_duplicate`), leaving the 9 that are current. And **the field you filter on is not the
+field you sort on.** With the duplicates hidden, searching `basic` returned nothing at all — the gold
+ones were gone and the plain ones are not called "basic". Hence `search_name`, which keeps the prefix
+that `sort_name` removes. That was found by checking the result, not by thinking about it.
+
+**A card with no image borrows one from another printing of the same card.** The whole `sve` set — the
+24 current basic energies — has `image: null` in TCGdex; verified against their API, not deduced.
+Across the collection, 1,035 of 15,021 cards have no image and 566 of those have a reprint that does.
+The borrowed URL is chosen by the same criterion as the sort, and it is **derived at read time, never
+stored**: storing it would copy into 566 documents a value belonging to another, exactly the mistake
+already made once with the Pokémon sprites. The cost is one extra query per page of results, not one
+per card — the ids without an image are collected and resolved with a single `$in`.
 
 **Substring search does not use an index.** `name` matching is an unanchored `$regex`, which has to
 examine every candidate document. Measured: 0.8 ms over 3,318 cards, 6.1 ms over 14,901 — still ~80×

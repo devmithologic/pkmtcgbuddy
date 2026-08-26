@@ -120,6 +120,9 @@ an architecture, swapping a provider, or reopening any of these:
 | Legality is per card, not per printing | a reprint makes older printings legal too |
 | Sync scope is Expanded | it is a superset of Standard |
 | Substring search does not use an index | measured, and deliberately left alone |
+| One printing per basic energy, the newest plain one | TCGdex calls the gold secret rare `Basic Metal Energy` |
+| A missing image is borrowed from a reprint | the whole `sve` set has no image in TCGdex |
+| The reprint key depends on the category | a Trainer is its name; a Pokémon is its attacks |
 | A `<button>` cannot contain interactive content | Space activated the button instead of typing |
 | One `Menu` component for every popover | the only `document` listener in the app |
 | Deck lists import/export as PTCG Live text | the interop format; needs the `sets` collection |

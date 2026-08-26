@@ -14,8 +14,9 @@ backend/app/
   models/       card.py deck.py folder.py match.py pokemon.py session.py stats.py
   routers/      cards.py decks.py folders.py pokemon.py sessions.py
   services/     card_source.py    the only file that knows TCGdex
-                card_sync.py      batch job: TCGdex -> mongo, plus the reprint-legality pass
-                set_sync.py       batch job: the 188 set abbreviations, for import/export
+                card_sync.py      batch job: TCGdex -> mongo, plus the reprint-legality pass;
+                                  --resort re-derives the search fields with no network
+                set_sync.py       batch job: the 218 sets, their abbreviations and their dates
                 deck_rules.py     pure validate_deck(); no I/O, no framework
                 deck_text.py      pure parse()/render() of the PTCG Live text format
                 pokemon_source.py the only file that knows PokeAPI and its image URLs
