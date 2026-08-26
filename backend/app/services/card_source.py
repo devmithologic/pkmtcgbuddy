@@ -313,20 +313,27 @@ async def get_card(card_id: str) -> Card | None:
 
 
 async def fetch_sets() -> list[dict]:
-    """Todos los sets, cada uno con su ABREVIATURA OFICIAL.
+    """Todos los sets, con su ABREVIATURA OFICIAL y su FECHA DE PUBLICACIÓN.
 
     La abreviatura es la pieza que hace posible importar y exportar listas: el
     formato de texto que usan PTCG Live y las herramientas de la red identifica
     cada carta como `<abreviatura> <número>` —`MEG 77`, `TEF 129`— y ese código
     no aparece en el id de TCGdex, que es `me01-077`.
 
-    Son DOS pasadas y no una porque el listado `/sets` no trae la abreviatura:
-    hay que pedir cada set por separado. Son 218 peticiones, acotadas con el
-    mismo Semaphore que el sync de cartas para no abrir 218 conexiones a la vez.
+    La fecha es lo que permite ordenar las impresiones de una misma carta de más
+    nueva a más vieja. Sin ella, las 26 impresiones de Metal Energy salían por
+    orden de id y la primera era de 1999.
 
-    De los 218 sets, unos 188 tienen abreviatura. Los que no la tienen son casi
-    todos mazos de demostración y promos antiguas, que nadie escribe en una
-    lista; se omiten en vez de inventarles un código.
+    Son DOS pasadas y no una porque el listado `/sets` no trae ni la una ni la
+    otra: hay que pedir cada set por separado. Son 218 peticiones, acotadas con
+    el mismo Semaphore que el sync de cartas para no abrir 218 conexiones a la
+    vez.
+
+    Se guardan los 218, no los 188 que tienen abreviatura. Antes los otros 30
+    —mazos de demostración, promos antiguas— se descartaban porque nadie los
+    escribe en una lista, y era cierto para importar. Pero sus cartas SÍ salen en
+    el buscador, así que también necesitan fecha, y sin documento no hay dónde
+    ponerla. Van con `abbreviation` a None, que es la verdad: no tienen.
     """
     listado = await _require_client().get("/sets")
     listado.raise_for_status()
@@ -353,14 +360,17 @@ async def fetch_sets() -> list[dict]:
                 return
 
         abbr = (d.get("abbreviation") or {}).get("official")
-        if not abbr:
-            return
 
         sets.append(
             {
                 "_id": d["id"],
                 "name": d.get("name", ""),
-                "abbreviation": abbr.upper(),
+                "abbreviation": abbr.upper() if abbr else None,
+                # "YYYY-MM-DD" tal cual, sin convertir a fecha: en ese formato
+                # el orden alfabético ES el cronológico, así que Mongo ordena
+                # bien sin parsear nada. Un set sin fecha queda en None y
+                # ordenará al final, que es donde debe estar algo sin datar.
+                "release_date": d.get("releaseDate"),
             }
         )
 

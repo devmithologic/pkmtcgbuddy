@@ -1,4 +1,4 @@
-"""Descarga los sets con su abreviatura oficial y los guarda en MongoDB.
+"""Descarga los sets con su abreviatura oficial y su fecha, y los guarda en Mongo.
 
     python -m app.services.set_sync
 
@@ -6,8 +6,10 @@ Job aparte del de cartas, y no dentro de él, por el tiempo: este tarda segundos
 —218 peticiones— y el de cartas, minutos. Tenerlos separados permite refrescar
 las abreviaturas cuando sale un set nuevo sin volver a bajar 15.000 cartas.
 
-Se ejecuta a mano. Hace falta para importar y exportar listas de mazo; ver
-`services/deck_text.py`.
+Se ejecuta a mano. Hace falta para dos cosas: importar y exportar listas de mazo
+—ver `services/deck_text.py`— y ordenar las impresiones de una misma carta de más
+nueva a más vieja, que es lo que hace que buscar una energía básica encuentre la
+normal y no la secreta dorada.
 """
 
 import asyncio
@@ -27,9 +29,11 @@ async def sync() -> None:
     try:
         await set_repository.ensure_indexes()
 
-        print("Descargando los sets y sus abreviaturas oficiales…")
+        print("Descargando los sets, sus abreviaturas oficiales y sus fechas…")
         sets = await fetch_sets()
-        print(f"  {len(sets)} sets con abreviatura")
+        con_abreviatura = sum(1 for s in sets if s["abbreviation"])
+        con_fecha = sum(1 for s in sets if s["release_date"])
+        print(f"  {len(sets)} sets · {con_abreviatura} con abreviatura · {con_fecha} con fecha")
 
         escritos = await set_repository.replace_all(sets)
         total = await set_repository.count()
