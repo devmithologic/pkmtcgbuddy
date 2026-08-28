@@ -307,8 +307,10 @@ Expected: no output, exit 0.
 
 - [ ] **Step 4: Check nothing Spanish survived**
 
-Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app/models/`
-Expected: no output. A hit that is legitimately Spanish data (there should be none here) must be justified out loud, not ignored.
+Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app/models/ | grep -v "Pokémon"`
+Expected: no output.
+
+The `| grep -v "Pokémon"` is not a fudge: the word is spelled with an acute accent in English too, so an accent-based Spanish detector reports it as a false positive. Every other hit is a real miss and must be justified out loud, not ignored.
 
 - [ ] **Step 5: Commit**
 
@@ -352,8 +354,8 @@ Expected: no output, exit 0.
 
 - [ ] **Step 4: Check nothing Spanish survived**
 
-Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app/db/`
-Expected: no output.
+Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app/db/ | grep -v "Pokémon"`
+Expected: no output. `Pokémon` is filtered because it carries an acute accent in English too.
 
 - [ ] **Step 5: Commit**
 
@@ -393,8 +395,8 @@ Expected: no output, exit 0.
 
 - [ ] **Step 4: Check what Spanish survived, and why**
 
-Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app/services/`
-Expected: **only** the three user-facing `message=` strings in `deck_rules.py`. They are handled in Task 8, deliberately, because they are not prose — they are output. Anything else is a miss.
+Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app/services/ | grep -v "Pokémon"`
+Expected: **only** the three user-facing `message=` strings in `deck_rules.py`. (`Pokémon` is filtered because it carries an acute accent in English too.) They are handled in Task 8, deliberately, because they are not prose — they are output. Anything else is a miss.
 
 - [ ] **Step 5: Commit**
 
@@ -595,8 +597,8 @@ Locate each with `grep -rn "detail=" backend/app` and match by variable name —
 
 - [ ] **Step 3: Confirm no Spanish remains anywhere in the backend**
 
-Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/`  (excluding `.venv`)
-Expected: no output.
+Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app backend/requirements.txt backend/.env.example | grep -v "Pokémon"`
+Expected: no output. `.venv` is excluded by naming the paths rather than by a parenthetical the command never enforced.
 
 - [ ] **Step 4: Provoke a violation and read it**
 
@@ -855,8 +857,8 @@ Leave untouched, per the Global Constraints: `SESSION_TYPES[].value`, `toLocaleD
 
 - [ ] **Step 4: Confirm no Spanish remains in the frontend**
 
-Run: `grep -rnE "[áéíóúñ¡¿«»]" frontend/src/`
-Expected: only `Pokémon` (the é is part of the word in English too). Every other hit is a miss.
+Run: `grep -rnE "[áéíóúñ¡¿«»]" frontend/src/ | grep -v "Pokémon"`
+Expected: no output. Every hit is a miss.
 
 - [ ] **Step 5: Lint and build**
 
@@ -905,7 +907,7 @@ Both describe how learning-log entries are written. The entries themselves in `l
 - [ ] **Step 2: Sweep the whole repository**
 
 ```bash
-git ls-files | grep -vE 'package-lock|\.venv' | xargs grep -lE "[áéíóúñ¡¿«»]"
+git ls-files | grep -vE 'package-lock|\.venv' | xargs grep -nE "[áéíóúñ¡¿«»]" | grep -v "Pokémon"
 ```
 
 Expected: no output, or only files whose Spanish is a deliberate example. Investigate every hit; do not accept one.
@@ -941,7 +943,7 @@ Dispatch the `log-mentor` skill. The subagent never saw this session, so the dis
 
 ## Done when
 
-- `git ls-files | grep -vE 'package-lock|\.venv' | xargs grep -lE "[áéíóúñ¡¿«»]"` returns nothing.
+- `git ls-files | grep -vE 'package-lock|\.venv' | xargs grep -nE "[áéíóúñ¡¿«»]" | grep -v "Pokémon"` returns nothing.
 - `npm run lint` and `npm run build` pass.
 - `backend/.venv/bin/python -c "import app.main"` succeeds.
 - Every screen has been walked in a browser and shows English with no `undefined`.
