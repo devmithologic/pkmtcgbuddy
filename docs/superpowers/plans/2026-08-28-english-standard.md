@@ -396,7 +396,19 @@ Expected: no output, exit 0.
 - [ ] **Step 4: Check what Spanish survived, and why**
 
 Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app/services/ | grep -v "Pokémon"`
-Expected: **only** the three user-facing `message=` strings in `deck_rules.py`. (`Pokémon` is filtered because it carries an acute accent in English too.) They are handled in Task 8, deliberately, because they are not prose — they are output. Anything else is a miss.
+
+Expected: **only string literals**, never a comment or a docstring. There are roughly fifty of
+them in this directory and every one belongs to Task 8, not to you:
+
+- `deck_rules.py` — five `message=` strings (not three; an earlier draft of this plan
+  undercounted, and the ACE SPEC and format-legality messages were missed).
+- `card_sync.py`, `pokemon_sync.py`, `set_sync.py` — the progress and summary lines these batch
+  jobs print to a terminal, plus their `argparse` help text.
+- `card_source.py`, `pokemon_source.py` — `RuntimeError` and `ValueError` messages raised when a
+  provider answers with something unexpected.
+
+They are output, not prose, and they live in the AST — translating one here makes Step 2 fail,
+correctly. Verify each surviving hit is one of the above. A surviving **comment** is a miss.
 
 - [ ] **Step 5: Commit**
 
@@ -423,7 +435,22 @@ git commit -m "refactor: translate service comments and docstrings to English"
 
 `main.py` carries the lifespan and CORS commentary — both are documented lessons in `log_mentor/` and the comments must keep pointing at the same mechanism. Do not touch route paths, `response_model=`, status codes, or the `detail=` strings (Task 8).
 
-**Leave `decks.py:403` alone**: `Query(default=None, description="Filtra por etiqueta de sesión")`. It reads like prose but it is an argument, so it lives in the AST — translating it here makes Step 3's equality check fail, correctly. It is user-facing API documentation and Task 8 owns it.
+**Leave every `Query(...)` and `Path(...)` `description=` alone.** They read like prose but they
+are arguments, so they live in the AST — translating one here makes Step 3's equality check fail,
+correctly. They are user-facing API documentation and Task 8 owns them. There are six, and an
+earlier draft of this plan named only the last:
+
+```
+backend/app/routers/cards.py:28     "Parte del nombre"
+backend/app/routers/cards.py:29     "Filtra por legalidad"
+backend/app/routers/cards.py:31     "Solo cartas ACE SPEC"
+backend/app/routers/pokemon.py:18   "Parte del nombre"
+backend/app/routers/sessions.py:89  "Filtra por etiqueta"
+backend/app/routers/decks.py:403    "Filtra por etiqueta de sesión"
+```
+
+Likewise leave every `detail=` string, every `HTTPException` message, and the two strings that
+are written into MongoDB (`decks.py:204` `"Mazo importado"`). All of them are Task 8's.
 
 - [ ] **Step 2: Translate the `requirements.txt` and `.env.example` comments**
 
@@ -542,79 +569,167 @@ git commit -m "refactor: rename Spanish identifiers in the backend"
 
 ---
 
-## Task 8: Translate the backend's user-facing strings
+## Task 8: Translate every Spanish string literal in the backend
 
-The only backend task that changes what a user sees. Separate from Task 7 so the diff answers exactly one question.
+The only backend task that changes what anyone reads. Separate from Task 7 so the diff answers
+exactly one question.
+
+**Scope correction.** An earlier draft of this plan scoped this task at "three violation messages
+and seven `detail=` strings". An AST walk of the whole backend found **about sixty** Spanish
+string literals outside docstrings. `routers/folders.py` was missing from the file list entirely,
+`deck_rules.py` has five messages rather than three, and the three sync jobs print roughly thirty
+Spanish lines to a terminal that nothing in the plan accounted for.
 
 **Files:**
-- Modify: `backend/app/services/deck_rules.py` — three `message=` strings
-- Modify: `backend/app/routers/sessions.py` — five `detail=` strings
-- Modify: `backend/app/routers/cards.py` — two, including the multi-line 503 at `:56`
-- Modify: `backend/app/routers/decks.py` — four `detail=`, plus the two below
+- Modify: `backend/app/services/deck_rules.py` — five `message=` strings
+- Modify: `backend/app/services/card_sync.py`, `pokemon_sync.py`, `set_sync.py` — progress output and `argparse` help
+- Modify: `backend/app/services/card_source.py`, `pokemon_source.py` — raised-exception messages
+- Modify: `backend/app/db/mongo.py` — one `RuntimeError` message
+- Modify: `backend/app/db/deck_repository.py` — `"Lista inicial"` (see the stored-data warning)
+- Modify: `backend/app/routers/cards.py`, `decks.py`, `folders.py`, `sessions.py`, `pokemon.py`
 - Modify: `docs/api.md` if it quotes any of these strings verbatim
-
-**Not** `backend/app/db/deck_repository.py` — it raises nothing; its Spanish is comments, already handled in Task 4.
-
-Two sites a `grep detail=` will not find, and both must be translated here:
-
-1. **`decks.py:311`** — the 409 refusing to delete a deck that sessions used. It is raised
-   **positionally**, not with `detail=`, and it carries a hand-rolled plural
-   (`'sesión se jugó' if en_uso == 1 else 'sesiones se jugaron'`). Both branches must become
-   whole English clauses, never a stem plus a suffix.
-2. **`decks.py:403`** — `Query(default=None, description="Filtra por etiqueta de sesión")`.
-   Deliberately deferred from Task 6 because it is an AST-visible argument, not a comment.
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: English `message` and `detail` strings. The i18n plan replaces `message` entirely with `code` + `params` — do **not** anticipate that here. Translating first and restructuring second keeps the two diffs answerable.
+- Produces: English `message`, `detail`, `description` and console strings. The i18n plan later
+  replaces `message` entirely with `code` + `params` — do **not** anticipate that here.
+  Translating first and restructuring second keeps the two diffs answerable.
 
-- [ ] **Step 1: Translate the three violation messages**
+### Two strings are written into MongoDB
+
+`deck_repository.py:125` `"Lista inicial"` and `routers/decks.py:204` `"Mazo importado"` are not
+displayed constants — they are stored as the `message` of a `DeckVersion` at the moment it is
+created, and the deck builder's version list renders them back.
+
+Translate them. But understand what that does: **rows already in the database keep the Spanish
+text.** New versions will read "Initial list", older ones will still read "Lista inicial", and no
+code change fixes that. A one-line `update_many` would, and it is deliberately **out of scope** —
+this plan does not mutate the user's data. Note it in your report so it reaches the developer as
+a choice rather than as a surprise.
+
+- [ ] **Step 1: Regenerate the exact inventory**
+
+Do not work from the lists below alone — they were correct when written and the tree has moved
+since. Enumerate first:
+
+```bash
+backend/.venv/bin/python - <<'EOF'
+import ast, pathlib, re, subprocess
+SPANISH = re.compile(r"[áéíóúñ¿¡«»]|\b(el|la|los|las|un|una|de|del|que|no|se|es|por|para|con|sin|hay|carta|cartas|mazo|mazos|sesion|carpeta|nombre|lista|inicial|nuevo|nueva|existe|filtra|parte|solo|etiqueta|ronda|rondas)\b", re.I)
+for path in sorted(p for p in subprocess.run(["git","ls-files","backend/app"],capture_output=True,text=True).stdout.split() if p.endswith(".py")):
+    tree = ast.parse(pathlib.Path(path).read_text())
+    docs = set()
+    for n in ast.walk(tree):
+        if isinstance(n,(ast.Module,ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)) and n.body:
+            f = n.body[0]
+            if isinstance(f,ast.Expr) and isinstance(f.value,ast.Constant) and isinstance(f.value.value,str):
+                docs.add(id(f.value))
+    for n in ast.walk(tree):
+        if isinstance(n,ast.Constant) and isinstance(n.value,str) and id(n) not in docs \
+           and len(n.value) > 3 and SPANISH.search(n.value):
+            print(f"{path}:{n.lineno}  {n.value[:70]!r}")
+EOF
+```
+
+The word `version` is an English false positive of that regex — ignore those rows. `"Pokémon"` in
+`deck_text.py` is the PTCG Live format's own section header and must not change.
+
+- [ ] **Step 2: Translate the five violation messages**
 
 ```python
-# backend/app/services/deck_rules.py
 message=f"{len(unknown)} card(s) are not in the synced catalogue"
 message=f"A deck is {DECK_SIZE} cards: there are {total}, {detail}"
 message=f'"{name}": {n} copies, the maximum is {MAX_COPIES_PER_NAME}'
+message=f"{ace_total} ACE SPEC cards: only {MAX_ACE_SPEC} is allowed per deck"
+message=f"{len(illegal)} card(s) are not legal in {deck_format.value}: {sample}"
 ```
 
-Note the quote change on the third: the Spanish used `«…»`, which is a Spanish typographic convention. English uses `"…"`. Since the f-string is delimited with `"`, switch the outer delimiter to `'` as shown.
+Note the quote change on the third: the Spanish used `«…»`, a Spanish typographic convention.
+English uses `"…"`, so the f-string's outer delimiter becomes `'` as shown.
 
-The `detail` variable interpolated into the second message is itself Spanish prose built elsewhere in the function — find it and translate it too, or the sentence stays half-Spanish.
+The `detail` local interpolated into the second message is itself Spanish prose built two lines
+above (`faltan {n}` / `sobran {n}`). Translate it too, or the sentence stays half-Spanish.
 
-- [ ] **Step 2: Translate the `detail=` strings**
+- [ ] **Step 3: Translate the router strings**
 
-```python
-detail="The deck points at a version that does not exist"
-detail=f"Deck {deck_id} has no version {version_id}"
-detail=f"Session has no round {round_no}"
-detail=f"No such deck {deck_id}"
-detail=f"No such card {card_id} in the synced catalogue"
-detail=f"No such session {session_id}"
-detail=f"No such deck version {payload.deck_version_id}"
-```
+Three kinds, all in `routers/`:
 
-Locate each with `grep -rn "detail=" backend/app` and match by variable name — the list above is from a snapshot and the wording around it may have moved.
+1. **`detail=` on `HTTPException`** — about fourteen, across `cards.py`, `decks.py`, `folders.py`
+   and `sessions.py`. `folders.py` has `"Esa carpeta no existe"` twice and the cycle guard's
+   `"Una carpeta no puede moverse dentro de sí misma ni de una de sus subcarpetas"`.
+2. **`Query(description=...)`** — six, listed in Task 6. They are OpenAPI documentation and show
+   up in `/docs`.
+3. **Two that no `grep detail=` will find:**
+   - `decks.py:311` — the 409 refusing to delete a deck that sessions used. Raised
+     **positionally**, and it carries a hand-rolled plural
+     (`'sesión se jugó' if en_uso == 1 else 'sesiones se jugaron'` — by now `in_use`, renamed in
+     Task 7). Both branches must become whole English clauses, never a stem plus a suffix.
+   - `decks.py:166` and `:195` — the import failures, which quote the PTCG Live line format
+     `«3 Riolu PRE 50»`. Translate the sentence around it; leave the example line exactly as it
+     is, and switch the Spanish quotation marks to English ones.
 
-- [ ] **Step 3: Confirm no Spanish remains anywhere in the backend**
+- [ ] **Step 4: Translate the console output of the three sync jobs**
+
+`card_sync.py`, `pokemon_sync.py` and `set_sync.py` print progress and a summary to a terminal,
+and expose `argparse` help. About thirty strings. They are developer-facing, not user-facing, but
+they are Spanish in an English repository.
+
+Preserve every `·` separator, every unit, and every alignment space — these lines are formatted
+to line up in a terminal, and an English word of a different length can break a column. Check the
+f-string placeholders survive: `{...}` counts must match before and after.
+
+`card_sync.py:278` (`La colección \`sets\` está vacía. Ejecuta antes:`) and `cards.py:57`
+(`No hay cartas sincronizadas. Ejecuta: python -m app.services.card_sync`) both tell the reader a
+command to run. Translate the sentence; leave the command verbatim.
+
+- [ ] **Step 5: Translate the raised-exception messages**
+
+`db/mongo.py:40`, `services/card_source.py` (five) and `services/pokemon_source.py` (one). These
+are internal invariants — "MongoDB is not connected: did the app's lifespan run?" — and they are
+read by whoever is debugging. Keep the question form where the Spanish used one; it is doing
+work, pointing at the likely cause.
+
+- [ ] **Step 6: Translate the two stored-data strings**
+
+`deck_repository.py:125` and `routers/decks.py:204`, per the warning above. Do **not** write a
+migration.
+
+- [ ] **Step 7: Confirm no Spanish remains anywhere in the backend**
 
 Run: `grep -rnE "[áéíóúñ¡¿«»]" backend/app backend/requirements.txt backend/.env.example | grep -v "Pokémon"`
-Expected: no output. `.venv` is excluded by naming the paths rather than by a parenthetical the command never enforced.
+Expected: no output.
 
-- [ ] **Step 4: Provoke a violation and read it**
+Then re-run the AST inventory from Step 1. Expected: only rows whose text is the English word
+`version`, and `deck_text.py`'s `"Pokémon"`.
 
-Build or edit a deck with five copies of one non-energy card and fetch its validation.
-Expected: `"Iono": 5 copies, the maximum is 4` — English, with straight quotes, and the numbers correct.
-
-- [ ] **Step 5: Provoke a 404 and read it**
-
-Run: `curl -s localhost:8000/api/decks/000000000000000000000000 | head -c 200`
-Expected: an English `detail`.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Prove the app still runs, and read the new strings**
 
 ```bash
-git add backend/ docs/api.md
-git commit -m "refactor: translate backend user-facing messages to English"
+cd backend && .venv/bin/python -c "import app.main"
+.venv/bin/uvicorn app.main:app --port 8000 &
+sleep 3
+curl -s localhost:8000/api/decks/000000000000000000000000 | head -c 200
+curl -s "localhost:8000/openapi.json" | grep -o "Part of the name" | head -1
+```
+
+Expected: an English `detail` on the 404, and the translated `Query` description present in the
+OpenAPI document.
+
+Then provoke a violation: build or edit a deck with five copies of one non-energy card and fetch
+its validation. Expected: `"Iono": 5 copies, the maximum is 4` — English, straight quotes,
+correct numbers.
+
+- [ ] **Step 9: Commit, in two commits**
+
+The two halves have different audiences and different blast radius. Keep them apart so a reviewer
+can reject one without the other:
+
+```bash
+git add backend/app/routers/ backend/app/services/deck_rules.py backend/app/db/deck_repository.py docs/api.md
+git commit -m "refactor: translate the backend's HTTP-facing strings to English"
+
+git add backend/app/services/ backend/app/db/mongo.py
+git commit -m "refactor: translate sync output and internal exceptions to English"
 ```
 
 ---
