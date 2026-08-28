@@ -56,7 +56,7 @@ Fixed translations. Consistency across 50 files matters more than the elegance o
 | valor | value | |
 | campo | field | |
 | filtro | filter | |
-| orden / ordenar | sort | `order` only for sort direction |
+| orden / ordenar | sort | `order` only for sort direction (`descending order`). A third case the table first missed: when `orden` means the plain sequence of things — key order in a dict, the order lines appear in a file — `order` is right and `sort` would be wrong. Reserve `sort` for the operation. |
 | búsqueda / buscar | search | |
 | datos | data | |
 | base de datos | database | |
