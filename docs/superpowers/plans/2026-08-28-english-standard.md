@@ -21,6 +21,12 @@
 - **CSS class names are already English.** Do not touch them.
 - **Do not translate** card names, set names, format names, or the PTCG Live import/export text format.
 - **`SessionList.jsx:20`** — `toLocaleDateString('en-CA')` is not display formatting. It produces `YYYY-MM-DD` for `<input type="date">`. Leave it and keep its comment's explanation.
+- **Count paragraphs before you commit.** For every docstring you touch, compare its paragraph
+  count against the same docstring at the base commit (`git show <base>:<path>`). The AST harness
+  **cannot** catch a lost paragraph — it strips docstrings from both trees by design, so prose is
+  exactly its blind spot, and it will keep reporting `0 failures` over a docstring that lost half
+  its reasoning. Task 4 dropped one paragraph this way and the harness never noticed; a count
+  found it in seconds. Report the audit, not the intention to have done it.
 - Every task ends with a commit. Conventional-commit prefix, `refactor:` for prose and identifiers, `feat:`/`fix:` never (nothing changes).
 
 ## Glossary
