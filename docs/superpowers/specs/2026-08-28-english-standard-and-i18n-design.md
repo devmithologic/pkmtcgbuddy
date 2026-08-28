@@ -119,7 +119,7 @@ Separate commits from 1a, grouped per file or per coherent group, so that a reve
 
 ### 1c — user-visible strings
 
-~200 strings across 14 components move to English. This changes what is on screen but not what
+~200 strings across 15 components move to English. This changes what is on screen but not what
 the code does.
 
 Two hand-rolled plurals must be fixed rather than translated, because they are untranslatable
@@ -257,7 +257,7 @@ There is no test suite, so verification is explicit and manual where it must be.
 Per `CLAUDE.md` — the developer writes the code that carries a new concept; Claude writes the
 boilerplate.
 
-- **Claude:** all of phase 1. The two catalogues. Threading `t()` through the 14 components.
+- **Claude:** all of phase 1. The two catalogues. Threading `t()` through the 15 components.
   The backend `Violation` change.
 - **The developer:** `i18n/index.jsx` — the provider, the hook and `t`. That file is where
   Context, the fallback chain, interpolation and `Intl.PluralRules` live, and it is the whole
