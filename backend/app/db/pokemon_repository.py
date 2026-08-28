@@ -1,8 +1,7 @@
-"""Acceso a la colección `pokemon`.
+"""Access to the `pokemon` collection.
 
-1025 documentos diminutos: número, nombre y URL del sprite. Cabe entero en
-memoria de MongoDB, así que el buscador responde en microsegundos y puede
-dispararse mientras el usuario teclea.
+1025 tiny documents: number, name and sprite URL. It fits entirely in MongoDB's
+memory, so the search responds in microseconds and can fire on every keystroke.
 """
 
 import re
@@ -24,14 +23,14 @@ async def ensure_indexes() -> None:
 
 
 def to_document(pokemon: PokemonRef) -> dict:
-    # El número nacional como _id: es una clave natural, única y estable, así que
-    # resincronizar es un upsert trivial. Mismo criterio que el id de TCGdex en
-    # la colección de cartas.
+    # The national number as _id: it's a natural key, unique and stable, so
+    # resyncing is a trivial upsert. Same criterion as the TCGdex id in the
+    # card collection.
     #
-    # Sin URL: se calcula al leer. Los documentos sincronizados antes conservan
-    # su clave `sprite_url` porque replace_all usa $set, que no borra lo que no
-    # menciona. Es basura inerte —nadie la lee— y limpiarla no compensa un
-    # $unset sobre 1351 documentos.
+    # No URL: it's computed on read. Documents synced before this change keep
+    # their `sprite_url` key because replace_all uses $set, which doesn't erase
+    # what it doesn't mention. It's inert garbage — nobody reads it — and
+    # cleaning it up isn't worth a $unset over 1351 documents.
     return {
         "_id": pokemon.dex_id,
         "name": pokemon.name,
@@ -43,21 +42,21 @@ def from_document(document: dict) -> PokemonRefOut:
 
 
 async def search(query: str, limit: int = 20) -> list[PokemonRefOut]:
-    """Busca por nombre, por subcadena y sin distinguir mayúsculas.
+    """Searches by name, by substring and case-insensitively.
 
-    Subcadena y no prefijo por coherencia con el buscador de cartas, y porque los
-    nombres de formas regionales llevan el sufijo detrás: buscar «basculegion»
-    debe encontrar «basculegion-male».
+    Substring and not prefix for consistency with the card search, and because
+    regional form names carry the suffix at the end: searching "basculegion"
+    must find "basculegion-male".
 
-    re.escape es obligatorio — el texto viene del usuario. Sin él, teclear «(»
-    produce una expresión inválida, y patrones como «(a+)+» son un vector de
-    denegación de servicio por backtracking catastrófico (ReDoS).
+    re.escape is mandatory — the text comes from the user. Without it, typing
+    "(" produces an invalid expression, and patterns like "(a+)+" are a denial
+    of service vector via catastrophic backtracking (ReDoS).
     """
     cursor = (
         _collection()
         .find({"name": {"$regex": re.escape(query.lower())}})
-        # Ordenado por número: dentro de una familia evolutiva salen en orden
-        # natural, que es como la gente los busca.
+        # Sorted by number: within an evolutionary family they come out in
+        # natural order, which is how people look for them.
         .sort("_id", ASCENDING)
         .limit(limit)
     )
@@ -65,7 +64,7 @@ async def search(query: str, limit: int = 20) -> list[PokemonRefOut]:
 
 
 async def get_many(dex_ids: list[int]) -> dict[int, PokemonRefOut]:
-    """Resuelve varios de una vez. Una consulta, no una por Pokémon."""
+    """Resolves several at once. One query, not one per Pokemon."""
     if not dex_ids:
         return {}
     cursor = _collection().find({"_id": {"$in": list(set(dex_ids))}})
@@ -77,11 +76,11 @@ async def count() -> int:
 
 
 async def replace_all(pokemon: list[PokemonRef]) -> int:
-    """Escribe el Pokédex entero con upsert.
+    """Writes the whole Pokedex with upsert.
 
-    Sin lotes: son 1025 documentos de tres campos, un solo bulk_write los cubre.
-    Upsert y no borrar-e-insertar, por lo mismo de siempre: borrar deja una
-    ventana en la que el buscador no encuentra nada.
+    No batching: it's 1025 documents of three fields, a single bulk_write
+    covers them. Upsert and not delete-then-insert, for the usual reason:
+    deleting leaves a window in which the search finds nothing.
     """
     from pymongo import UpdateOne
 

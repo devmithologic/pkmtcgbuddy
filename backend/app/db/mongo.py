@@ -1,4 +1,4 @@
-"""Conexión a MongoDB: un único cliente compartido por toda la aplicación."""
+"""Connection to MongoDB: a single client shared by the whole application."""
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -7,23 +7,23 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.config import settings
 
-# El cliente se crea en connect_to_mongo() y se guarda aquí a nivel de módulo.
-# Empieza en None porque todavía no existe cuando Python importa el fichero.
+# The client is created in connect_to_mongo() and stored here at module level.
+# It starts as None because it doesn't exist yet when Python imports the file.
 _client: AsyncMongoClient | None = None
 
 
 async def connect_to_mongo() -> None:
-    """Abre el cliente. Se llama una vez, al arrancar el proceso."""
+    """Opens the client. Called once, when the process starts."""
     global _client
     _client = AsyncMongoClient(settings.mongodb_uri)
-    # ping fuerza una conexión real. Sin esto, AsyncMongoClient es perezoso: no
-    # toca la red hasta la primera consulta, y un Mongo apagado no se detectaría
-    # hasta que un usuario hiciera una petición.
+    # ping forces a real connection. Without this, AsyncMongoClient is lazy: it
+    # doesn't touch the network until the first query, and a Mongo that is down
+    # wouldn't be detected until a user made a request.
     await _client.admin.command("ping")
 
 
 async def close_mongo_connection() -> None:
-    """Cierra el cliente y sus sockets. Se llama al parar el proceso."""
+    """Closes the client and its sockets. Called when the process stops."""
     global _client
     if _client is not None:
         await _client.close()
@@ -31,10 +31,10 @@ async def close_mongo_connection() -> None:
 
 
 def get_database() -> AsyncDatabase:
-    """Devuelve la base de datos activa.
+    """Returns the active database.
 
-    Es síncrona a propósito: no hace E/S, solo devuelve un objeto que apunta a la
-    base. La E/S ocurre cuando se consulta una colección.
+    Synchronous on purpose: it does no I/O, it just returns an object that
+    points at the database. The I/O happens when a collection is queried.
     """
     if _client is None:
         raise RuntimeError("MongoDB no está conectado: ¿arrancó el lifespan de la app?")
@@ -42,14 +42,15 @@ def get_database() -> AsyncDatabase:
 
 
 def to_object_id(value: str) -> ObjectId | None:
-    """Convierte una cadena en ObjectId, o None si no lo es.
+    """Converts a string into an ObjectId, or None if it isn't one.
 
-    Vive aquí y no en un repositorio concreto porque no es cosa de mazos ni de
-    sesiones: es una preocupación de MongoDB, y la necesitan todos.
+    Lives here and not in a specific repository because it isn't a deck concern
+    nor a session concern: it's a MongoDB concern, and every repository needs it.
 
-    Existe porque un id inválido llega desde la URL, es decir, desde fuera.
-    Pasarlo directo a ObjectId() lanza InvalidId, que sin capturar acaba en un
-    500 — cuando lo correcto es un 404: el cliente pidió algo que no existe.
+    Exists because an invalid id arrives from the URL, i.e. from outside.
+    Passing it straight to ObjectId() raises InvalidId, which if uncaught ends
+    up as a 500 — when the correct response is a 404: the client asked for
+    something that doesn't exist.
     """
     try:
         return ObjectId(value)

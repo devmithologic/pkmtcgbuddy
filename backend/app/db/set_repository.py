@@ -1,18 +1,18 @@
-"""Acceso a la colección `sets`.
+"""Access to the `sets` collection.
 
-Unos 218 documentos de cuatro campos: id de TCGdex, nombre, **abreviatura
-oficial** y **fecha de publicación**.
+About 218 documents of four fields: TCGdex id, name, **official abbreviation**
+and **release date**.
 
-La abreviatura existe por una sola razón, y conviene decirla: el formato de
-texto con el que se intercambian listas de mazo identifica cada carta por
-`<abreviatura> <número>` —`MEG 77`— y la abreviatura no está en ninguna parte
-del id de TCGdex, que para esa misma carta es `me01-077`. Sin ella no hay
-importación ni exportación posibles.
+The abbreviation exists for a single reason, and it's worth stating: the text
+format decklists are exchanged in identifies each card by
+`<abbreviation> <number>` — `MEG 77` — and the abbreviation is nowhere in the
+TCGdex id, which for that same card is `me01-077`. Without it there is no
+import or export possible.
 
-La fecha existe por otra: es lo único que sabe cuál de las 26 impresiones de
-Metal Energy es la vigente. Solo 188 sets tienen abreviatura, pero los 218
-tienen fecha y sus cartas salen todas en el buscador; por eso se guardan todos y
-la abreviatura puede ser None.
+The date exists for another: it's the only thing that tells which of the 26
+printings of Metal Energy is the current one. Only 188 sets have an
+abbreviation, but all 218 have a date and their cards all show up in the
+search, so all of them are stored and the abbreviation is allowed to be None.
 """
 
 from pymongo import ASCENDING, UpdateOne
@@ -28,12 +28,12 @@ def _collection():
 
 
 async def ensure_indexes() -> None:
-    # Único pero PARCIAL. Para Mongo, varios documentos sin abreviatura no son
-    # "varios sin valor": son varios con el mismo valor null, y un índice único
-    # normal rechazaría el segundo. Con partialFilterExpression el índice solo
-    # cubre los documentos cuya abreviatura es una cadena, así que los 30 sets
-    # sin código entran sin pelearse entre ellos y los 188 con código siguen sin
-    # poder duplicarse.
+    # Unique but PARTIAL. To Mongo, several documents without an abbreviation
+    # aren't "several with no value": they're several with the same null value,
+    # and a plain unique index would reject the second one. With
+    # partialFilterExpression the index only covers documents whose
+    # abbreviation is a string, so the 30 sets without a code go in without
+    # fighting each other and the 188 with a code still can't be duplicated.
     try:
         await _collection().create_index(
             [("abbreviation", ASCENDING)],
@@ -41,9 +41,9 @@ async def ensure_indexes() -> None:
             partialFilterExpression={"abbreviation": {"$type": "string"}},
         )
     except OperationFailure:
-        # El índice ya existe con las opciones viejas —único a secas—, y Mongo
-        # no reescribe opciones: hay que tirarlo y volver a crearlo. Pasa una
-        # vez, en el primer arranque después de este cambio.
+        # The index already exists with the old options — plain unique — and
+        # Mongo doesn't rewrite options: it has to be dropped and recreated.
+        # This happens once, on the first startup after this change.
         await _collection().drop_index("abbreviation_1")
         await _collection().create_index(
             [("abbreviation", ASCENDING)],
@@ -53,36 +53,37 @@ async def ensure_indexes() -> None:
 
 
 async def abbreviation_map() -> dict[str, str]:
-    """{ABREVIATURA: set_id}, la colección entera en un diccionario.
+    """{ABBREVIATION: set_id}, the whole collection in a dictionary.
 
-    Se trae todo de golpe y se resuelve en memoria por lo mismo que las
-    carpetas: son 190 documentos diminutos, y una lista de mazo tiene veintitrés
-    líneas que consultar. Una consulta por línea sería el problema N+1 sobre una
-    tabla que cabe en un suspiro.
+    Fetched all at once and resolved in memory for the same reason as folders:
+    it's 190 tiny documents, and a decklist has up to twenty-three lines to
+    look up. One query per line would be the N+1 problem over a table that
+    fits in an instant.
 
-    Filtra por $type string: los 30 sets sin abreviatura meterían None como
-    clave, y entonces una línea de lista cuyo código no se reconociera resolvería
-    contra el set None en vez de quedarse sin resolver.
+    Filters by $type string: the 30 sets without an abbreviation would put None
+    as the key, and then a decklist line whose code wasn't recognized would
+    resolve against the None set instead of being left unresolved.
     """
     cursor = _collection().find({"abbreviation": {"$type": "string"}}, {"abbreviation": 1})
     return {doc["abbreviation"]: doc["_id"] async for doc in cursor}
 
 
 async def id_map() -> dict[str, str]:
-    """El diccionario inverso, {set_id: ABREVIATURA}, para exportar.
+    """The reverse dictionary, {set_id: ABBREVIATION}, for exporting.
 
-    Mismo filtro: un set sin abreviatura simplemente no está, y el exportador ya
-    sabe qué hacer cuando no encuentra el código de una carta.
+    Same filter: a set without an abbreviation is simply not there, and the
+    exporter already knows what to do when it can't find a card's code.
     """
     cursor = _collection().find({"abbreviation": {"$type": "string"}}, {"abbreviation": 1})
     return {doc["_id"]: doc["abbreviation"] async for doc in cursor}
 
 
 async def release_dates() -> dict[str, str]:
-    """{set_id: "YYYY-MM-DD"}, para poder ordenar impresiones por antigüedad.
+    """{set_id: "YYYY-MM-DD"}, so printings can be sorted by age.
 
-    Se trae entera por lo mismo que los otros dos mapas: son 218 documentos de
-    cuatro campos, y quien la usa —el rellenado de cartas— los necesita todos.
+    Fetched in full for the same reason as the other two maps: it's 218
+    documents of four fields, and whoever uses it — the card backfill — needs
+    all of them.
     """
     cursor = _collection().find({"release_date": {"$ne": None}}, {"release_date": 1})
     return {doc["_id"]: doc["release_date"] async for doc in cursor}
@@ -93,10 +94,10 @@ async def count() -> int:
 
 
 async def replace_all(sets: list[dict]) -> int:
-    """Escribe los sets con upsert, igual que el Pokédex.
+    """Writes the sets with upsert, same as the Pokedex.
 
-    Upsert y no borrar-e-insertar: borrar deja una ventana en la que importar
-    una lista fallaría entera.
+    Upsert and not delete-then-insert: deleting leaves a window in which
+    importing a decklist would fail entirely.
     """
     if not sets:
         return 0
