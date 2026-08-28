@@ -225,3 +225,17 @@ Trusting the header would import a card as Trainer because the user pasted it in
 as written. A list from someone else can name a card from a set we have not synced; refusing all 60
 over one line leaves the user with nothing. Verified round-trip: importing the reference list and
 exporting it reproduces the input line for line.
+
+**English is the source language.** The repository was bilingual and drifting:
+`openSession(id, editar = false)` and `MUESTRA_MINIMA` sat beside `openDeckId` and `played_at`.
+Macaronic code is worse than either language pure. `CLAUDE.md` states the project exists to add
+full-stack engineering to the developer's career; an English codebase is the industry norm and the
+one a reader outside Spain can review. Spanish survives only as a UI translation.
+
+**The interface language is chosen in the client.** Detected from `navigator.language` on the first
+visit, then remembered in `localStorage`; an explicit choice always outranks detection. No backend
+involvement, no `Accept-Language` negotiation, no user account to store it on.
+
+**A `Violation` carries a code and parameters, never prose.** Rejected: keeping `message` as an
+English fallback. Two sources of truth for the same sentence diverge — the Spanish text changes, the
+`message` does not, and nobody notices.
