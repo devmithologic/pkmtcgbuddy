@@ -83,6 +83,7 @@ Exhaustive. If execution finds one not listed, add it to this table before renam
 | `detalle` | `detail` | backend locals |
 | `fecha` / `fecha_a` / `fecha_c` | `date` / `date_a` / `date_c` | backend locals — check what `_a`/`_c` mean before renaming |
 | `filtro` | `filter_` | backend locals; trailing underscore avoids shadowing the builtin |
+| `en_uso` | `in_use` | `backend/app/routers/decks.py` — the 409 guard on deck deletion |
 
 ---
 
@@ -153,11 +154,11 @@ git commit -m "docs: make English the source language of the repository"
 The claim "I only touched comments" is worth nothing unasserted. This harness turns it into a proof, and it must exist before the first line is translated.
 
 **Files:**
-- Create: `<scratchpad>/verify_ast_equality.py` — **not committed.** It is a verification tool for this refactor, not a project asset; committing it would leave permanent cruft for a one-off job.
+- Create: `/private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py` — **not committed.** It is a verification tool for this refactor, not a project asset; committing it would leave permanent cruft for a one-off job.
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: `python <scratchpad>/verify_ast_equality.py <git-ref>`, exit 0 when every tracked `backend/app/**/*.py` has an identical AST in the working tree and in `<git-ref>`, ignoring docstrings and comments. Tasks 3–6 each end by running it.
+- Produces: `python /private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py <git-ref>`, exit 0 when every tracked `backend/app/**/*.py` has an identical AST in the working tree and in `<git-ref>`, ignoring docstrings and comments. Tasks 3–6 each end by running it.
 
 - [ ] **Step 1: Write the harness**
 
@@ -243,7 +244,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Prove the harness passes on an unchanged tree**
 
-Run: `cd /Users/mithologic/ws/dev/pkmtrainerproject && backend/.venv/bin/python <scratchpad>/verify_ast_equality.py HEAD`
+Run: `cd /Users/mithologic/ws/dev/pkmtrainerproject && backend/.venv/bin/python /private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py HEAD`
 Expected: `0 failure(s)`, exit 0. A clean tree must compare equal to itself.
 
 - [ ] **Step 3: Prove the harness actually catches something**
@@ -253,7 +254,7 @@ A verification tool that has never failed is not known to work. Break something 
 ```bash
 # pick any file and change a real statement
 sed -i '' 's/^DECK_SIZE = 60$/DECK_SIZE = 61/' backend/app/models/deck.py
-backend/.venv/bin/python <scratchpad>/verify_ast_equality.py HEAD
+backend/.venv/bin/python /private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py HEAD
 ```
 
 Expected: `backend/app/models/deck.py: AST differs`, exit 1.
@@ -296,7 +297,7 @@ Do not touch: enum values, field names, `Field(...)` arguments, `@computed_field
 
 - [ ] **Step 2: Prove no statement changed**
 
-Run: `backend/.venv/bin/python <scratchpad>/verify_ast_equality.py HEAD`
+Run: `backend/.venv/bin/python /private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py HEAD`
 Expected: `0 failure(s)`, exit 0.
 
 - [ ] **Step 3: Prove the app still imports**
@@ -341,7 +342,7 @@ Do not touch: collection names, field names inside `$match`/`$project`/`$sort` d
 
 - [ ] **Step 2: Prove no statement changed**
 
-Run: `backend/.venv/bin/python <scratchpad>/verify_ast_equality.py HEAD`
+Run: `backend/.venv/bin/python /private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py HEAD`
 Expected: `0 failure(s)`, exit 0.
 
 - [ ] **Step 3: Prove the app still imports**
@@ -382,7 +383,7 @@ Specific hazards here:
 
 - [ ] **Step 2: Prove no statement changed**
 
-Run: `backend/.venv/bin/python <scratchpad>/verify_ast_equality.py HEAD`
+Run: `backend/.venv/bin/python /private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py HEAD`
 Expected: `0 failure(s)`, exit 0.
 
 - [ ] **Step 3: Prove the app still imports**
@@ -420,13 +421,15 @@ git commit -m "refactor: translate service comments and docstrings to English"
 
 `main.py` carries the lifespan and CORS commentary — both are documented lessons in `log_mentor/` and the comments must keep pointing at the same mechanism. Do not touch route paths, `response_model=`, status codes, or the `detail=` strings (Task 8).
 
+**Leave `decks.py:403` alone**: `Query(default=None, description="Filtra por etiqueta de sesión")`. It reads like prose but it is an argument, so it lives in the AST — translating it here makes Step 3's equality check fail, correctly. It is user-facing API documentation and Task 8 owns it.
+
 - [ ] **Step 2: Translate the `requirements.txt` and `.env.example` comments**
 
 `requirements.txt` currently opens with a Spanish note about lower bounds versus pinned versions, and every dependency carries a Spanish trailing comment. Translate both. Do not change a single version specifier.
 
 - [ ] **Step 3: Prove no statement changed**
 
-Run: `backend/.venv/bin/python <scratchpad>/verify_ast_equality.py HEAD`
+Run: `backend/.venv/bin/python /private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py HEAD`
 Expected: `0 failure(s)`, exit 0.
 
 - [ ] **Step 4: Prove `requirements.txt` still resolves**
@@ -506,7 +509,7 @@ back a fixed number of commits:
 
 ```bash
 BASE=$(git log --format='%H %s' | grep 'make English the source language' | head -1 | cut -d' ' -f1)
-backend/.venv/bin/python <scratchpad>/verify_ast_equality.py "$BASE"
+backend/.venv/bin/python /private/tmp/claude-501/-Users-mithologic-ws-dev-pkmtrainerproject/15dded0c-e036-4ced-8e69-a9321da5f1f2/scratchpad/verify_ast_equality.py "$BASE"
 ```
 
 Expected: failures, because identifiers *are* part of the AST. This is correct. The harness's job is finished; from here verification is by import, lint and smoke test. Note which files it names and confirm each one is a file you intended to touch — a file you did not intend to rename in, showing up here, is a real finding.
@@ -543,9 +546,21 @@ The only backend task that changes what a user sees. Separate from Task 7 so the
 
 **Files:**
 - Modify: `backend/app/services/deck_rules.py` — three `message=` strings
-- Modify: `backend/app/routers/cards.py`, `decks.py`, `sessions.py` — the `detail=` strings
-- Modify: `backend/app/db/deck_repository.py` — its `detail=` string
+- Modify: `backend/app/routers/sessions.py` — five `detail=` strings
+- Modify: `backend/app/routers/cards.py` — two, including the multi-line 503 at `:56`
+- Modify: `backend/app/routers/decks.py` — four `detail=`, plus the two below
 - Modify: `docs/api.md` if it quotes any of these strings verbatim
+
+**Not** `backend/app/db/deck_repository.py` — it raises nothing; its Spanish is comments, already handled in Task 4.
+
+Two sites a `grep detail=` will not find, and both must be translated here:
+
+1. **`decks.py:311`** — the 409 refusing to delete a deck that sessions used. It is raised
+   **positionally**, not with `detail=`, and it carries a hand-rolled plural
+   (`'sesión se jugó' if en_uso == 1 else 'sesiones se jugaron'`). Both branches must become
+   whole English clauses, never a stem plus a suffix.
+2. **`decks.py:403`** — `Query(default=None, description="Filtra por etiqueta de sesión")`.
+   Deliberately deferred from Task 6 because it is an AST-visible argument, not a comment.
 
 **Interfaces:**
 - Consumes: nothing
@@ -698,25 +713,30 @@ Three carry decisions recorded in `docs/decisions.md` — keep them recognisable
 - `DeckValidation.jsx` — why unsaved changes replace the verdict with "unchecked" instead of recomputing the rules client-side.
 - `App.jsx` — why the hidden tab is unmounted rather than hidden with CSS (it cancels in-flight requests through `useEffect` cleanups).
 
-- [ ] **Step 2: Translate the CSS comments**
+- [ ] **Step 2: Leave every user-visible string in Spanish for now**
+
+Comments only, exactly as in Task 10. The interface copy is Task 13, and mixing the two makes
+the diff impossible to skim.
+
+- [ ] **Step 3: Translate the CSS comments**
 
 `App.css` has 95 accented lines and `index.css` 25. Class names are already English and must not change — only comments. `App.css` documents the `--shell` and `--measure` width decision; keep it precise, it is a row in the decision table.
 
-- [ ] **Step 3: Confirm no class name moved**
+- [ ] **Step 4: Confirm no class name moved**
 
 ```bash
 git diff -- frontend/src/App.css frontend/src/index.css | grep -E "^[-+]\s*\." | sort | uniq -c
 ```
 Expected: every removed selector line has a matching added line, or no selector lines appear at all. A selector that appears only on a `-` line is a renamed class and a bug.
 
-- [ ] **Step 4: Lint and build**
+- [ ] **Step 5: Lint and build**
 
 ```bash
 cd frontend && npm run lint && npm run build
 ```
 Expected: both pass.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add frontend/src/App.jsx frontend/src/components/ frontend/src/App.css frontend/src/index.css
