@@ -1,4 +1,4 @@
-"""Carpetas de mazos."""
+"""Deck folders."""
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
@@ -28,12 +28,12 @@ async def _existe_o_404(folder_id: ObjectId) -> dict:
 
 @router.get("", response_model=list[FolderOut])
 async def list_folders() -> list[FolderOut]:
-    """Todas las carpetas, planas.
+    """All folders, flat.
 
-    El árbol lo arma el cliente a partir de `parent_id`. Devolverlo ya anidado
-    obligaría a un modelo recursivo y no ahorraría nada: son diez documentos, y
-    el frontend necesita de todos modos poder recorrerlos por id para pintar los
-    desplegables de «mover a».
+    The client builds the tree from `parent_id`. Returning it already nested
+    would require a recursive model and would not save anything: there are ten
+    documents, and the frontend needs to be able to walk them by id anyway to
+    render the "move to" dropdowns.
     """
     return [_to_out(d) for d in await folder_repository.list_folders()]
 
@@ -55,8 +55,8 @@ async def update_folder(folder_id: str, payload: FolderUpdate) -> FolderOut:
     oid = to_object_id(folder_id)
     await _existe_o_404(oid)
 
-    # Mover: hay que comprobar el ciclo ANTES de escribir. Si se escribe primero
-    # y se comprueba después, el árbol ya está roto y hace falta deshacerlo.
+    # Moving: the cycle must be checked BEFORE writing. If it writes first and
+    # checks after, the tree is already broken and has to be undone.
     campos = payload.model_dump(exclude_unset=True)
     if "parent_id" in campos:
         nuevo = to_object_id(campos["parent_id"]) if campos["parent_id"] else None
@@ -74,6 +74,6 @@ async def update_folder(folder_id: str, payload: FolderUpdate) -> FolderOut:
 
 @router.delete("/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_folder(folder_id: str) -> None:
-    """Borra la carpeta. Sus mazos y subcarpetas suben al padre, no se borran."""
+    """Deletes the folder. Its decks and subfolders move up to the parent; they are not deleted."""
     if not await folder_repository.delete_folder(to_object_id(folder_id)):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa carpeta no existe")

@@ -1,16 +1,16 @@
-"""Endpoints del recurso /api/cards.
+"""Endpoints for the /api/cards resource.
 
-Leen de NUESTRA colección de MongoDB, no de TCGdex. El catálogo se llena con
-`python -m app.services.card_sync`, un trabajo por lotes que se ejecuta a mano.
+Reads from OUR MongoDB collection, not from TCGdex. The catalogue is filled by
+`python -m app.services.card_sync`, a batch job run by hand.
 
-El proxy en vivo fue lo primero, a propósito: entender la llamada directa antes
-de adoptar la caché. El 9 de agosto de 2026 TCGdex estuvo caída varias horas y el
-buscador dejó de existir aunque nuestro servidor y nuestra base estaban intactos.
-Eso zanjó la discusión.
+The live proxy came first, on purpose: understand the direct call before
+adopting the cache. On August 9, 2026 TCGdex was down for several hours and the
+search stopped existing even though our server and our database were intact.
+That settled the discussion.
 
-Consecuencia visible: card_source ya no aparece aquí. El adaptador sigue siendo el
-único que habla con TCGdex, pero ahora quien lo llama es el job de sincronización,
-no la petición del usuario.
+Visible consequence: card_source no longer appears here. The adapter is still
+the only thing that talks to TCGdex, but now the sync job is the one that calls
+it, not the user's request.
 """
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -23,8 +23,8 @@ router = APIRouter(prefix="/cards", tags=["cards"])
 
 @router.get("", response_model=CardSearchResult)
 async def search_cards(
-    # Query(...) declara parámetros de query string con validación y documentación.
-    # Los alias cortos son los que verá el usuario en la URL: /api/cards?q=char
+    # Query(...) declares query-string parameters with validation and documentation.
+    # The short aliases are what the user sees in the URL: /api/cards?q=char
     q: str | None = Query(default=None, min_length=2, description="Parte del nombre"),
     format: DeckFormat | None = Query(default=None, description="Filtra por legalidad"),
     category: CardCategory | None = Query(default=None),
@@ -32,13 +32,14 @@ async def search_cards(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=24, ge=1, le=100),
 ) -> CardSearchResult:
-    """Busca cartas en TCGdex.
+    """Search cards from TCGdex.
 
-    `min_length=2` en `q` no es capricho: una sola letra devuelve miles de
-    resultados y castiga a TCGdex sin darle nada útil al usuario.
+    `min_length=2` on `q` is not a whim: a single letter returns thousands of
+    results and punishes TCGdex without giving the user anything useful.
     """
-    # Ya no hay 502 ni 504 que manejar: no se llama a nadie de fuera. Los únicos
-    # fallos posibles son de nuestra base, y esos sí son un 500 legítimo.
+    # There's no more 502 or 504 to handle: nothing outside gets called. The
+    # only possible failures are our own database's, and those really are a
+    # legitimate 500.
     result = await card_repository.search_cards(
         name=q,
         deck_format=format,
@@ -48,8 +49,8 @@ async def search_cards(
         page_size=page_size,
     )
 
-    # Distinguir "no hay coincidencias" de "nunca se sincronizó" evita que un
-    # despliegue sin datos parezca una búsqueda sin resultados.
+    # Distinguishing "no matches" from "never synced" keeps an empty deployment
+    # from looking like a search with no results.
     if not result.cards and await card_repository.count_cards() == 0:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -64,7 +65,7 @@ async def search_cards(
 
 @router.get("/{card_id}", response_model=Card)
 async def get_card(card_id: str) -> Card:
-    """Detalle de una carta, con rareza, marca de regulación y legalidad."""
+    """Card detail, with rarity, regulation mark and legality."""
     card = await card_repository.get_card(card_id)
 
     if card is None:

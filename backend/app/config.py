@@ -1,17 +1,17 @@
-"""Configuración de la aplicación, leída del entorno."""
+"""Application configuration, read from the environment."""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Valores de configuración que cambian entre entornos.
+    """Configuration values that change between environments.
 
-    Al heredar de BaseSettings, pydantic-settings rellena cada campo buscando —en
-    este orden— una variable de entorno del sistema y luego una línea del fichero
-    .env. El nombre del campo es el nombre de la clave, sin distinguir mayúsculas.
+    By inheriting from BaseSettings, pydantic-settings fills in each field by
+    looking —in this order— for a system environment variable and then a line
+    in the .env file. The field's name is the key's name, case-insensitive.
 
-    Si falta una clave sin valor por defecto, la app falla al arrancar con un
-    mensaje claro en vez de reventar más tarde con un None inesperado.
+    If a key with no default value is missing, the app fails at startup with a
+    clear message instead of blowing up later with an unexpected None.
     """
 
     mongodb_uri: str
@@ -22,11 +22,11 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        """CORS_ORIGINS llega como una cadena separada por comas; el middleware
-        espera una lista."""
+        """CORS_ORIGINS arrives as a comma-separated string; the middleware
+        expects a list."""
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
-# Una sola instancia para toda la app. Se construye al importar el módulo, así que
-# un .env mal formado se detecta al arrancar, no en la primera petición.
+# A single instance for the whole app. It's built when the module is imported,
+# so a malformed .env is detected at startup, not on the first request.
 settings = Settings()

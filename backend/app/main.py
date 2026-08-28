@@ -1,4 +1,4 @@
-"""Punto de entrada ASGI de la aplicación."""
+"""ASGI entry point for the application."""
 
 from contextlib import asynccontextmanager
 
@@ -20,24 +20,26 @@ from app.routers import cards, decks, folders, pokemon, sessions
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Ciclo de vida de la aplicación.
+    """The application's lifecycle.
 
-    Lo que va antes del yield se ejecuta una vez al arrancar; lo que va después,
-    una vez al parar. Entre medias, la app atiende peticiones.
+    What goes before the yield runs once at startup; what goes after, once at
+    shutdown. In between, the app serves requests.
 
-    Aquí abrimos la conexión a Mongo. Es el sitio correcto porque queremos UN solo
-    cliente para todo el proceso: abrir una conexión por petición es un error de
-    rendimiento clásico —cada una implica handshake TCP y negociación con el
-    servidor— y agota el pool de conexiones bajo carga.
+    This is where the Mongo connection is opened. It's the right place because
+    we want ONE single client for the whole process: opening one connection per
+    request is a classic performance mistake —each one means a TCP handshake and
+    negotiation with the server— and it exhausts the connection pool under load.
 
-    Sustituye a @app.on_event("startup"), obsoleto desde FastAPI 0.93. La ventaja
-    de este formato: el arranque y el cierre de un mismo recurso quedan juntos en
-    la misma función, así que es difícil olvidarse de cerrar lo que abriste.
+    Supersedes @app.on_event("startup"), deprecated since FastAPI 0.93. The
+    advantage of this format: the startup and the shutdown of the same resource
+    sit together in the same function, so it's hard to forget to close what you
+    opened.
     """
     await connect_to_mongo()
 
-    # Idempotente: si los índices existen, no hace nada. Crearlos aquí evita que
-    # un despliegue nuevo empiece haciendo collection scans sin que nadie lo note.
+    # Idempotent: if the indexes already exist, it does nothing. Creating them
+    # here keeps a fresh deployment from starting out doing collection scans
+    # without anyone noticing.
     await card_repository.ensure_indexes()
     await deck_repository.ensure_indexes()
     await session_repository.ensure_indexes()
@@ -49,9 +51,9 @@ async def lifespan(app: FastAPI):
 
     await close_mongo_connection()
 
-    # El proceso web ya no abre cliente HTTP hacia TCGdex: nadie de fuera se
-    # consulta al atender una petición. Ese cliente vive ahora en el job de
-    # sincronización, que lo abre y lo cierra por su cuenta.
+    # The web process no longer opens an HTTP client toward TCGdex: nothing
+    # external gets consulted while handling a request. That client now lives
+    # in the sync job, which opens and closes it on its own.
 
 
 app = FastAPI(
@@ -59,12 +61,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS. El navegador aplica la política del mismo origen: JavaScript servido desde
-# localhost:5173 no puede leer respuestas de localhost:8000, porque el puerto los
-# hace orígenes distintos. Este middleware es cómo el servidor da permiso.
+# CORS. The browser enforces the same-origin policy: JavaScript served from
+# localhost:5173 cannot read responses from localhost:8000, because the port
+# makes them different origins. This middleware is how the server grants
+# permission.
 #
-# Ojo con el sentido: lo aplica el NAVEGADOR, no el servidor. Por eso curl funciona
-# aunque esto falte, y por eso el error aparece solo en la consola del navegador.
+# Watch the direction: it's enforced by the BROWSER, not the server. That's why
+# curl works even without this, and why the error shows up only in the
+# browser's console.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -73,7 +77,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Todas las rutas quedan bajo /api: /api/sessions, /api/decks, /api/cards.
+# All routes live under /api: /api/sessions, /api/decks, /api/cards.
 app.include_router(sessions.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(decks.router, prefix="/api")
@@ -83,6 +87,6 @@ app.include_router(folders.router, prefix="/api")
 
 @app.get("/api/health")
 async def health() -> dict[str, str]:
-    """Comprobación de que la app está viva. Útil para verificar que el servidor
-    arrancó antes de sospechar de la base de datos o del frontend."""
+    """Check that the app is alive. Useful for confirming the server started
+    before suspecting the database or the frontend."""
     return {"status": "ok"}
