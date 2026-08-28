@@ -1,13 +1,13 @@
-"""Modelos de mazo y de versión de mazo.
+"""Deck and deck version models.
 
-La idea central del proyecto vive aquí: un mazo no es una lista de cartas, es una
-lista *más un historial*. Cada cambio produce una DeckVersion, y las partidas se
-atribuirán a la versión jugada, no solo al mazo.
+The project's central idea lives here: a deck is not a list of cards, it is a
+list *plus a history*. Every change produces a DeckVersion, and games will be
+attributed to the version played, not just to the deck.
 
-Regla que gobierna el diseño: **la versión actual es editable; las anteriores
-quedan congeladas.** Si la v1 pudiera cambiar después de haber jugado con ella,
-las estadísticas atribuidas a la v1 pasarían a ser mentira. Crear una versión
-nueva es el gesto de preservar el historial antes de tocar nada.
+Rule that governs the design: **the current version is editable; earlier ones
+stay frozen.** If v1 could change after games had been played with it, the
+statistics attributed to v1 would become a lie. Creating a new version is the
+gesture of preserving history before touching anything.
 """
 
 from datetime import datetime
@@ -18,19 +18,19 @@ from pydantic import BaseModel, Field
 from app.models.card import CardSummary, DeckFormat
 from app.models.pokemon import PokemonRef, PokemonRefOut
 
-# Reglas del formato. Van aquí, con nombre, y no como números sueltos dentro de
-# la validación: cuando alguien pregunte "¿por qué 4?", el nombre responde.
+# Format rules. They go here, named, and not as loose numbers inside
+# validation: when someone asks "why 4?", the name answers.
 DECK_SIZE = 60
 MAX_COPIES_PER_NAME = 4
 MAX_ACE_SPEC = 1
 
 
 class DeckCard(BaseModel):
-    """Una entrada de la lista: qué carta y cuántas copias.
+    """A decklist entry: which card and how many copies.
 
-    Guarda solo el id. El nombre, la rareza y la legalidad viven en la colección
-    `cards` y se resuelven al validar. Duplicarlos aquí significaría que una
-    resincronización dejaría los mazos con datos viejos.
+    Stores only the id. Name, rarity and legality live in the `cards`
+    collection and are resolved when validating. Duplicating them here
+    would mean a resync could leave decks with stale data.
     """
 
     card_id: str
@@ -40,36 +40,38 @@ class DeckCard(BaseModel):
 class DeckCreate(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     deck_format: DeckFormat
-    # Los dos Pokémon que identifican el mazo: "Dragapult / Dusknoir". Opcionales
-    # porque no todo arquetipo se reduce a una criatura, y porque al crear el
-    # mazo puede que aún no lo tengas claro.
+    # The two Pokémon that identify the deck: "Dragapult / Dusknoir".
+    # Optional because not every archetype reduces to a creature, and
+    # because when creating the deck you may not have decided yet.
     primary_pokemon: PokemonRef | None = None
     secondary_pokemon: PokemonRef | None = None
     folder_id: str | None = None
 
 
 class DeckUpdate(BaseModel):
-    """Cambios sobre un mazo ya creado: nombre e iconos.
+    """Changes to an already-created deck: name and icons.
 
-    Todo opcional porque es un PATCH: se manda solo lo que cambia. Distinguir
-    "no lo mandes" de "ponlo a null" con un solo campo opcional no se puede, así
-    que borrar un icono se hace mandando el objeto entero sin él.
+    Everything optional because it is a PATCH: only what changes is sent.
+    Distinguishing "don't send it" from "set it to null" is not possible
+    with a single optional field, so clearing an icon is done by sending
+    the whole object without it.
     """
 
     name: str | None = Field(default=None, min_length=1, max_length=80)
     primary_pokemon: PokemonRef | None = None
     secondary_pokemon: PokemonRef | None = None
-    # None aquí SÍ significa algo: «sácalo de su carpeta». Como en FolderUpdate
-    # y al contrario que `name`, se distingue con exclude_unset.
+    # None here DOES mean something: "take it out of its folder". As in
+    # FolderUpdate and unlike `name`, it is distinguished with exclude_unset.
     folder_id: str | None = None
-    # Cambiar el formato NO toca las cartas: DeckValidation se calcula al leer,
-    # así que la lista se revalida sola y el panel dirá qué dejó de ser legal.
-    # Es lo correcto: un mazo ilegal se guarda igual y se informa.
+    # Changing the format does NOT touch the cards: DeckValidation is
+    # computed on read, so the decklist revalidates itself and the panel
+    # will say what stopped being legal.
+    # That is correct: an illegal deck is still saved and reported as such.
     deck_format: DeckFormat | None = None
 
 
 class DeckImport(BaseModel):
-    """Una lista de mazo en el formato de texto de PTCG Live."""
+    """A decklist in the PTCG Live text format."""
 
     text: str = Field(min_length=1)
     name: str | None = Field(default=None, min_length=1, max_length=80)
@@ -77,11 +79,12 @@ class DeckImport(BaseModel):
 
 
 class DeckImportResult(BaseModel):
-    """El mazo creado y qué no se pudo traer.
+    """The created deck and what could not be resolved.
 
-    `unresolved` va SIEMPRE, aunque esté vacío. Es la diferencia entre importar
-    y confiar: quien pega una lista de 60 cartas tiene derecho a saber si
-    entraron 60 o 57, y cuáles faltan escritas tal como él las mandó.
+    `unresolved` is ALWAYS present, even when empty. That is the
+    difference between importing and trusting: whoever pastes a 60-card
+    list has the right to know whether 60 or 57 made it in, and which ones
+    are missing, written exactly as they sent them.
     """
 
     deck: "DeckOut"
@@ -90,27 +93,28 @@ class DeckImportResult(BaseModel):
 
 
 class NewVersionRequest(BaseModel):
-    """Mensaje que describe el cambio, como el de un commit."""
+    """Message describing the change, like a commit's."""
 
     message: str = Field(min_length=1, max_length=200)
 
 
 class DeckCardsUpdate(BaseModel):
-    """Reemplaza la lista entera de la versión actual.
+    """Replaces the entire decklist of the current version.
 
-    Se manda la lista completa en vez de "suma una Iono" a propósito: PUT con el
-    estado completo es *idempotente*, así que repetirlo no duplica nada, y evita
-    los problemas de concurrencia de un contador incremental.
+    The complete list is sent instead of "add one Iono" on purpose: a PUT
+    with the full state is *idempotent*, so repeating it duplicates
+    nothing, and it avoids the concurrency problems of an incremental
+    counter.
     """
 
     cards: list[DeckCard]
 
 
 class ViolationCode(str, Enum):
-    """Motivos por los que un mazo no es legal.
+    """Reasons a deck is not legal.
 
-    Un código además del mensaje para que el frontend pueda decidir cómo
-    presentarlo sin analizar texto en español.
+    A code alongside the message so the frontend can decide how to present
+    it without parsing Spanish text.
     """
 
     WRONG_SIZE = "wrong_size"
@@ -123,16 +127,16 @@ class ViolationCode(str, Enum):
 class Violation(BaseModel):
     code: ViolationCode
     message: str
-    # Cartas implicadas, para que la interfaz pueda señalarlas.
+    # Cards involved, so the UI can point them out.
     card_ids: list[str] = Field(default_factory=list)
 
 
 class DeckValidation(BaseModel):
-    """Estado de legalidad de una lista.
+    """Legality status of a decklist.
 
-    NO se guarda en la base. Se calcula al leer, igual que Matchup: es un dato
-    derivado, y almacenarlo abre la puerta a que contradiga a la lista que
-    describe.
+    NOT stored in the database. Computed on read, same as Matchup: it is a
+    derived value, and storing it opens the door to it contradicting the
+    decklist it describes.
     """
 
     is_legal: bool
@@ -141,7 +145,7 @@ class DeckValidation(BaseModel):
 
 
 class DeckVersionSummary(BaseModel):
-    """Una entrada del historial, sin la lista de cartas."""
+    """An entry in the history, without the decklist."""
 
     id: str
     version: int
@@ -151,11 +155,11 @@ class DeckVersionSummary(BaseModel):
 
 
 class DeckVersionOut(DeckVersionSummary):
-    """Una versión con su lista resuelta.
+    """A version with its decklist resolved.
 
-    `cards` lleva la carta completa —no solo el id— porque quien pinta la lista
-    necesita nombre e imagen, y resolverlos en el cliente sería una petición por
-    carta. Ver log_mentor/08.
+    `cards` carries the full card —not just the id— because whoever renders
+    the list needs the name and image, and resolving them on the client
+    would be one request per card. See log_mentor/08.
     """
 
     cards: list["DeckCardOut"]
@@ -164,7 +168,7 @@ class DeckVersionOut(DeckVersionSummary):
 class DeckCardOut(BaseModel):
     quantity: int
     card: CardSummary
-    # Datos que necesita la interfaz para agrupar y avisar, ya resueltos.
+    # Data the UI needs to group and warn, already resolved.
     category: str
     is_ace_spec: bool
     is_basic_energy: bool
@@ -172,28 +176,29 @@ class DeckCardOut(BaseModel):
 
 
 class DeckSummary(BaseModel):
-    """Un mazo en el listado: lo justo para decidir cuál abrir."""
+    """A deck in the listing: just enough to decide which one to open."""
 
     id: str
     name: str
     deck_format: DeckFormat
     current_version: int
-    # El id además del número: quien registra una partida necesita guardar A QUÉ
-    # versión se atribuye, y el número por sí solo no identifica el documento.
+    # The id in addition to the number: whoever logs a game needs to store
+    # WHICH version it is attributed to, and the number alone does not
+    # identify the document.
     current_version_id: str
     total_cards: int
     is_legal: bool
     updated_at: datetime
-    # Out y no PokemonRef a secas: es una respuesta, así que lleva las URLs
-    # calculadas. Los modelos de entrada de arriba se quedan con PokemonRef,
-    # que es lo que se guarda.
+    # Out and not plain PokemonRef: this is a response, so it carries the
+    # computed URLs. The input models above stick with PokemonRef, which is
+    # what gets stored.
     primary_pokemon: PokemonRefOut | None = None
     secondary_pokemon: PokemonRefOut | None = None
     folder_id: str | None = None
 
 
 class DeckOut(BaseModel):
-    """Un mazo abierto: cabecera, versión actual y su validación."""
+    """An open deck: header, current version and its validation."""
 
     id: str
     name: str

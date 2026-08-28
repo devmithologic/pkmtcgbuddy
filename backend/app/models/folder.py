@@ -1,35 +1,37 @@
-"""Carpetas para organizar los mazos.
+"""Folders for organizing decks.
 
-Un árbol, y por eso hay una decisión de modelado que merece nombre. MongoDB
-documenta cinco formas de guardar un árbol —referencia al padre, referencia a
-los hijos, array de antepasados, rutas materializadas y conjuntos anidados— y se
-distinguen por qué consulta abaratan:
+A tree, and that is why there is a modeling decision worth naming. MongoDB
+documents five ways to store a tree —parent reference, child references,
+array of ancestors, materialized paths and nested sets— and they are
+distinguished by which query they make cheap:
 
-    referencia al padre    subir es trivial; bajar un subárbol entero necesita
-                           $graphLookup o varias vueltas
-    array de antepasados   {ancestors: X} da el subárbol de una sola consulta
-                           indexada, pero mover una carpeta obliga a reescribir
-                           el array de TODOS sus descendientes
-    rutas materializadas   igual de rápido con un regex anclado, mismo coste al
-                           mover, y además hay que escapar el separador
+    parent reference       going up is trivial; pulling down an entire
+                           subtree needs $graphLookup or several round trips
+    array of ancestors     {ancestors: X} gives the subtree in a single
+                           indexed query, but moving a folder forces
+                           rewriting the array on ALL of its descendants
+    materialized paths     just as fast with an anchored regex, same cost
+                           on move, and on top of that you must escape the
+                           separator
 
-Aquí se usa **referencia al padre**, la más simple, y el motivo es el tamaño: un
-usuario tendrá cinco o diez carpetas. Toda la colección cabe en una consulta y el
-árbol se arma en memoria, así que la consulta que la referencia al padre encarece
-—bajar por el árbol— aquí no se llega a hacer nunca.
+Here we use **parent reference**, the simplest one, and the reason is size:
+a user will have five or ten folders. The whole collection fits in one
+query and the tree is assembled in memory, so the query that parent
+reference makes expensive —walking down the tree— never actually happens
+here.
 
-Las otras cuatro existen para colecciones donde traérselo todo es impensable. Con
-diez documentos serían maquinaria cara de mantener para acelerar algo que ya es
-instantáneo.
+The other four exist for collections where fetching everything is
+unthinkable. With ten documents they would be expensive machinery to
+maintain in order to speed up something that is already instant.
 """
 
 from pydantic import BaseModel, Field, field_validator
 
 
 def _limpia_nombre(valor: str) -> str:
-    """Recorta y colapsa espacios. No pasa a minúsculas, al revés que las
-    etiquetas: una carpeta es un título que el usuario escribe y quiere ver tal
-    cual, no una clave por la que se agrupa."""
+    """Trims and collapses whitespace. Does not lowercase, unlike tags: a
+    folder is a title the user types and wants to see as-is, not a key it
+    is grouped by."""
     return " ".join(valor.split())
 
 
@@ -44,14 +46,16 @@ class FolderCreate(BaseModel):
 
 
 class FolderUpdate(BaseModel):
-    """Renombrar o mover.
+    """Rename or move.
 
-    Ojo con `parent_id`: aquí `None` **significa algo** —«llévala a la raíz»— y
-    no es lo mismo que no mandar el campo. Es justo lo contrario que el `name` de
-    un mazo, donde un null solo puede ser un error del cliente y se descarta.
+    Watch `parent_id`: here `None` **means something** —"move it to the
+    root"— and is not the same as not sending the field. It is exactly the
+    opposite of a deck's `name`, where a null can only be a client mistake
+    and is dropped.
 
-    Los dos casos se distinguen con `exclude_unset`, que separa «no vino» de
-    «vino a null». Sin él no habría forma de sacar una carpeta de su padre.
+    The two cases are distinguished with `exclude_unset`, which separates
+    "it wasn't sent" from "it was sent as null". Without it there would be
+    no way to take a folder out of its parent.
     """
 
     name: str | None = Field(default=None, min_length=1, max_length=60)
@@ -67,7 +71,8 @@ class FolderOut(BaseModel):
     id: str
     name: str
     parent_id: str | None = None
-    # Mazos colgados DIRECTAMENTE de esta carpeta, sin contar los de sus hijas.
-    # El total con descendientes lo suma el frontend, que ya tiene el árbol
-    # montado: hacerlo aquí obligaría a recorrerlo dos veces.
+    # Decks hanging DIRECTLY off this folder, not counting the ones in its
+    # children. The frontend adds up the total with descendants, since it
+    # already has the tree assembled: doing it here would force walking it
+    # twice.
     deck_count: int = 0

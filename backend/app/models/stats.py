@@ -1,9 +1,9 @@
-"""Modelos de estadísticas.
+"""Statistics models.
 
-Nada de esto se guarda. Todo se calcula al leer, agregando sobre `sessions`.
-Es la misma regla que el récord de una sesión y que DeckValidation, y aquí es más
-importante todavía: un win rate almacenado se queda obsoleto en cuanto corriges
-una ronda mal anotada, y nadie se entera.
+None of this is stored. Everything is computed on read, aggregating over
+`sessions`. It is the same rule as a session's record and as DeckValidation,
+and here it matters even more: a stored win rate goes stale the moment you
+correct a mislogged round, and nobody notices.
 """
 
 from datetime import date
@@ -14,14 +14,14 @@ from app.models.session import SessionType
 
 
 class StatLine(BaseModel):
-    """Un renglón de estadística: victorias, derrotas, empates y su porcentaje.
+    """A statistics row: wins, losses, ties and their percentage.
 
-    `win_rate` se calcula sobre el TOTAL de partidas jugadas, empates incluidos.
-    Es una decisión discutible —muchos trackers descartan los empates, y algunos
-    los cuentan como media victoria— así que se devuelven los tres números por
-    separado para que la interfaz pueda mostrar «18-7-2» junto al porcentaje. Un
-    porcentaje sin su récord al lado esconde cuántas partidas hay detrás, y 100%
-    de 2 partidas no es lo mismo que 67% de 30.
+    `win_rate` is computed over the TOTAL games played, ties included. It
+    is a debatable decision —many trackers discard ties, and some count
+    them as half a win— so the three numbers are returned separately so
+    the UI can show "18-7-2" alongside the percentage. A percentage without
+    its record next to it hides how many games are behind it, and 100% of
+    2 games is not the same as 67% of 30.
     """
 
     label: str
@@ -29,10 +29,11 @@ class StatLine(BaseModel):
     losses: int
     ties: int
 
-    # @computed_field hace que Pydantic incluya la property en el JSON y en el
-    # esquema de OpenAPI. Sin él, una @property normal existe en Python pero no
-    # sale en la respuesta: el cliente recibiría solo los tres contadores y
-    # tendría que recalcular, que es exactamente la duplicación que se evita.
+    # @computed_field makes Pydantic include the property in the JSON and
+    # in the OpenAPI schema. Without it, a plain @property exists in Python
+    # but does not appear in the response: the client would receive only
+    # the three counters and would have to recompute, which is exactly the
+    # duplication this avoids.
     @computed_field
     @property
     def played(self) -> int:
@@ -41,15 +42,15 @@ class StatLine(BaseModel):
     @computed_field
     @property
     def win_rate(self) -> float:
-        """Sobre el total jugado, empates incluidos. Ver la nota de la clase."""
+        """Over the total played, ties included. See the class note."""
         return round(self.wins / self.played, 4) if self.played else 0.0
 
 
 class VersionStatLine(StatLine):
-    """Como StatLine, pero identificando la versión del mazo.
+    """Like StatLine, but identifying the deck version.
 
-    Es EL renglón del proyecto: comparar v1 con v2 es la pregunta que ningún
-    tracker comercial responde y por la que existe todo el versionado.
+    This is THE row of the project: comparing v1 to v2 is the question no
+    commercial tracker answers, and it is why versioning exists at all.
     """
 
     version: int
@@ -58,8 +59,8 @@ class VersionStatLine(StatLine):
 
 
 class StatsFilters(BaseModel):
-    """Qué recorte se aplicó. Se devuelve para que la interfaz pueda mostrarlo
-    y el usuario no interprete un número creyendo que es global."""
+    """Which slice was applied. Returned so the UI can display it and the
+    user doesn't read a number thinking it is global."""
 
     date_from: date | None = None
     date_to: date | None = None
