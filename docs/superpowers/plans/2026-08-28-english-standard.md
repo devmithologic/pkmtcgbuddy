@@ -57,7 +57,7 @@ Fixed translations. Consistency across 50 files matters more than the elegance o
 | petición | request | |
 | respuesta | response | |
 | cliente / servidor | client / server | |
-| estado | **state** in React, **status** in HTTP | disambiguate per site; getting this wrong is the most common slip |
+| estado | **state** in React, **status** in HTTP, **state** for a domain condition | disambiguate per site; the most common slip. A third case exists and is not HTTP: the condition of a derived read-model (`DeckValidation`, a sync run) is a *state*. Reserve *status* for HTTP and for a job's discrete lifecycle value. |
 | pantalla | screen | |
 | botón | button | |
 | guardar / borrar / crear / abrir | save / delete / create / open | |
