@@ -254,11 +254,11 @@ There is no test suite, so verification is explicit and manual where it must be.
 
 ## Work split
 
-Per `CLAUDE.md` — the developer writes the code that carries a new concept; Claude writes the
-boilerplate.
+Claude implements everything, at the developer's request. `CLAUDE.md` would normally hand the
+concept-carrying code over to the developer; that is waived here.
 
-- **Claude:** all of phase 1. The two catalogues. Threading `t()` through the 15 components.
-  The backend `Violation` change.
-- **The developer:** `i18n/index.jsx` — the provider, the hook and `t`. That file is where
-  Context, the fallback chain, interpolation and `Intl.PluralRules` live, and it is the whole
-  lesson. Claude supplies the shape and reviews.
+The teaching obligation is not waived with it — it moves from the writing to the review. Every
+task that introduces a concept (`translate.js`: fallback chains, interpolation,
+`Intl.PluralRules`; `index.jsx`: Context as the bridge between a value change and a re-render;
+`deck_rules.py`: separating an error from its representation) is explained when its diff is
+reviewed, not merely shipped.

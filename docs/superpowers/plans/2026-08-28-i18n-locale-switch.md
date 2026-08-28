@@ -52,7 +52,7 @@ The reason is testability, and it is not cosmetic: `node --test` runs plain `.js
   ```
   `catalogues` is `{ en: {...}, es: {...} }`. `onMissing(key, locale)` is called when a key resolves in no catalogue, and defaults to a `console.warn`. Task 3 calls `createTranslator`; Tasks 5–8 and 10 call `t`.
 
-**Written by the developer.** This file is the lesson — the fallback chain, interpolation and `Intl.PluralRules` all live here. Claude supplies the tests and reviews.
+**This file is the lesson** — the fallback chain, interpolation and `Intl.PluralRules` all live here. The tests come first and the implementation is written against them; when the task is reviewed, walk the developer through why each test exists before showing the code that satisfies it.
 
 - [ ] **Step 1: Add the test script**
 
@@ -169,7 +169,7 @@ Expected: every test fails with `Cannot find module './translate.js'`.
 
 - [ ] **Step 4: Write `translate.js`**
 
-The shape, for the developer to fill in:
+The shape to fill in:
 
 ```js
 /**
@@ -237,7 +237,7 @@ git commit -m "feat: add the pure translation core with a fallback chain and plu
 - Consumes: the key conventions above
 - Produces: two default-exported nested objects with identical key sets. Tasks 5–8 and 10 read keys from them; every key those tasks use must exist here first.
 
-**Written by Claude.** This is transcription, not design.
+This is transcription, not design — no concept to explain, just accuracy.
 
 - [ ] **Step 1: Inventory every string in the interface**
 
@@ -361,7 +361,7 @@ git commit -m "feat: add the English source catalogue and its Spanish translatio
   ```
   Every later task uses `useT()`. Task 4 uses `useLocale()`.
 
-**Written by the developer.** Context, lazy state initialisation and the effect that syncs `<html lang>` are the concepts here.
+**Concepts to explain at review:** React Context as the mechanism that connects a value change to a re-render, lazy state initialisation, and why `<html lang>` is synced in an effect rather than during render.
 
 - [ ] **Step 1: Write `index.jsx`**
 
