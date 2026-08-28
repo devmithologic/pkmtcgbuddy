@@ -156,9 +156,9 @@ async def import_deck(payload: DeckImport) -> DeckImportResult:
     same trap `/sessions/tags` already documents.
 
     Imports what it recognizes and returns what it doesn't, instead of
-    rejecting the whole list over one line. A friend's list may bring a card
-    from a set we haven't synced, and ending up with nothing because of that
-    is worse than ending up with 57 of 60 while knowing which ones are
+    rejecting the whole list over one line. Someone else's list may bring a
+    card from a set we haven't synced, and ending up with nothing because of
+    that is worse than ending up with 57 of 60 while knowing which ones are
     missing.
     """
     lineas, sueltas = deck_text.parse(payload.text)
@@ -299,7 +299,7 @@ async def delete_deck(deck_id: str) -> None:
     is that every game is attributed to the VERSION it was played with, so
     deleting the deck would leave those sessions pointing at a document that
     no longer exists. The record would still exist, but it would no longer be
-    known which list it was: exactly the data this application exists to
+    known which decklist it was: exactly the data this application exists to
     preserve.
 
     409 Conflict and not 400: the request is well-formed, what happens is that
