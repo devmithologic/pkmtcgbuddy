@@ -1,15 +1,16 @@
-"""Descarga los sets con su abreviatura oficial y su fecha, y los guarda en Mongo.
+"""Downloads the sets with their official abbreviation and their date, and saves them into Mongo.
 
     python -m app.services.set_sync
 
-Job aparte del de cartas, y no dentro de él, por el tiempo: este tarda segundos
-—218 peticiones— y el de cartas, minutos. Tenerlos separados permite refrescar
-las abreviaturas cuando sale un set nuevo sin volver a bajar 15.000 cartas.
+A job kept separate from the card one, rather than folded into it, because of
+timing: this one takes seconds — 218 requests — and the card one takes
+minutes. Keeping them apart lets abbreviations be refreshed when a new set
+comes out without re-downloading 15,000 cards.
 
-Se ejecuta a mano. Hace falta para dos cosas: importar y exportar listas de mazo
-—ver `services/deck_text.py`— y ordenar las impresiones de una misma carta de más
-nueva a más vieja, que es lo que hace que buscar una energía básica encuentre la
-normal y no la secreta dorada.
+Run by hand. It's needed for two things: importing and exporting decklists —
+see `services/deck_text.py` — and sorting a card's printings from newest to
+oldest, which is what makes searching for a basic energy find the plain one
+and not the gold secret rare.
 """
 
 import asyncio

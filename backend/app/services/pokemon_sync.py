@@ -1,10 +1,11 @@
-"""Descarga el Pokédex nacional y lo guarda en MongoDB.
+"""Downloads the national Pokédex and saves it into MongoDB.
 
     python -m app.services.pokemon_sync
 
-Se ejecuta a mano y muy de vez en cuando: la lista solo cambia cuando sale una
-generación nueva. Es el mismo patrón que card_sync, pero mucho más pequeño —una
-petición en vez de 15.000— así que no necesita concurrencia acotada ni lotes.
+Run by hand, and very rarely: the list only changes when a new generation
+comes out. It's the same pattern as card_sync, just much smaller — one
+request instead of 15,000 — so it needs neither bounded concurrency nor
+batching.
 """
 
 import asyncio
@@ -25,10 +26,9 @@ async def sync() -> None:
         await pokemon_repository.ensure_indexes()
 
         print("Descargando el Pokédex completo, con megas y formas…")
-        # fetch_all devuelve dicts planos; el modelo se construye aquí. Es este
-        # módulo el que hace de puente entre el adaptador y el modelo, para que
-        # ninguno de los dos tenga que importar al otro — ver el docstring de
-        # fetch_all.
+        # fetch_all returns plain dicts; the model is built here. This module
+        # is the one that bridges the adapter and the model, so neither one
+        # has to import the other — see fetch_all's docstring.
         pokemon = [PokemonRef(**entrada) for entrada in await fetch_all()]
         print(f"  {len(pokemon)} Pokémon")
 

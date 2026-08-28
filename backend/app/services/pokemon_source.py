@@ -1,41 +1,43 @@
-"""Adaptador de PokeAPI. El único fichero del proyecto que la conoce.
+"""PokeAPI adapter. The only file in the project that knows it.
 
-Segundo proveedor externo del proyecto, y se contiene igual que el primero: nadie
-fuera de aquí sabe que PokeAPI existe, ni cómo se construye la URL de un sprite.
+The project's second external provider, and it is contained the same way as
+the first: nobody outside this file knows PokeAPI exists, or how a sprite's
+URL is built.
 
-Es la misma lección que `card_source.py`, y ahora se puede comprobar en lugar de
-prometer: cuando TCGdex se cayó el 9 de agosto, cambiar toda la aplicación de
-«llamada en vivo» a «consulta local» costó dos imports porque el proveedor estaba
-encerrado en un fichero.
+It's the same lesson as `card_source.py`, and now it can be verified instead
+of just promised: when TCGdex went down on August 9th, switching the whole
+application from "live call" to "local lookup" cost two imports, because the
+provider was locked inside a single file.
 
-Dos diferencias con el adaptador de cartas, ambas por el tamaño del problema:
+Two differences from the card adapter, both due to the size of the problem:
 
-- No hace falta cliente persistente ni pool: se usa una sola vez, desde el job de
-  sincronización, y son dos peticiones en total.
-- No hay búsqueda remota. Los 1025 Pokémon caben de sobra en Mongo, y el buscador
-  tiene que responder mientras el usuario teclea.
+- No persistent client or pool is needed: it's used once, from the sync job,
+  and it's two requests in total.
+- There's no remote search. All 1025 Pokémon fit comfortably in Mongo, and the
+  search box has to respond while the user is typing.
 """
 
 import httpx
 
 BASE_URL = "https://pokeapi.co/api/v2"
 
-# Las imágenes viven en el repositorio de sprites de PokeAPI, no en su API. Son
-# ficheros estáticos servidos por el CDN de GitHub, con fondo transparente.
+# The images live in PokeAPI's sprite repository, not in its API. They are
+# static files served by GitHub's CDN, with a transparent background.
 #
-# Se usan DOS juegos, porque no hay uno solo que sirva para los dos trabajos.
-# Medido sobre una muestra de 150 de nuestros 1351 ids:
+# TWO sets are used, because no single one serves both jobs. Measured against
+# a sample of 150 of our 1351 ids:
 #
-#   juego                         encontrados  megas   peso mediano   tamaño
-#   sprites/pokemon/              148          63/65     1.2 KB        96×96
-#   other/home/                   148          63/65   124.0 KB      512×512
-#   other/official-artwork/       147          62/65   125.1 KB      475×475
-#   versions/generation-viii/…    81           27/40     0.5 KB        68×56
+#   set                            found        megas   median weight  size
+#   sprites/pokemon/                148          63/65     1.2 KB        96×96
+#   other/home/                     148          63/65   124.0 KB      512×512
+#   other/official-artwork/         147          62/65   125.1 KB      475×475
+#   versions/generation-viii/…       81          27/40     0.5 KB        68×56
 #
-# HOME gana: misma cobertura exacta que el sprite pequeño —los dos huecos, 10159
-# y 10264, faltan en ambos— y las megas incluidas. La ilustración oficial pesa lo
-# mismo y está peor encuadrada. Los iconos de caja de Sword/Shield son ideales de
-# tamaño pero pierden un tercio de las megas: en ese juego no existen.
+# HOME wins: the exact same coverage as the small sprite — the same two gaps,
+# 10159 and 10264, are missing from both — and it includes the megas. The
+# official artwork weighs the same and is framed worse. The Sword/Shield box
+# icons are ideal in size but lose a third of the megas: they don't exist in
+# that set.
 ICON_URL = (
     "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{}.png"
 )
@@ -44,71 +46,74 @@ ART_URL = (
     "/sprites/pokemon/other/home/{}.png"
 )
 
-# Todas las entradas de PokeAPI, no solo el Pokédex nacional.
+# Every PokeAPI entry, not just the national Pokédex.
 #
-# El nacional son 1025, pero por encima viven 326 formas más: las 97 MEGA
-# EVOLUCIONES, las Gigantamax, las variantes regionales y las formas alternas
-# (deoxys-attack, rotom-heat). Las megas hacen falta —el TCG tiene ahora mismo
-# sets de Mega Evolution— y el resto no estorba: son documentos de tres campos.
+# The national dex is 1025, but on top of it live 326 more forms: the 97 MEGA
+# EVOLUTIONS, the Gigantamax forms, the regional variants, and the alternate
+# forms (deoxys-attack, rotom-heat). The megas are needed — the TCG currently
+# has Mega Evolution sets — and the rest don't get in the way: they're
+# three-field documents.
 #
-# Se pide un límite holgado en vez del count exacto para no encadenar dos
-# peticiones. PokeAPI devuelve lo que haya.
+# A generous limit is requested instead of the exact count, to avoid chaining
+# two requests. PokeAPI returns whatever there is.
 FETCH_LIMIT = 3000
 
 
 class PokemonSourceError(RuntimeError):
-    """PokeAPI respondió algo que no sabemos interpretar.
+    """PokeAPI answered with something we don't know how to interpret.
 
-    Igual que CardSourceError: traducir los errores del proveedor es parte del
-    trabajo del adaptador, no solo traducir sus datos.
+    Same as CardSourceError: translating the provider's errors is part of the
+    adapter's job, not just translating its data.
     """
 
 
 def icon_url(dex_id: int) -> str:
-    """El sprite ligero, para donde hay muchos a la vez.
+    """The lightweight sprite, for places with many at once.
 
-    Los 20 resultados del buscador y las cinco rondas de una sesión. A 1.2 KB,
-    una búsqueda entera cuesta 24 KB; con los renders costaría 2.5 MB.
+    Search's 20 results and a session's five rounds. At 1.2 KB, a whole
+    search costs 24 KB; with the renders it would cost 2.5 MB.
     """
     return ICON_URL.format(dex_id)
 
 
 def art_url(dex_id: int) -> str:
-    """El render de Pokémon HOME, para donde la imagen *es* la cabecera.
+    """The Pokémon HOME render, for places where the image *is* the heading.
 
-    La ficha del mazo y el listado de mazos: pocas imágenes y grandes.
+    The deck's own page and the deck list: few images, and big ones.
     """
     return ART_URL.format(dex_id)
 
 
 def _id_from_url(url: str) -> int:
-    """Extrae el id de la URL del recurso: .../pokemon/10033/ -> 10033.
+    """Pulls the id out of the resource URL: .../pokemon/10033/ -> 10033.
 
-    Hace falta porque el id NO se puede deducir de la posición en la lista.
-    La primera versión de este fichero usaba enumerate(), y funcionaba de
-    casualidad: del 1 al 1025 el índice coincide con el número nacional. Las
-    megas empiezan en 10033, así que en cuanto se pidió la lista completa el
-    supuesto se rompió y todas habrían quedado con el id equivocado.
+    This is needed because the id can NOT be inferred from the position in
+    the list. The first version of this file used enumerate(), and it worked
+    by accident: from 1 to 1025 the index happens to match the national
+    number. The megas start at 10033, so as soon as the full list was
+    requested the assumption broke and every one of them would have ended up
+    with the wrong id.
 
-    Es el tipo de suposición que solo se ve cuando cambian los datos, no cuando
-    cambia el código.
+    It's the kind of assumption you only see fail when the data changes, not
+    when the code does.
     """
     return int(url.rstrip("/").rsplit("/", 1)[-1])
 
 
 async def fetch_all() -> list[dict]:
-    """Descarga todas las entradas: nacional, megas, Gigantamax y formas.
+    """Downloads every entry: national, megas, Gigantamax, and forms.
 
-    Una sola petición. Pedir el detalle de cada una serían 1351 llamadas: el
-    problema N+1 de log_mentor/08 en su forma más literal.
+    A single request. Requesting each one's detail would be 1351 calls: the
+    N+1 problem from log_mentor/08 in its most literal form.
 
-    Devuelve dicts planos —{dex_id, name}— y no objetos PokemonRef, y eso es
-    deliberado: `models/pokemon.py` necesita importar icon_url y art_url de aquí
-    para poder calcularlas al leer. Si además este fichero importara PokemonRef,
-    los dos módulos se importarían mutuamente y Python fallaría al arrancar con
-    un ImportError. Quitando el import de este lado, la dependencia queda en un
-    solo sentido —modelo → adaptador— y quien construye los PokemonRef es
-    pokemon_sync, que ya importa los dos.
+    Returns plain dicts — {dex_id, name} — and not PokemonRef objects, and
+    that's deliberate: `models/pokemon.py` needs to import icon_url and
+    art_url from here to compute them on read. If this file also imported
+    PokemonRef, the two modules would import each other and Python would fail
+    to start with an ImportError. With the import removed from this side, the
+    dependency stays one-directional — model → adapter — and the one who
+    builds the PokemonRef objects is pokemon_sync, which already imports
+    both.
     """
     async with httpx.AsyncClient(
         base_url=BASE_URL,
@@ -129,7 +134,7 @@ async def fetch_all() -> list[dict]:
         try:
             ident = _id_from_url(entrada["url"])
         except (KeyError, ValueError):
-            # Una entrada con URL rara no debe tumbar la sincronización entera.
+            # An entry with an odd URL must not bring down the whole sync.
             continue
         referencias.append({"dex_id": ident, "name": entrada["name"]})
     return referencias
