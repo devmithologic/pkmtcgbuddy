@@ -56,7 +56,7 @@ async def abbreviation_map() -> dict[str, str]:
     """{ABBREVIATION: set_id}, the whole collection in a dictionary.
 
     Fetched all at once and resolved in memory for the same reason as folders:
-    it's 190 tiny documents, and a decklist has up to twenty-three lines to
+    it's 190 tiny documents, and a decklist has twenty-three lines to
     look up. One query per line would be the N+1 problem over a table that
     fits in an instant.
 

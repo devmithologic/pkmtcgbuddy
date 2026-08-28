@@ -335,6 +335,10 @@ def energy_duplicates(documents: list[dict]) -> set[str]:
     they're the same card, and offering 27 Metal Energy printings isn't
     offering a choice: it's hiding the one that's useful among 26 that add
     nothing.
+
+    Takes ALL the documents and queries nothing, because "the most recent" can
+    only be known by looking at the whole set. That is why this calculation
+    cannot live in `card_to_document`, which sees one card at a time.
     """
     mejores: dict[str, dict] = {}
     basicas: list[dict] = []
