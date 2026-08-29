@@ -18,6 +18,44 @@ The spec puts `t()` inside `i18n/index.jsx`. This plan splits it into `i18n/tran
 
 The reason is testability, and it is not cosmetic: `node --test` runs plain `.js` but not JSX, so a `t()` living beside a Provider is a `t()` that cannot be unit-tested without adding a build step and a test framework. `t()` is the one piece of genuinely tricky pure logic in this change — a fallback chain, plural selection and interpolation, each with edge cases — and it is exactly where a bug would hide. Separating the pure core from the framework binding is the standard move, and it earns a test suite for free.
 
+## Execution grouping — read this before dispatching anything
+
+The eleven tasks below stay as written; their detail was reviewed and is worth keeping. But they
+are **dispatched as six units**, and reviewed at three different depths. This grouping exists
+because executing the previous plan produced hard numbers on where the money went.
+
+| Unit | Tasks | Model | Review depth |
+| --- | --- | --- | --- |
+| **A** | 1 — the pure `t()` core and its tests | sonnet | **Full review.** Pure logic with edge cases: fallback chain, plural selection, a plural entry reached without `count`. This is where a bug hides. |
+| **B** | 2 — the two catalogues | haiku | **Controller assertion only.** It is transcription. The check is the key-set diff script in Task 2 Step 4 plus `npm test`; if both pass there is nothing a reviewer adds. |
+| **C** | 3 + 4 — the React binding and the switch | sonnet | **Full review.** Context, lazy state init, `localStorage` that throws in private mode, the `<html lang>` effect. Task 4 consumes Task 3's hook, so splitting them wastes a dispatch. |
+| **D** | 5 + 6 + 7 + 8 — thread `t()` through every component | sonnet | **Controller assertion, then a narrow review.** Same shape four times over. Assert first: no string literal left outside the catalogue, no key used that `en.js` lacks. Review only what the assertions cannot see — copy that is wrong for its control. |
+| **E** | 9 + 10 — `Violation` gains `code` + `params` | sonnet | **Full review.** The only unit that changes an API contract, and it spans backend and frontend. |
+| **F** | 11 — sweep, document, close | sonnet | **Full review**, as the closing gate. |
+
+### Why, in numbers
+
+The previous plan spent **4.1M subagent tokens over 38 dispatches**. The breakdown:
+
+- **Fix rounds cost 103–121% of the implementation they were fixing.** Adding one table row cost
+  241k against a 224k original task. The cause is mechanical: resuming an agent replays its whole
+  transcript. **Never resume an agent to fix a finding.** Dispatch a fresh cheap agent carrying
+  only the finding and the file path. A one-line fix should cost ~15k.
+- **Thirteen reviews at 91k average; ten found nothing.** The four that found real defects were
+  dense prose, the two rename tasks, and a learning-log entry with a factual error. Depth belongs
+  where defects actually appear, which is what the table above encodes.
+- **Assertions are two orders of magnitude cheaper than reviewers and catch the same class of
+  defect.** A multiset comparison of every quoted literal before and after cost ~2k and proved no
+  UI string moved across eight files — a claim a reviewer charged 100k to reach. Script the
+  mechanical checks in the controller *before* deciding whether a reviewer is needed.
+
+### The risk this grouping accepts
+
+Reviews that find nothing are not wasted — they establish that nothing is there. Replacing ten of
+them with assertions means a defect no assertion anticipates will pass. Two mitigations: the
+closing whole-branch review stays full-depth, and the assertions chosen are the ones that already
+caught real defects in the previous plan.
+
 ## Global Constraints
 
 - **No new dependencies.** Not `react-i18next`, not `vitest`. The spec rejects a library explicitly and gives the reason.
