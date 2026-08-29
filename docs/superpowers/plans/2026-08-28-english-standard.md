@@ -1273,9 +1273,18 @@ Dispatch the `log-mentor` skill. The subagent never saw this session, so the dis
 
 ## Done when
 
-- Both sweeps in Task 14 Step 2 return nothing: the accent grep, **and** the tokenizing scan
-  for accent-free Spanish comments. The first alone is not sufficient and has missed real
-  Spanish twice in this plan.
+- Both sweeps in Task 14 Step 2 return nothing **over live application source and live docs**:
+  the accent grep, **and** the tokenizing scan for accent-free Spanish comments. The first alone
+  is not sufficient and has missed real Spanish twice in this plan.
+
+  Two categories are deliberately outside that scope and will still show hits:
+
+  - **`log_mentor/` entries** quote code and terminal output as they stood on the entry's own
+    dated header. Translating those quotes would make an entry claim the code read in English on
+    a date when it did not. A dated record is not retconned, for the same reason git history is
+    not rewritten.
+  - **`docs/superpowers/`** — the spec and the plans quote Spanish *as the object of
+    translation*. The glossary row `impresión → printing` cannot be written without it.
 - `npm run lint` and `npm run build` pass.
 - `backend/.venv/bin/python -c "import app.main"` succeeds.
 - Every screen has been walked in a browser and shows English with no `undefined`.
