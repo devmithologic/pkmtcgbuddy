@@ -1127,13 +1127,55 @@ git commit -m "refactor: translate the interface copy to English"
 
 Both describe how learning-log entries are written. The entries themselves in `log_mentor/` are already English, so this removes the last inconsistency: Spanish instructions producing English output. Keep the frontmatter keys (`name`, `description`, `model`, `tools`) untouched — only their values and the body change.
 
-- [ ] **Step 2: Sweep the whole repository**
+- [ ] **Step 2: Sweep the whole repository — twice, with two different detectors**
+
+The accent sweep first:
 
 ```bash
 git ls-files | grep -vE 'package-lock|\.venv' | xargs grep -nE "[áéíóúñ¡¿«»]" | grep -vE "Pok[eé]"
 ```
 
-Expected: no output, or only files whose Spanish is a deliberate example. Investigate every hit; do not accept one.
+Expected: no output. Investigate every hit; do not accept one.
+
+**Then the sweep that actually matters**, because the one above is blind to Spanish that happens
+to carry no accents — `# incluye json.JSONDecodeError`, `"Lista inicial"`, `# exenta`. That blind
+spot has already produced two real misses in this plan, one of them after the owning task's own
+verification reported clean:
+
+```bash
+backend/.venv/bin/python - <<'EOF'
+import io, tokenize, pathlib, re, subprocess
+SP = re.compile(r"\b(el|la|los|las|un|una|de|del|que|no|se|es|por|para|con|sin|hay|pero|porque|"
+                r"aunque|cuando|donde|como|esto|esta|este|solo|cada|todos|todas|incluye|incluyen|"
+                r"exenta|exento|primero|luego|antes|despues|mismo|misma|otro|otra|nuevo|nueva|"
+                r"falta|sobra|segun|ya|aqui|alli|tambien|nunca|siempre)\b", re.I)
+EN = re.compile(r"\b(the|and|or|of|to|in|on|is|are|not|that|this|with|without|for|from|by|because|"
+                r"but|although|when|where|how|only|each|all|includes|first|then|before|after|same|"
+                r"other|new|missing|already|here|also|never|always|it|its|we|you|so|if|as|at|an|a)\b", re.I)
+for path in (p for p in subprocess.run(["git","ls-files","backend/app"],
+             capture_output=True, text=True).stdout.split() if p.endswith(".py")):
+    for tok in tokenize.generate_tokens(io.StringIO(pathlib.Path(path).read_text()).readline):
+        if tok.type == tokenize.COMMENT:
+            body = tok.string.lstrip("#").strip()
+            if len(SP.findall(body)) > len(EN.findall(body)):
+                print(f"{path}:{tok.start[0]}  {tok.string.strip()[:80]}")
+EOF
+```
+
+It tokenizes rather than greps, so it sees **trailing** comments — the ones after code on the same
+line, which an `^\s*#` pattern misses entirely. That is exactly how `card_source.py:139` survived
+Task 5.
+
+**One known leftover to fix here**, found by Task 8 and deliberately left for this sweep because
+comments were not that task's scope:
+
+```
+backend/app/services/card_source.py:139    # incluye json.JSONDecodeError
+```
+
+Translate it to `# includes json.JSONDecodeError`.
+
+Expected after both sweeps: no output from either, beyond the `Pok[eé]` family.
 
 - [ ] **Step 3: Reconcile the docs with reality**
 
@@ -1166,7 +1208,9 @@ Dispatch the `log-mentor` skill. The subagent never saw this session, so the dis
 
 ## Done when
 
-- `git ls-files | grep -vE 'package-lock|\.venv' | xargs grep -nE "[áéíóúñ¡¿«»]" | grep -vE "Pok[eé]"` returns nothing.
+- Both sweeps in Task 14 Step 2 return nothing: the accent grep, **and** the tokenizing scan
+  for accent-free Spanish comments. The first alone is not sufficient and has missed real
+  Spanish twice in this plan.
 - `npm run lint` and `npm run build` pass.
 - `backend/.venv/bin/python -c "import app.main"` succeeds.
 - Every screen has been walked in a browser and shows English with no `undefined`.
