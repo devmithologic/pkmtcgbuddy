@@ -123,6 +123,7 @@ Task 7 execution found many more Spanish identifiers than this table originally 
 | `normaliza` | `normalize` | `backend/app/models/folder.py` |
 | `_normalizar` | `_normalize` | `backend/app/models/session.py` |
 | `bruto` | `raw_tag` | `backend/app/models/session.py` |
+| `bruta` | `raw_line` | `backend/app/services/deck_text.py` — the loop variable in `parse()` |
 | `limpia` | `cleaned` | `backend/app/models/session.py` |
 | `vistas` | `seen` | `backend/app/models/session.py` |
 | `cambios` | `changes` | `backend/app/db/session_repository.py`, `backend/app/db/folder_repository.py`, `backend/app/db/deck_repository.py` — the PATCH `exclude_unset` diff dict |
