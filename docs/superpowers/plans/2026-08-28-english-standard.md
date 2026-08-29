@@ -81,7 +81,7 @@ Exhaustive. If execution finds one not listed, add it to this table before renam
 | `dentro` | `deckCount` | `frontend/src/components/DeckList.jsx` |
 | `mazosAqui` | `decksHere` | `frontend/src/components/DeckList.jsx` |
 | `MUESTRA_MINIMA` | `MIN_SAMPLE` | `frontend/src/components/DeckStats.jsx` |
-| `nombreEditable` | `draftName` | `frontend/src/components/DeckBuilder.jsx` |
+| `nombreEditable` | `editableName` | `frontend/src/components/DeckList.jsx` — a render helper, not a state variable; `draftName` would misname it |
 | `editar` (param) | `editing` | `frontend/src/App.jsx` |
 | `nuevo` (param) | `isNew` | `frontend/src/App.jsx` |
 | `carta` / `cartas` | `card` / `cards` | backend locals |
@@ -91,6 +91,14 @@ Exhaustive. If execution finds one not listed, add it to this table before renam
 | `fecha_a` / `fecha_c` | `date_current` / `date_candidate` | `backend/app/db/card_repository.py` — `_a`/`_c` are abbreviations of `actual`/`candidata`, the two parameters of `_es_mejor_impresion`, not arbitrary letters. `date_a`/`date_c` would just re-encode the same Spanish words in disguise, so they're spelled out instead. |
 | `filtro` | `filter_` | backend locals; trailing underscore avoids shadowing the builtin |
 | `en_uso` | `in_use` | `backend/app/routers/decks.py` — the 409 guard on deck deletion |
+| `porId` | `byId` | `frontend/src/api/folders.js` and `components/DeckList.jsx` — two separate locals, same name |
+| `raices` | `roots` | `frontend/src/api/folders.js` — the top-level nodes of the folder tree |
+| `nodo` / `nodos` | `node` / `nodes` | `frontend/src/api/folders.js`, including the `flattenTree` parameter |
+| `padre` | `parent` | `frontend/src/api/folders.js` |
+| `carpeta` | `folder` | `frontend/src/components/DeckList.jsx` |
+| `actual` | `current` | `frontend/src/components/DeckList.jsx` |
+| `CLAVE_VISTA` | `VIEW_STORAGE_KEY` | `frontend/src/components/DeckList.jsx` — names a `localStorage` key, so say which |
+| `valor` / `titulo` | `value` / `title` | `frontend/src/components/DeckBuilder.jsx` — the card-size menu's destructured pair |
 
 Task 7 execution found many more Spanish identifiers than this table originally listed — the three greps in its Step 1 only catch a fraction of the actual surface (they miss tuple-unpacking assignments, SCREAMING_CASE constants, and nested nested-function definitions). Rows added during execution, grouped by file:
 
@@ -979,14 +987,26 @@ git commit -m "refactor: translate remaining component and stylesheet comments t
 - Consumes: the identifier table in the Glossary section
 - Produces: `App.jsx` exposes `openSession(id, editing = false)` and `onOpen(id, isNew = false)`. These are **positional** parameters — renaming them changes no call site, but the props they feed (`startEditing`, `isNew`) already exist and must not be renamed.
 
-- [ ] **Step 1: Enumerate**
+- [ ] **Step 1: Enumerate, and do not trust the table**
+
+The table below was written from a partial scan and has already been wrong once — Task 7's
+backend equivalent shipped with 9 rows against a real count of 112, because a `grep` for
+`const|let|var|function` is blind to destructured bindings, arrow parameters, object shorthand,
+`SCREAMING_CASE` constants and nested function names.
+
+Enumerate properly before renaming anything:
 
 ```bash
 cd frontend/src
-grep -rnoE "\b(const|let|var|function) +[a-zA-Z_$]+" . | awk '{print $2}' | sort -u
+grep -rnoE "\b(const|let|var|function) +[a-zA-Z_$][a-zA-Z0-9_$]*" . | awk '{print $2}' | sort -u
+grep -rnoE "\(\s*\{?\s*[a-zA-Z_$][a-zA-Z0-9_$]*" . | tr -d '({ ' | sort -u
+grep -rnoE "\b[a-zA-Z_$][a-zA-Z0-9_$]* *=>" . | tr -d ' =>' | sort -u
+grep -rnoE "^\s*[A-Z_]{4,} *=" . | tr -d ' =' | sort -u
 ```
 
-Read the list. Every Spanish name must be in the identifier table or added to it.
+Read all four lists. Every Spanish name must already be in the identifier table or be **added to
+it before the rename**, exactly as Task 7 did for the backend. Report both counts: rows in the
+table, and renames in your diff. They must match in both directions.
 
 - [ ] **Step 2: Rename one name at a time, with word boundaries**
 
