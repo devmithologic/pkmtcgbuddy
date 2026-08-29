@@ -136,7 +136,7 @@ def _parse_list(response: httpx.Response) -> list[dict]:
     """
     try:
         payload = response.json()
-    except ValueError as exc:  # incluye json.JSONDecodeError
+    except ValueError as exc:  # includes json.JSONDecodeError
         raise CardSourceError("TCGdex returned something that is not JSON") from exc
 
     if not isinstance(payload, list):

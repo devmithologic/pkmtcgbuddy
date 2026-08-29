@@ -5,47 +5,48 @@ description: Writes a learning-log entry into `log_mentor/` documenting a code c
 
 # Log Mentor
 
-Este skill **no escribe la documentación**. Despacha al subagente `log-mentor`, que corre con Haiku y
-tiene las instrucciones completas —cuándo merece entrada, el formato de nombres, la voz, la
-plantilla— en `.claude/agents/log-mentor.md`.
+This skill **does not write the documentation**. It dispatches the `log-mentor` subagent, which
+runs on Haiku and has the full instructions — when an entry is warranted, the naming format, the
+voice, the template — in `.claude/agents/log-mentor.md`.
 
-## Qué hacer
+## What to do
 
-Llama a la herramienta Agent:
+Call the Agent tool:
 
 ```
 Agent(
   subagent_type: "log-mentor",
-  description: "Documentar <concepto>",
-  prompt: "<el encargo, ver abajo>"
+  description: "Document <concept>",
+  prompt: "<the assignment, see below>"
 )
 ```
 
-## Reglas
+## Rules
 
-**No escribas tú la entrada.** Sabes hacerlo, y por eso hay que decirlo: el trabajo va al subagente
-para no gastar el contexto de la sesión de trabajo en 150 líneas de prosa, y para no usar el modelo
-más caro en una tarea que es redacción sobre una plantilla fija. Si te pones a escribirla, el cambio
-no sirve de nada.
+**Don't write the entry yourself.** You know how, and that's exactly why this has to be said: the
+work goes to the subagent so it doesn't spend the working session's context on 150 lines of prose,
+and so the more expensive model isn't used for a task that's writing against a fixed template. If
+you start writing it, the whole point of dispatching is gone.
 
-**Dale el alcance en el prompt, no el contenido.** El agente averigua por su cuenta qué cambió —lee
-el diff, `CLAUDE.md` y los comentarios del código— así que no le resumas el cambio. Lo que sí necesita
-es saber *dónde mirar*, porque un `git diff` grande puede mezclar varios trabajos:
+**Give it the scope in the prompt, not the content.** The agent figures out on its own what
+changed — it reads the diff, `CLAUDE.md`, and the code comments — so don't summarize the change
+for it. What it does need is to know *where to look*, because a large `git diff` can mix several
+pieces of work:
 
-- qué se acaba de tocar («los cambios sin confirmar en `backend/app/db/folder_repository.py` y
-  `frontend/src/components/DeckList.jsx`»), o
-- el rango de commits, si el trabajo ya está confirmado («desde `454f001`»).
+- what was just touched ("the uncommitted changes in `backend/app/db/folder_repository.py` and
+  `frontend/src/components/DeckList.jsx`"), or
+- the commit range, if the work is already committed ("since `454f001`").
 
-Si de verdad hubo algo que no está ni en el diff ni en `CLAUDE.md` —una alternativa que se probó y se
-descartó, una medición que se hizo y no se anotó— eso sí menciónalo: es lo único que el agente no
-puede recuperar solo.
+If something genuinely happened that isn't in the diff or in `CLAUDE.md` — an alternative that was
+tried and discarded, a measurement that was taken and not written down — mention that: it's the
+one thing the agent can't recover on its own.
 
-**Corre en segundo plano.** No lo esperes, no sigas preguntándole y **no te inventes su resultado**:
-el aviso de que terminó llega solo. Cuando llegue, di qué ficheros creó, una línea por fichero. Si
-decidió que nada merecía entrada, eso también se cuenta — es un resultado válido y a menudo el
-correcto.
+**Run it in the background.** Don't wait on it, don't keep asking it, and **don't make up its
+result**: the notification that it finished arrives on its own. When it does, say which files it
+created, one line each. If it decided nothing deserved an entry, that counts too — it's a valid
+outcome and often the right one.
 
-**Uno solo para todas las entradas.** Aunque el slice haya introducido tres conceptos, va un único
-agente: la plantilla enlaza entradas hermanas en «Related concepts», y quien escribe las tres sabe qué
-dicen las otras dos. Además los índices `15`, `16`, `17` se reparten sin colisionar, cosa que tres
-agentes en paralelo no pueden garantizar.
+**Only one for all the entries.** Even if the slice introduced three concepts, it's a single
+agent: the template links sibling entries in "Related concepts," and whoever writes all three
+knows what the other two say. It also means indexes `15`, `16`, `17` get handed out without
+colliding, which three parallel agents can't guarantee.
