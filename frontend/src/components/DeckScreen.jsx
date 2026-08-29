@@ -3,11 +3,11 @@ import DeckBuilder from './DeckBuilder'
 import DeckStats from './DeckStats'
 
 /**
- * El mazo abierto, con sus dos caras: construirlo y medirlo.
+ * The open deck, with its two faces: building it and measuring it.
  *
- * Existe como componente aparte para que DeckBuilder no cargue con la
- * navegación además de con el armado. Cada uno pide sus propios datos: la vista
- * de estadísticas no necesita la lista de cartas, y al revés.
+ * It exists as a separate component so DeckBuilder doesn't carry the
+ * navigation on top of the building. Each one fetches its own data: the
+ * stats view doesn't need the decklist, and vice versa.
  */
 export default function DeckScreen({ deckId, isNew = false, onBack }) {
   const [view, setView] = useState('build')
@@ -20,25 +20,25 @@ export default function DeckScreen({ deckId, isNew = false, onBack }) {
           className={view === 'build' ? 'active' : ''}
           onClick={() => setView('build')}
         >
-          Lista
+          List
         </button>
         <button
           type="button"
           className={view === 'stats' ? 'active' : ''}
           onClick={() => setView('stats')}
         >
-          Estadísticas
+          Stats
         </button>
       </div>
 
-      {/* Condicional, no CSS: la vista oculta se desmonta y cancela sus
-          peticiones en vuelo. */}
+      {/* Conditional, not CSS: the hidden view unmounts and cancels its
+          in-flight requests. */}
       {view === 'build' ? (
         <DeckBuilder deckId={deckId} isNew={isNew} onBack={onBack} />
       ) : (
         <>
           <button type="button" className="back" onClick={onBack}>
-            ← Mazos
+            ← Decks
           </button>
           <DeckStats deckId={deckId} />
         </>

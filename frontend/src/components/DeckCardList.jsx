@@ -1,21 +1,23 @@
 const GROUPS = [
   { key: 'Pokemon', label: 'Pokémon' },
-  { key: 'Trainer', label: 'Entrenador' },
-  { key: 'Energy', label: 'Energía' },
+  { key: 'Trainer', label: 'Trainer' },
+  { key: 'Energy', label: 'Energy' },
 ]
 
 /**
- * La lista del mazo, agrupada por categoría.
+ * The deck's decklist, grouped by category.
  *
- * Se agrupa así porque es como se leen y se escriben las listas en el juego real:
- * cuenta de Pokémon, de entrenadores y de energías. Ordenar alfabéticamente sin
- * agrupar sería más fácil de programar y menos útil de usar.
+ * It's grouped this way because that's how lists are read and written in the
+ * real game: a count of Pokémon, of Trainers, and of Energy. Sorting
+ * alphabetically without grouping would be easier to code and less useful to
+ * use.
  *
- * Presentacional: no pide datos ni los modifica. Recibe la lista y dos callbacks.
+ * Presentational: it doesn't fetch data or modify it. It receives the list and
+ * two callbacks.
  */
 export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
   if (cards.length === 0) {
-    return <p className="empty">El mazo está vacío. Busca cartas a la derecha para añadirlas.</p>
+    return <p className="empty">The deck is empty. Search for cards on the right to add them.</p>
   }
 
   return (
@@ -39,7 +41,7 @@ export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
                     <button
                       type="button"
                       onClick={() => onChangeQuantity(entry.card.id, entry.quantity - 1)}
-                      aria-label={`Quitar una copia de ${entry.card.name}`}
+                      aria-label={`Remove one copy of ${entry.card.name}`}
                     >
                       −
                     </button>
@@ -47,7 +49,7 @@ export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
                     <button
                       type="button"
                       onClick={() => onChangeQuantity(entry.card.id, entry.quantity + 1)}
-                      aria-label={`Añadir una copia de ${entry.card.name}`}
+                      aria-label={`Add one copy of ${entry.card.name}`}
                     >
                       +
                     </button>
@@ -56,15 +58,15 @@ export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
                   <span className="deck-card-name">
                     {entry.card.name}
                     {entry.is_ace_spec && <span className="tag ace">ACE SPEC</span>}
-                    {entry.is_basic_energy && <span className="tag basic">básica</span>}
-                    {!entry.legal_in_format && <span className="tag illegal">ilegal</span>}
+                    {entry.is_basic_energy && <span className="tag basic">basic</span>}
+                    {!entry.legal_in_format && <span className="tag illegal">illegal</span>}
                   </span>
 
                   <button
                     type="button"
                     className="remove"
                     onClick={() => onRemove(entry.card.id)}
-                    aria-label={`Eliminar ${entry.card.name} del mazo`}
+                    aria-label={`Remove ${entry.card.name} from deck`}
                   >
                     ×
                   </button>

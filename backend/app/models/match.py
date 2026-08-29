@@ -1,15 +1,15 @@
-"""Lo que queda del modelo de partida.
+"""What remains of the game model.
 
-Este fichero era el más grande del proyecto y ahora es el más pequeño. Cuando las
-partidas pasaron a vivir dentro de una sesión (ver models/session.py), casi todo
-lo que había aquí subió un nivel: la fecha y el mazo son de la sesión, no de la
-ronda.
+This file used to be the largest in the project and is now the smallest.
+When games moved to live inside a session (see models/session.py), almost
+everything that was here moved up a level: the date and the deck belong to
+the session, not to the round.
 
-Queda lo genuinamente propio de una partida —cómo terminó— y las dos conversiones
-de fecha entre Python y BSON, que ahora usa la sesión.
+What is left is what is genuinely a game's own —how it ended— and the two
+date conversions between Python and BSON, which the session now uses.
 
-Que un módulo encoja al remodelar el dominio no es pérdida de trabajo: es la señal
-de que los datos estaban en el sitio equivocado.
+A module shrinking when the domain is remodeled is not lost work: it is the
+sign that the data was in the wrong place.
 """
 
 from datetime import date, datetime, time, timezone
@@ -17,11 +17,12 @@ from enum import Enum
 
 
 class MatchResult(str, Enum):
-    """Resultado de una partida.
+    """Result of a game.
 
-    Hereda de str además de Enum para que se serialice a JSON como "win" y no como
-    un objeto. Usar un Enum en lugar de texto libre significa que FastAPI rechaza
-    cualquier otro valor con un 422 automático: validación gratis en el borde.
+    Inherits from str in addition to Enum so it serializes to JSON as "win"
+    and not as an object. Using an Enum instead of free text means FastAPI
+    rejects any other value with an automatic 422: free validation at the
+    boundary.
     """
 
     WIN = "win"
@@ -30,19 +31,19 @@ class MatchResult(str, Enum):
 
 
 def date_to_bson(value: date) -> datetime:
-    """Convierte una fecha a lo que MongoDB sabe guardar.
+    """Converts a date to what MongoDB knows how to store.
 
-    BSON —el formato binario de MongoDB— no tiene tipo "fecha sin hora". Solo
-    tiene datetime. Pasar un `date` de Python directamente lanza
+    BSON —MongoDB's binary format— has no "date without time" type. It only
+    has datetime. Passing a Python `date` directly raises
     `InvalidDocument: cannot encode object: datetime.date`.
 
-    Se guarda a medianoche UTC. La hora es relleno y no significa nada; lo que
-    importa es que la vuelta atrás la descarte, para no inventar una precisión que
-    el usuario nunca introdujo.
+    It is stored at midnight UTC. The time is padding and means nothing;
+    what matters is that the round trip back discards it, so as not to
+    invent a precision the user never entered.
     """
     return datetime.combine(value, time.min, tzinfo=timezone.utc)
 
 
 def date_from_bson(value: datetime) -> date:
-    """La vuelta: recorta el relleno de medianoche."""
+    """The way back: trims the midnight padding."""
     return value.date()

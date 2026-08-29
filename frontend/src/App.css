@@ -1,5 +1,5 @@
-/* Estilos mínimos: lo justo para que el slice sea legible.
-   El diseño de verdad llega cuando haya algo que diseñar. */
+/* Minimal styles: just enough for the slice to be readable.
+   Real design arrives once there's something to design. */
 
 .app {
   max-width: var(--shell);
@@ -8,20 +8,20 @@
   text-align: left;
 }
 
-/* --- Pantalla de dos columnas: acción | contenido ---------------------
-   El formulario de alta a un lado y la lista al otro. Antes el formulario
-   estaba ENCIMA, así que en Sesiones y en Mazos había que bajar para ver lo
-   que ya tenías: la pantalla dedicaba el primer pliegue a crear algo, que es
-   lo que menos veces haces.
+/* --- Two-column screen: action | content -------------------------------
+   The creation form on one side, the list on the other. The form used to sit
+   ON TOP, so on Sessions and on Decks you had to scroll down to see what you
+   already had: the screen was giving its first fold to creating something,
+   which is what you do least often.
 
-   minmax(0, …) en las dos columnas y no `auto 1fr`: sin el mínimo 0, un hijo
-   que no quepa —una fila larga, una rejilla— ensancha su columna y desborda la
-   rejilla en vez de encogerse. Es el fallo clásico de CSS Grid, y el mismo
-   truco que ya usa .builder-cols.
+   minmax(0, …) on both columns, not `auto 1fr`: without the 0 minimum, a
+   child that doesn't fit — a long row, a grid — widens its column and
+   overflows the grid instead of shrinking. It's the classic CSS Grid
+   footgun, and the same trick .builder-cols already uses.
 
-   El umbral es 60rem, igual que el del constructor. Por debajo vuelve a una
-   columna, con el formulario primero: en un móvil el orden del DOM es el orden
-   visual y no hay hueco para poner nada al lado. */
+   The breakpoint is 60rem, same as the builder's. Below it, it goes back to
+   one column, with the form first: on a phone the DOM order is the visual
+   order and there's no room to put anything beside it. */
 .screen-split {
   display: grid;
   grid-template-columns: minmax(0, var(--measure)) minmax(0, 1fr);
@@ -29,12 +29,12 @@
   align-items: start;
 }
 
-/* Variante con la columna estrecha a la DERECHA.
-   En el detalle de sesión el orden natural del documento es «las rondas y luego
-   el formulario para añadir otra», y ese orden es el que lee un lector de
-   pantalla y el que sigue el tabulador. Invertir el DOM para que el formulario
-   cayera en la primera columna habría roto ese orden a cambio de nada: mover la
-   columna es trabajo de la rejilla, no del marcado. */
+/* Variant with the narrow column on the RIGHT.
+   In the session detail the document's natural order is "the rounds, then
+   the form to add another one", and that's the order a screen reader reads
+   and the tab key follows. Reversing the DOM so the form landed in the first
+   column would have broken that order for nothing: moving the column is the
+   grid's job, not the markup's. */
 .screen-split--end {
   grid-template-columns: minmax(0, 1fr) minmax(0, var(--measure));
 }
@@ -44,12 +44,13 @@
   .screen-split--end { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* En dos columnas el formulario ya no separa nada de lo que viene debajo:
-   su margen inferior solo dejaría un hueco muerto al final de la columna. */
+/* In two columns the form no longer separates anything from what comes
+   below it: its bottom margin would only leave a dead gap at the end of the
+   column. */
 .screen-split > .match-form { margin-bottom: 0; }
 
-/* La columna de contenido: sus hijos se apilan, y es ella la que da a la
-   rejilla de cartas y a las listas el ancho que les queda. */
+/* The content column: its children stack, and it's the one that gives the
+   card grid and the lists the width left over for them. */
 .pane { display: flex; flex-direction: column; min-width: 0; }
 .pane > h2:first-child { margin-top: 0; }
 
@@ -67,7 +68,7 @@
   opacity: 0.65;
 }
 
-/* --- Pestañas --- */
+/* --- Tabs --- */
 
 .tabs {
   display: flex;
@@ -93,7 +94,7 @@
   border-bottom-color: currentColor;
 }
 
-/* --- Buscador de cartas --- */
+/* --- Card search --- */
 
 .filters {
   display: flex;
@@ -153,8 +154,8 @@
 .card-grid button {
   display: flex;
   flex-direction: column;
-  /* El nombre queda abajo aunque la imagen aún no haya cargado, así todas las
-     celdas de una fila miden lo mismo. */
+  /* The name stays at the bottom even when the image hasn't loaded yet, so
+     every cell in a row measures the same. */
   justify-content: flex-start;
   gap: 0.35rem;
   width: 100%;
@@ -176,10 +177,10 @@
   width: 100%;
   border-radius: 0.25rem;
 
-  /* Proporción real de una carta Pokémon. Reservar el hueco ANTES de que la
-     imagen cargue es lo que evita el *Cumulative Layout Shift*: con
-     loading="lazy", una imagen fuera de pantalla no se descarga, y sin altura
-     declarada el <img> mide cero y la rejilla se desmorona. */
+  /* Real aspect ratio of a Pokémon card. Reserving the space BEFORE the
+     image loads is what prevents *Cumulative Layout Shift*: with
+     loading="lazy", an off-screen image isn't downloaded, and without a
+     declared height the <img> measures zero and the grid collapses. */
   aspect-ratio: 245 / 342;
   background: var(--surface-2);
   object-fit: cover;
@@ -219,7 +220,7 @@
   cursor: not-allowed;
 }
 
-/* --- Detalle de carta --- */
+/* --- Card detail --- */
 
 .card-detail {
   position: fixed;
@@ -285,7 +286,7 @@
   border-radius: 0.25rem;
 }
 
-/* --- Formulario --- */
+/* --- Form --- */
 
 .match-form {
   display: flex;
@@ -293,9 +294,9 @@
   gap: 0.75rem;
   padding: 1.25rem;
   margin-bottom: 2.5rem;
-  /* Su propia medida, para que no herede el ancho del contenedor. Un
-     formulario de una columna con campos de 1400 px es peor que uno de 550:
-     la etiqueta queda a un lado y el valor al otro. */
+  /* Its own measure, so it doesn't inherit the container's width. A
+     single-column form with 1400px fields is worse than one at 550: the
+     label ends up on one side and the value on the other. */
   max-width: var(--measure);
   border: 1px solid var(--line);
   border-radius: 0.5rem;
@@ -340,7 +341,7 @@
   opacity: 0.6;
 }
 
-/* --- Lista --- */
+/* --- List --- */
 
 .match-list {
   list-style: none;
@@ -403,23 +404,24 @@
   font-size: 0.875rem;
 }
 
-/* ============ Mazos ============ */
+/* ============ Decks ============ */
 
-/* Aquí vivía `.app:has(.deck-builder) { max-width: 68rem }`: el contenedor
-   general eran 42rem y el constructor era la única pantalla que necesitaba más,
-   así que se ensanchaba con :has() cuando estaba presente.
+/* `.app:has(.deck-builder) { max-width: 68rem }` used to live here: the
+   general container was 42rem and the builder was the only screen that
+   needed more, so it widened itself with :has() whenever it was present.
 
-   Esa excepción era la señal de que la regla general estaba mal. El
-   constructor no era un caso raro: era la primera pantalla en pedir el ancho
-   que todas necesitaban. Ahora el tope es --shell para todo y quien acota es
-   --measure, por contenido. Una excepción que se repite deja de ser excepción. */
+   That exception was the sign that the general rule was wrong. The builder
+   wasn't an odd case: it was the first screen to ask for the width every
+   screen would need. Now the cap is --shell for everything, and it's
+   --measure that narrows things, per content. An exception that keeps
+   repeating stops being an exception. */
 
 .deck-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-/* Acotado al botón PRINCIPAL de la fila, igual que en el listado de sesiones y
-   por el mismo motivo, que ya está contado unas líneas más abajo: cuando llegó
-   el menú «⋮», `.deck-list button` (0,1,1) también lo alcanzaba y le imponía
-   width:100%, borde y rejilla, así que el menú salía como una caja ancha
-   separada de la fila. La segunda vez que muerde el mismo perro. */
+/* Scoped to the row's MAIN button, same as in the session listing and for
+   the same reason, already told a few lines below: when the "⋮" menu
+   arrived, `.deck-list button` (0,1,1) reached it too and imposed
+   width:100%, a border and a grid on it, so the menu came out as a wide box
+   separated from the row. The second time the same dog bites. */
 .deck-row > .row-main {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -447,7 +449,7 @@
 }
 .deck-count.ok { background: var(--win-soft); color: var(--win); }
 
-/* --- constructor --- */
+/* --- builder --- */
 
 .builder-head { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.25rem; }
 .builder-head h2 { margin: 0; }
@@ -463,10 +465,10 @@
   white-space: nowrap;
 }
 
-/* El mazo manda: es en lo que estás trabajando, y el buscador es la herramienta
-   con la que lo haces. Al 50/50 la rejilla del mazo salía a cuatro cartas por
-   fila mientras el buscador desperdiciaba media pantalla en un formulario de
-   tres campos. 1.7fr / 1fr deja el mazo en ~63%, como las listas publicadas. */
+/* The deck rules: it's what you're working on, and the search box is the
+   tool you use to do it. At 50/50 the deck grid came out at four cards per
+   row while the search box wasted half the screen on a three-field form.
+   1.7fr / 1fr leaves the deck at ~63%, like published lists. */
 .builder-cols {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
@@ -479,7 +481,7 @@
 .builder-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
 .builder-actions .secondary { background: none; color: inherit; border: 1px solid var(--line-strong); border-radius: 0.25rem; }
 
-/* --- validación --- */
+/* --- validation --- */
 
 .validation {
   padding: 1rem 1.1rem;
@@ -501,7 +503,7 @@
 @media (prefers-reduced-motion: reduce) { .bar-fill { transition: none; } }
 .violations { margin: 0.75rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; opacity: 0.85; display: flex; flex-direction: column; gap: 0.25rem; }
 
-/* --- lista del mazo --- */
+/* --- deck list --- */
 
 .deck-groups { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.25rem; }
 .deck-group h4 { margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.6; }
@@ -532,7 +534,7 @@
 .tag.basic { background: var(--surface-2); opacity: 0.8; }
 .tag.illegal { background: var(--loss-soft); color: var(--loss); }
 
-/* --- historial --- */
+/* --- history --- */
 
 .history { margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--surface-2); }
 .history h4 { margin: 0 0 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.6; }
@@ -542,7 +544,7 @@
 .vnum { font-variant-numeric: tabular-nums; }
 .vcount { opacity: 0.6; font-variant-numeric: tabular-nums; }
 
-/* --- conmutador de vista --- */
+/* --- view switch --- */
 .view-toggle { display: flex; gap: 0.25rem; margin: 1.25rem 0 0.75rem; }
 .view-toggle button {
   padding: 0.3rem 0.8rem; font: inherit; font-size: 0.8rem;
@@ -552,16 +554,17 @@
 }
 .view-toggle button.active { opacity: 1; border-color: var(--line-strong); font-weight: 600; }
 
-/* --- rejilla de cartas del mazo --- */
+/* --- deck's card grid --- */
 .deck-grid-groups { display: flex; flex-direction: column; gap: 1.5rem; }
 .deck-grid-groups h4 {
   margin: 0 0 0.5rem; font-size: 0.8rem; text-transform: uppercase;
   letter-spacing: 0.06em; opacity: 0.6;
 }
-/* La columna del mazo se declara CONTENEDOR de consulta.
-   Es la pieza que hace la rejilla adaptativa de verdad: su ancho cambia según
-   haya buscador al lado o no, y una media query de viewport no puede saberlo
-   — mide la ventana, no el hueco disponible. */
+/* The deck column is declared a query CONTAINER.
+   This is the piece that makes the grid truly adaptive: its width changes
+   depending on whether there's a search box beside it, and a viewport media
+   query has no way of knowing that — it measures the window, not the
+   available space. */
 .builder-deck,
 .comparing {
   container-type: inline-size;
@@ -570,8 +573,9 @@
 
 .deck-grid {
   display: grid;
-  /* auto-fill reparte tantas columnas como quepan con ese mínimo; el 1fr hace
-     que el sobrante se reparta en vez de dejar un hueco a la derecha. */
+  /* auto-fill lays out as many columns as fit with that minimum; the 1fr
+     makes the leftover space get distributed instead of leaving a gap on
+     the right. */
   grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
   gap: var(--gap-3);
   list-style: none;
@@ -579,9 +583,9 @@
   padding: 0;
 }
 
-/* A más sitio, cartas más grandes: la rejilla no se limita a meter más columnas
-   de cartas diminutas. Los saltos responden al ANCHO DE LA COLUMNA, así que
-   cerrar el buscador agranda las cartas al instante sin tocar la ventana. */
+/* More room, bigger cards: the grid doesn't just cram in more columns of
+   tiny cards. The breakpoints respond to the COLUMN'S WIDTH, so closing the
+   search box grows the cards instantly without touching the window. */
 @container deck (min-width: 30rem) {
   .deck-grid { --card-min: 6.5rem; }
 }
@@ -592,9 +596,9 @@
   .deck-grid { --card-min: 8.5rem; }
 }
 
-/* El control de densidad gana sobre lo anterior: si el usuario elige un tamaño,
-   manda él. Va en el contenedor para que las @container sigan aplicando al
-   resto. */
+/* The density control wins over the above: if the user picks a size, that's
+   what rules. It's on the container so the @container rules keep applying
+   to the rest. */
 .deck-grid[data-size="s"] { --card-min: 4.5rem !important; }
 .deck-grid[data-size="l"] { --card-min: 11rem !important; }
 .deck-grid > li { display: flex; flex-direction: column; gap: 0.25rem; }
@@ -603,8 +607,8 @@
 .deck-card { position: relative; }
 .deck-card img {
   width: 100%; display: block; border-radius: 0.25rem;
-  /* Igual que en el buscador: reservar el hueco antes de que cargue evita que
-     la rejilla se desmorone con loading="lazy". Ver log_mentor/10. */
+  /* Same as in the search box: reserving the space before it loads keeps the
+     grid from collapsing with loading="lazy". See log_mentor/10. */
   aspect-ratio: 245 / 342; background: var(--surface-2); object-fit: cover;
 }
 .deck-card .no-image {
@@ -613,7 +617,7 @@
   border: 1px dashed var(--line-strong); border-radius: 0.25rem;
 }
 
-/* La cantidad, sobre la carta y abajo a la derecha, como en las listas publicadas */
+/* The quantity, over the card and bottom-right, like in published lists */
 .qty-badge {
   position: absolute; right: -0.3rem; bottom: -0.3rem;
   min-width: 1.5rem; height: 1.5rem; padding: 0 0.25rem;
@@ -640,7 +644,7 @@
 .grid-controls .remove:hover { opacity: 1; }
 .grid-name { font-size: 0.62rem; line-height: 1.2; opacity: 0.7; text-align: center; }
 
-/* --- comparar con una versión anterior --- */
+/* --- comparing against an earlier version --- */
 .comparing {
   margin-top: 1.75rem; padding: 1rem;
   border: 1px dashed var(--line-strong); border-radius: 0.4rem;
@@ -658,53 +662,55 @@
 }
 .peek:hover { opacity: 1; }
 
-/* --- mazo en la lista de partidas --- */
+/* --- deck in the match list --- */
 .match__deck { grid-column: 1 / -1; font-size: 0.8rem; opacity: 0.7; }
 .vtag {
   padding: 0.05rem 0.3rem; font-size: 0.7rem;
   background: var(--surface-2); border-radius: 0.2rem;
 }
 
-/* ============ Sesiones ============ */
+/* ============ Sessions ============ */
 
 .optional { font-size: 0.75rem; opacity: 0.5; font-weight: 400; }
 
 .session-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-/* Acotado al botón PRINCIPAL de la fila, no a cualquier button que haya dentro.
-   La versión anterior era `.session-list button`, y cuando llegó la «×» de
-   borrar también la alcanzaba: `width: 100%` con especificidad (0,1,1) le ganaba
-   al `width: 2rem` de la aspa (0,1,0), que ocupaba la fila entera y aplastaba al
-   resto. Es la colisión clásica entre un selector de tipo y uno de clase; se
-   arregla acotando, no subiendo la especificidad del otro.
+/* Scoped to the row's MAIN button, not to any button inside it.
+   The earlier version was `.session-list button`, and when the delete "×"
+   arrived it reached that too: `width: 100%` at specificity (0,1,1) beat the
+   ×'s `width: 2rem` at (0,1,0), which then took over the whole row and
+   crushed the rest. It's the classic collision between a type selector and a
+   class selector; the fix is scoping, not raising the other one's
+   specificity.
 
-   Sigue importando: el menú «⋮» que sustituyó a la aspa mete ahora tres botones
-   más en la fila, y con el selector viejo los tres habrían salido al 100%. */
-/* La segunda columna es un CARRIL FIJO para la cápsula de tipo.
-   Antes era `auto`, o sea que la medía su contenido: con LIGA quedaba en 40 px
-   y con TESTING en 63, así que el nombre de cada sesión arrancaba en una x
-   distinta y el borde izquierdo de la lista salía dentado.
-   6rem porque la etiqueta más larga, CHALLENGE, ocupa 79 px con su relleno. Si
-   se añade un tipo de nombre más largo hay que subir esto, y se nota enseguida
-   porque sale con puntos suspensivos.
+   Still matters: the "⋮" menu that replaced the × now packs three more
+   buttons into the row, and with the old selector all three would have come
+   out at 100%. */
+/* The second column is a FIXED TRACK for the type pill.
+   It used to be `auto`, meaning its content measured it: with LEAGUE it came
+   out at 40 px and with TESTING at 63, so each session's name started at a
+   different x and the list's left edge came out jagged.
+   6rem because the longest label, CHALLENGE, takes up 79 px with its
+   padding. If a longer type name gets added this has to go up, and it shows
+   right away because it comes out with an ellipsis.
 
-   Medir ese número tiene dos trampas, y caí en las dos:
-     - `canvas.measureText` sobre el texto del nodo se queda corto, porque
-       `text-transform: uppercase` cambia lo que se PINTA y no lo que hay en el
-       DOM: mide "Challenge", no "CHALLENGE".
-     - `scrollWidth` no sirve para saber cuánto NECESITA un elemento: cuando el
-       contenido cabe, vale exactamente lo mismo que `clientWidth`. Verlos
-       iguales significa «no desborda», no «va justo».
-   Lo que sí sirve: clonar el elemento con `width:auto` y `white-space:nowrap`,
-   medirlo fuera de la rejilla y quitarlo.
+   Measuring that number has two traps, and I fell into both:
+     - `canvas.measureText` on the node's text falls short, because
+       `text-transform: uppercase` changes what gets PAINTED and not what's
+       in the DOM: it measures "Challenge", not "CHALLENGE".
+     - `scrollWidth` doesn't tell you how much an element NEEDS: when the
+       content fits, it's worth exactly the same as `clientWidth`. Seeing
+       them equal means "doesn't overflow", not "fits exactly".
+   What does work: cloning the element with `width:auto` and
+   `white-space:nowrap`, measuring it outside the grid, and removing it.
 
-   El menú «⋮» no es una columna de esta rejilla: es hermano del botón, porque
-   tiene que poder pulsarse sin abrir la sesión. */
+   The "⋮" menu isn't a column of this grid: it's a sibling of the button,
+   because it has to be clickable without opening the session. */
 .session-row > button:first-child {
   display: grid;
   grid-template-columns: 6rem 6rem minmax(0, 1fr) auto auto;
   grid-template-areas: 'fecha tipo nombre mazo record';
-  /* center y no baseline: la celda del mazo tiene dos líneas apiladas, y
-     alinear la fila por la primera línea base del texto descuadra el resto. */
+  /* center, not baseline: the deck cell has two stacked lines, and aligning
+     the row by the text's first baseline throws off the rest. */
   gap: 0.4rem 0.9rem; align-items: center;
   width: 100%; padding: 0.8rem 1rem;
   font: inherit; color: inherit; text-align: left; background: none;
@@ -712,15 +718,16 @@
 }
 .session-row > button:first-child:hover { border-color: var(--line-strong); }
 .s-date { grid-area: fecha; font-size: 0.8rem; opacity: 0.65; font-variant-numeric: tabular-nums; }
-/* La cápsula ocupa el carril entero. Fijar solo la columna alinearía los
-   nombres, pero dejaría recuadros de tres anchos distintos uno debajo de otro;
-   estirarla hace que todas midan igual, que es lo pedido. */
+/* The pill fills the whole track. Just fixing the column would align the
+   names, but would leave boxes of three different widths stacked one under
+   the other; stretching it makes them all measure the same, which is what's
+   wanted. */
 .s-type {
   grid-area: tipo;
   width: 100%; text-align: center;
   padding: 0.15rem 0.35rem; font-size: 0.7rem; text-transform: uppercase;
   letter-spacing: 0.05em; border-radius: 0.25rem; background: var(--surface-2);
-  /* Un tipo con nombre largo se recorta antes que romper la rejilla. */
+  /* A type with a long name gets truncated rather than breaking the grid. */
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .s-type--cup { background: var(--warn-soft); color: var(--warn); }
@@ -728,7 +735,7 @@
 .s-type--testing { background: var(--surface-2); opacity: 0.8; }
 .s-name { grid-area: nombre; font-weight: 600; }
 
-/* El mazo: iconos arriba, nombre debajo. */
+/* The deck: icons on top, name below. */
 .s-deck {
   grid-area: mazo;
   display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
@@ -737,11 +744,12 @@
 .s-deck-name { white-space: nowrap; }
 .s-record { grid-area: record; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.95rem; }
 
-/* Estrecho: la fila de cinco columnas no cabe en un móvil — sumadas piden más
-   de 500 px y a 400 se desbordaban las cinco. Se reparte en tres renglones en
-   vez de encogerlas, porque encoger la fecha o el récord los hace ilegibles.
-   Las áreas con nombre hacen el reparto explícito: se lee la maqueta entera en
-   tres líneas de CSS, sin recolocar nada en el JSX. */
+/* Narrow: the five-column row doesn't fit on a phone — added up they ask for
+   more than 500 px, and at 400 all five would overflow. It's laid out over
+   three lines instead of shrinking them, because shrinking the date or the
+   record makes them unreadable. The named areas make the layout explicit:
+   the whole arrangement reads in three lines of CSS, with nothing rearranged
+   in the JSX. */
 @media (max-width: 48rem) {
   .session-row > button:first-child {
     grid-template-columns: auto 6rem minmax(0, 1fr);
@@ -755,7 +763,7 @@
   .s-deck { flex-direction: row; align-items: center; gap: 0.5rem; }
 }
 
-/* --- sesión abierta --- */
+/* --- open session --- */
 .record { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 1.5rem; }
 .record-figure { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 .record-label { opacity: 0.6; font-size: 0.875rem; }
@@ -790,7 +798,7 @@
   border: 1px solid var(--line-strong); border-radius: 0.25rem;
 }
 
-/* ============ Estadísticas ============ */
+/* ============ Statistics ============ */
 
 .deck-modes { display: flex; gap: 0.25rem; margin-bottom: 1.25rem; }
 .deck-modes button {
@@ -841,7 +849,7 @@
 .stat-record { font-variant-numeric: tabular-nums; opacity: 0.7; font-size: 0.85rem; }
 .stat-pct { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 2.75rem; text-align: right; }
 
-/* ============ Iconos de Pokémon ============ */
+/* ============ Pokémon icons ============ */
 
 .pkm-pair { display: inline-flex; align-items: center; gap: 0.15rem; vertical-align: middle; }
 .pkm-pair img {
@@ -849,16 +857,17 @@
   flex-shrink: 0;
 }
 
-/* image-rendering va acotado a la variante, no en .pkm-pair img, porque las dos
-   imágenes necesitan lo contrario:
-     icon  sprite de 96px que se AMPLÍA -> pixelated, o el suavizado lo emborrona
-     art   render de 512px que se REDUCE -> suavizado, o salen dientes de sierra
-   Es el mismo ajuste aplicado al revés según la dirección del escalado. */
+/* image-rendering is scoped to the variant, not to .pkm-pair img, because the
+   two images need the opposite:
+     icon  96px sprite that gets SCALED UP -> pixelated, or smoothing blurs it
+     art   512px render that gets SCALED DOWN -> smoothing, or it gets jagged
+   It's the same setting applied in reverse depending on the scaling
+   direction. */
 .pkm-icon img { image-rendering: pixelated; }
 .pkm-art img { image-rendering: auto; }
 
-/* Los renders vienen recortados justos y con bastante aire transparente
-   alrededor; un poco de solape los junta sin que se toquen. */
+/* The renders come cropped tight with a fair amount of transparent air
+   around them; a bit of overlap brings them together without touching. */
 .pkm-art { gap: 0; }
 .pkm-art img + img { margin-left: -0.35rem; }
 .pkm-label { margin-left: 0.25rem; }
@@ -901,24 +910,24 @@
 .pkm-results img { image-rendering: pixelated; flex-shrink: 0; }
 .pkm-dex { margin-left: auto; opacity: 0.45; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
 
-/* La primera columna mide lo mismo en todas las filas: es el carril de los dos
-   iconos, y así los nombres arrancan alineados aunque un mazo no tenga ninguno.
-   Con `auto` la medía su contenido, y cada fila salía distinta. */
+/* The first column measures the same in every row: it's the track for the
+   two icons, so names start out aligned even when a deck has none. With
+   `auto` its content measured it, and every row came out different. */
 .deck-row > .row-main { grid-template-columns: 7rem 1fr auto auto; }
 .round-arch { display: flex; align-items: center; gap: 0.4rem; }
 
-/* Carril de ancho fijo para el par de iconos.
-   El mismo problema en dos listas: PokemonPair devuelve null cuando el mazo o
-   el rival no tienen Pokémon, y un mazo puede tener uno o dos. Sin un carril
-   reservado, el texto arranca en un sitio distinto en cada fila y el borde
-   izquierdo queda dentado — que es justo el borde por el que se recorre una
-   lista. El hueco existe siempre; lo que varía es lo que hay dentro. */
+/* Fixed-width track for the pair of icons.
+   Same problem in two lists: PokemonPair returns null when the deck or the
+   opponent has no Pokémon, and a deck can have one or two. Without a
+   reserved track, the text starts in a different place on every row and the
+   left edge comes out jagged — which is exactly the edge a list gets scanned
+   by. The gap always exists; what varies is what's inside it. */
 .pkm-slot { display: flex; justify-content: center; flex-shrink: 0; min-width: 0; }
-/* En los mazos el ancho ya lo fija la columna de la rejilla (7rem); en las
-   rondas es flexbox, así que el carril lo declara aquí. */
+/* On decks the width is already fixed by the grid column (7rem); on rounds
+   it's flexbox, so the track gets declared here. */
 .round-arch .pkm-slot { width: 3.5rem; }
 
-/* ============ Control de densidad del mazo ============ */
+/* ============ Deck density control ============ */
 
 .grid-size {
   display: inline-flex;
@@ -946,18 +955,18 @@
 }
 .view-toggle { align-items: center; }
 
-/* Las cifras van en mono y tabulares: son columnas que se comparan. */
+/* Figures go mono and tabular: they're columns that get compared. */
 .count, .overall-pct, .overall-record, .record-figure, .s-record,
 .stat-pct, .stat-record, .deck-count, .qty-badge, .pkm-dex, .vnum, .vcount {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
 
-/* La versión actual del mazo, marcada con el acento: es el estado que hay que
-   poder ver de un vistazo cuando comparas historial. */
+/* The deck's current version, marked with the accent: it's the state that
+   has to be visible at a glance when comparing history. */
 .history li.current .vnum { color: var(--accent); }
 
-/* --- cabecera de sesión editable --- */
+/* --- editable session header --- */
 .session-head { display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; }
 .session-notes {
   margin: 0.35rem 0 0; padding-left: 0.6rem;
@@ -968,7 +977,7 @@
 .session-edit { margin-bottom: var(--gap-5); }
 .session-edit h3 { margin: 0 0 var(--gap-1); font-size: var(--step-1); }
 
-/* ============ Etiquetas ============ */
+/* ============ Tags ============ */
 
 .tag-input { position: relative; }
 .tag-chips {
@@ -1018,13 +1027,13 @@
 }
 .filtered-by { font-size: var(--step-0); font-weight: 400; color: var(--accent); }
 
-/* --- acciones de la fila --- */
+/* --- row actions --- */
 .session-row { display: flex; align-items: stretch; gap: var(--gap-2); }
 .session-row > button:first-child { flex: 1; }
 
-/* El menú «⋮». Sustituye a la «×» suelta: una fila tiene dos acciones, y
-   colgarlas las dos del margen las convierte en ruido que se lee en cada
-   fila aunque casi nunca se usen. */
+/* The "⋮" menu. Replaces the loose "×": a row has two actions, and hanging
+   both of them off the margin turns them into noise that gets read on every
+   row even though they're almost never used. */
 .row-menu { position: relative; flex-shrink: 0; display: flex; align-items: center; }
 .row-menu-trigger {
   width: 2rem; height: 2rem;
@@ -1032,9 +1041,9 @@
   background: none; border: 1px solid transparent; border-radius: var(--radius);
   cursor: pointer; opacity: 0.35;
 }
-/* Visible al pasar por encima de la fila, y SIEMPRE cuando el menú está
-   abierto o el botón tiene el foco: si no, al llegar con el tabulador el
-   control estaría enfocado y casi invisible. */
+/* Visible on hover over the row, and ALWAYS when the menu is open or the
+   button has focus: otherwise, arriving via the tab key would leave the
+   control focused and nearly invisible. */
 .session-row:hover .row-menu-trigger,
 .row-menu-trigger:focus-visible,
 .row-menu-trigger[aria-expanded='true'] { opacity: 1; }
@@ -1048,7 +1057,8 @@
 }
 .row-menu-items button {
   display: flex; align-items: center; gap: var(--gap-2);
-  /* Una opción de menú no se parte en dos líneas: el menú crece a lo ancho. */
+  /* A menu option doesn't break onto two lines: the menu grows wider
+     instead. */
   white-space: nowrap;
   padding: 0.35rem 0.5rem; font: inherit; font-size: var(--step--1);
   color: inherit; text-align: left; background: none; border: none;
@@ -1067,16 +1077,17 @@
   background: none; border: none; cursor: pointer; text-decoration: underline;
 }
 
-/* ============ Carpetas de mazos ============ */
+/* ============ Deck folders ============ */
 
-/* La pantalla de mazos ya no es .screen-split: al irse el formulario del
-   lateral no queda nada que poner al lado, así que ocupa una columna sola.
+/* The decks screen is no longer .screen-split: with the form gone from the
+   side, there's nothing left to put beside it, so it takes up a single
+   column.
 
-   Con su propia medida, no la del contenedor. Sin tope, una fila medía 1268 px
-   con el nombre a la izquierda y el 60/60 a la derecha: el ojo tiene que cruzar
-   la pantalla entera para leer un renglón. Es la misma regla que puso --measure
-   en los formularios, aplicada a una lista: el ancho lo pide el contenido, y
-   una fila de cuatro datos no necesita mil pixeles. */
+   With its own measure, not the container's. Without a cap, a row measured
+   1268 px with the name on the left and the 60/60 on the right: the eye has
+   to cross the whole screen to read one line. It's the same rule that put
+   --measure on the forms, applied to a list: the width is dictated by the
+   content, and a row of four fields doesn't need a thousand pixels. */
 .decks-screen {
   display: flex; flex-direction: column; min-width: 0;
   max-width: 64rem;
@@ -1088,7 +1099,7 @@
 }
 .toolbar-right { display: flex; align-items: center; gap: var(--gap-3); }
 
-/* --- miga de pan --- */
+/* --- breadcrumb --- */
 .breadcrumb { display: flex; align-items: center; gap: 0.15rem; flex-wrap: wrap; }
 .breadcrumb button {
   padding: 0.2rem 0.35rem; font: inherit; font-size: var(--step-1); font-weight: 600;
@@ -1096,8 +1107,8 @@
   cursor: pointer;
 }
 .breadcrumb button:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
-/* El tramo actual se deshabilita en vez de ocultarse: sigue siendo el título de
-   la pantalla, solo que no lleva a ningún sitio nuevo. */
+/* The current segment gets disabled instead of hidden: it's still the
+   screen's title, it just doesn't lead anywhere new. */
 .breadcrumb button:disabled { color: var(--ink); cursor: default; }
 .breadcrumb .sep { color: var(--ink-3); opacity: 0.5; }
 .breadcrumb .crumb-current { padding: 0.2rem 0.35rem; font-size: var(--step-1); font-weight: 600; color: var(--ink); }
@@ -1122,20 +1133,20 @@
 .view-switch button:last-child { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
 .view-switch button.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 
-/* --- filas --- */
+/* --- rows --- */
 .deck-row { display: flex; align-items: stretch; gap: var(--gap-2); }
 .deck-row > .row-main { flex: 1; }
 .deck-row:hover .row-menu-trigger { opacity: 1; }
 
-/* La carpeta ocupa el carril de los iconos con su emoji, así el nombre de una
-   carpeta y el de un mazo arrancan en la misma x. */
+/* The folder occupies the icon track with its emoji, so a folder's name and
+   a deck's name start at the same x. */
 .row-icon {
   display: flex; align-items: center; justify-content: center;
   width: 7rem; font-size: 1.6rem;
 }
 .folder-row > .row-main { padding-block: 0.55rem; }
 
-/* --- renombrar en el sitio --- */
+/* --- in-place rename --- */
 .rename { display: flex; }
 .rename input {
   width: 100%; padding: 0.2rem 0.4rem; font: inherit; font-weight: 600;
@@ -1144,30 +1155,31 @@
 }
 
 
-/* --- cabecera del constructor --- */
-/* La cabecera envuelve. Sin esto, a 420 px el campo del nombre (12rem de
-   mínimo), los dos botones de guardar y los dos selectores de Pokémon suman más
-   que la pantalla y la desbordan hacia la derecha: se veía scroll horizontal en
-   el constructor y en ningún otro sitio. */
+/* --- builder header --- */
+/* The header wraps. Without this, at 420 px the name field (12rem minimum),
+   the two save buttons and the two Pokémon selectors add up to more than the
+   screen and overflow it to the right: horizontal scroll showed up in the
+   builder, and nowhere else. */
 .builder-head { flex-wrap: wrap; }
 .builder-id { flex: 1; min-width: 0; }
-/* El nombre y las acciones en la misma línea: guardar tiene que verse cuando
-   hay algo que guardar, y antes vivía al final de una columna de 60 cartas. */
+/* The name and the actions on the same line: save has to be visible when
+   there's something to save, and it used to live at the bottom of a
+   60-card column. */
 .builder-title {
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--gap-4); flex-wrap: wrap;
 }
 .deck-title {
-  /* min-width: 0 y no 12rem: un mínimo en un hijo flexible es un suelo que la
-     rejilla no puede bajar, y es lo que empujaba la fila fuera de pantalla. */
+  /* min-width: 0, not 12rem: a minimum on a flex child is a floor the grid
+     can't go below, and that's what was pushing the row off screen. */
   flex: 1; min-width: 0; max-width: 26rem;
   padding: 0.3rem 0.5rem;
   font: inherit; font-size: var(--step-2); font-weight: 700;
   color: var(--ink); background: transparent;
   border: 1px solid transparent; border-radius: var(--radius);
 }
-/* Sin borde hasta que lo tocas: se lee como el título que es, pero al pasar por
-   encima se ve que es editable. */
+/* No border until you touch it: it reads as the title it is, but hovering
+   over it shows it's editable. */
 .deck-title:hover { border-color: var(--line); }
 .deck-title:focus { border-color: var(--accent); background: var(--surface); outline: none; }
 
@@ -1179,16 +1191,16 @@
   border: 1px solid var(--line-strong); border-radius: var(--radius);
 }
 
-/* Estrecho: la cabecera del constructor se apila en vez de desbordar. Los dos
-   selectores de Pokémon tienen 9rem de mínimo cada uno; juntos no caben en un
-   móvil, así que se ponen uno debajo del otro. */
+/* Narrow: the builder's header stacks instead of overflowing. The two
+   Pokémon selectors have a 9rem minimum each; together they don't fit on a
+   phone, so they're placed one below the other. */
 @media (max-width: 48rem) {
   .builder-head .builder-actions { flex-shrink: 1; flex-wrap: wrap; }
   .builder-head .deck-pokemon { flex-wrap: wrap; }
   .deck-title { max-width: none; }
 }
 
-/* --- importar y exportar listas --- */
+/* --- importing and exporting lists --- */
 .deck-import, .deck-export {
   display: flex; flex-direction: column; gap: var(--gap-3);
   max-width: 44rem;
@@ -1201,15 +1213,15 @@
   padding: 0.5rem; font: inherit; color: inherit; background: transparent;
   border: 1px solid var(--line-strong); border-radius: var(--radius);
 }
-/* La lista es texto tabular con códigos de set: en monoespaciada las columnas
-   se alinean y una errata en un número se ve. */
+/* The list is tabular text with set codes: in a monospace font the columns
+   line up and a typo in a number stands out. */
 .deck-import textarea,
 .deck-export textarea { font-family: var(--mono); font-size: var(--step--1); resize: vertical; }
 
 .deck-export { margin-bottom: var(--gap-5); }
 
-/* El informe no es un error —la importación funcionó— pero tampoco es un éxito
-   limpio: usa el color de aviso, no el de fallo. */
+/* The report isn't an error — the import worked — but it isn't a clean
+   success either: it uses the warning color, not the failure one. */
 .import-report {
   padding: var(--gap-3); font-size: var(--step--1);
   background: var(--warn-soft); color: var(--warn);

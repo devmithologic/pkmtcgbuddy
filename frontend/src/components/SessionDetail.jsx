@@ -14,9 +14,9 @@ import TagInput from './TagInput'
 import PokemonPicker from './PokemonPicker'
 
 const RESULTS = [
-  { value: 'win', label: 'Victoria' },
-  { value: 'loss', label: 'Derrota' },
-  { value: 'tie', label: 'Empate' },
+  { value: 'win', label: 'Win' },
+  { value: 'loss', label: 'Loss' },
+  { value: 'tie', label: 'Tie' },
 ]
 
 const EMPTY_ROUND = {
@@ -28,20 +28,20 @@ const EMPTY_ROUND = {
 }
 
 /**
- * Una sesión abierta: cabecera, récord, rondas, y el formulario para añadir la
- * siguiente.
+ * An open session: header, record, rounds, and the form to add the next
+ * one.
  *
- * El récord NO se calcula aquí. Cada operación sobre una ronda devuelve la sesión
- * entera ya recalculada por el servidor, así que solo hay una implementación del
- * cálculo y no puede haber dos que discrepen.
+ * The record is NOT computed here. Every operation on a round returns the
+ * whole session already recalculated by the server, so there's only one
+ * implementation of the calculation and there can't be two that disagree.
  */
 /**
- * Los campos editables de la cabecera, a partir de una sesión.
+ * The header's editable fields, derived from a session.
  *
- * Recibe la sesión como argumento en vez de leer el estado porque hace falta
- * llamarla en dos momentos distintos: al pulsar «editar sesión», cuando el
- * estado ya está puesto, y nada más llegar la respuesta del servidor, cuando
- * todavía no lo está.
+ * Takes the session as an argument instead of reading state because it
+ * needs to be called at two different moments: on clicking "edit session",
+ * when the state is already set, and right when the server's response
+ * arrives, when it isn't yet.
  */
 function headerFrom(s) {
   return {
@@ -57,15 +57,15 @@ function headerFrom(s) {
 export default function SessionDetail({ sessionId, startEditing = false, onBack }) {
   const [session, setSession] = useState(null)
   const [form, setForm] = useState(EMPTY_ROUND)
-  // Qué RONDA se está corrigiendo, o null. Nombre explícito para no
-  // confundirse con editingHeader, que es otra cosa.
+  // Which ROUND is being corrected, or null. Named explicitly so it isn't
+  // confused with editingHeader, which is a different thing.
   const [editingRound, setEditingRound] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  // Edición de la CABECERA. Las rondas no pasan por aquí: cada una se guarda al
-  // añadirla, así que no hay estado pendiente que confirmar. Esto existe porque
-  // hasta ahora la sesión quedaba congelada al crearla, y equivocarse de fecha o
-  // de mazo no tenía arreglo.
+  // HEADER editing. Rounds don't go through here: each one is saved as
+  // it's added, so there's no pending state to confirm. This exists
+  // because until now the session was frozen once created, and getting the
+  // date or the deck wrong had no fix.
   const [editingHeader, setEditingHeader] = useState(false)
   const [header, setHeader] = useState(null)
   const [decks, setDecks] = useState([])
@@ -79,14 +79,14 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
         if (!active) return
         setSession(s)
 
-        // Abrir ya editando, cuando se llega desde el lápiz del listado.
+        // Opens already editing, when arriving from the list's pencil icon.
         //
-        // Tiene que ser AQUÍ y no en el useState de editingHeader: el
-        // formulario se rellena a partir de la sesión, y al montar la sesión
-        // todavía es null. Sembrarlo antes daría un TypeError en
-        // header.played_at en el primer render. Se siembra con `s`, el dato
-        // recién llegado, no con el estado `session`, que en esta misma vuelta
-        // aún no se ha actualizado.
+        // This has to happen HERE and not in editingHeader's useState: the
+        // form is filled from the session, and on mount the session is
+        // still null. Seeding it earlier would throw a TypeError on
+        // header.played_at on the first render. It's seeded with `s`, the
+        // data that just arrived, not with the `session` state, which
+        // hasn't been updated yet in this same pass.
         if (startEditing) {
           setHeader(headerFrom(s))
           setEditingHeader(true)
@@ -99,7 +99,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
     }
   }, [sessionId, startEditing])
 
-  // Los mazos hacen falta para poder corregir con cuál se jugó.
+  // The decks are needed to be able to correct which one was played.
   useEffect(() => {
     let active = true
     Promise.all([listDecks(), listTags()])
@@ -131,7 +131,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
     if (ok) setEditingHeader(false)
   }
 
-  /** Envoltorio común: toda mutación devuelve la sesión entera y la reemplaza. */
+  /** Common wrapper: every mutation returns the whole session and replaces it. */
   async function mutate(operation) {
     setBusy(true)
     setError(null)
@@ -179,7 +179,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
   }
 
   if (error && !session) return <p className="error">{error}</p>
-  if (!session) return <p>Cargando…</p>
+  if (!session) return <p>Loading…</p>
 
   const { record } = session
 
@@ -187,7 +187,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
     <div className="session-detail">
       <div className="builder-head">
         <button type="button" className="back" onClick={onBack}>
-          ← Sesiones
+          ← Sessions
         </button>
         <div className="session-head">
           <h2>{session.name || TYPE_LABEL[session.session_type]}</h2>
@@ -207,7 +207,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           {session.notes && <p className="session-notes">{session.notes}</p>}
           {!editingHeader && (
             <button type="button" className="peek" onClick={startEditHeader}>
-              editar sesión
+              edit session
             </button>
           )}
         </div>
@@ -215,10 +215,10 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
 
       {editingHeader && (
         <form onSubmit={saveHeader} className="match-form session-edit">
-          <h3>Editar sesión</h3>
+          <h3>Edit session</h3>
 
           <label>
-            Fecha
+            Date
             <input
               type="date"
               value={header.played_at}
@@ -228,7 +228,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Tipo
+            Type
             <select
               value={header.session_type}
               onChange={(e) => setHeader({ ...header, session_type: e.target.value })}
@@ -242,16 +242,17 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Mazo
+            Deck
             <select
               value={header.deck_version_id}
               onChange={(e) => setHeader({ ...header, deck_version_id: e.target.value })}
             >
-              {/* La versión actual de la sesión puede no ser la actual del mazo
-                  —jugaste con la v1 y hoy vas por la v3— así que se ofrece
-                  explícitamente para no perderla al abrir el desplegable. */}
+              {/* The session's current version may not be the deck's
+                  current version — you played with v1 and today you're on
+                  v3 — so it's offered explicitly so it isn't lost when the
+                  dropdown opens. */}
               <option value={session.deck_version_id}>
-                {session.deck_name} (v{session.deck_version}) — actual
+                {session.deck_name} (v{session.deck_version}) — current
               </option>
               {decks
                 .filter((d) => d.current_version_id !== session.deck_version_id)
@@ -264,7 +265,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Nombre <span className="optional">opcional</span>
+            Name <span className="optional">optional</span>
             <input
               type="text"
               value={header.name}
@@ -274,7 +275,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Etiquetas <span className="optional">opcional</span>
+            Tags <span className="optional">optional</span>
             <TagInput
               value={header.tags}
               suggestions={allTags}
@@ -283,29 +284,29 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Notas del evento <span className="optional">opcional</span>
+            Event notes <span className="optional">optional</span>
             <textarea
               value={header.notes}
               onChange={(e) => setHeader({ ...header, notes: e.target.value })}
               rows={2}
-              placeholder="Cómo fue el día, qué probaste…"
+              placeholder="How the day went, what you tried…"
             />
           </label>
 
           <div className="round-form-actions">
             <button type="submit" disabled={busy}>
-              {busy ? 'Guardando…' : 'Guardar sesión'}
+              {busy ? 'Saving…' : 'Save session'}
             </button>
             <button type="button" className="secondary" onClick={() => setEditingHeader(false)}>
-              Cancelar
+              Cancel
             </button>
           </div>
         </form>
       )}
 
-      {/* Las rondas a la izquierda, el formulario de la siguiente a la derecha.
-          Antes el formulario iba debajo de la lista, así que en un torneo de
-          cinco rondas había que bajar hasta el final para apuntar la sexta. */}
+      {/* Rounds on the left, the form for the next one on the right.
+          Before, the form went below the list, so in a five-round
+          tournament you had to scroll all the way down to log the sixth. */}
       <div className="screen-split screen-split--end">
       <div className="pane">
       <div className="record">
@@ -314,8 +315,8 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
         </span>
         <span className="record-label">
           {session.matches.length === 0
-            ? 'sin rondas todavía'
-            : `${session.matches.length} ronda${session.matches.length > 1 ? 's' : ''}`}
+            ? 'no rounds yet'
+            : `${session.matches.length} ${session.matches.length === 1 ? 'round' : 'rounds'}`}
         </span>
       </div>
 
@@ -326,8 +327,8 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           <li key={m.round} className={`round round--${m.result}`}>
             <span className="round-no">R{m.round}</span>
             <span className="round-arch">
-              {/* Carril fijo: un rival puede tener dos iconos, uno o ninguno,
-                  y sin él los nombres de mazo no arrancan alineados. */}
+              {/* Fixed lane: an opponent can have two icons, one, or none,
+                  and without it the deck names don't start aligned. */}
               <span className="pkm-slot">
                 <PokemonPair
                   primary={m.opponent_primary}
@@ -342,22 +343,22 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
             </span>
             <span className="round-actions">
               <button type="button" onClick={() => startEdit(m)} disabled={busy}>
-                corregir
+                correct
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  // Cancelar la corrección en curso ANTES de borrar. El
-                  // servidor renumera las rondas al borrar, así que un
-                  // editingRound=2 abierto pasaría a apuntar a otra ronda
-                  // distinta y al guardar sobrescribiría la equivocada, sin
-                  // error visible. Corrupción silenciosa.
+                  // Cancel the correction in progress BEFORE deleting. The
+                  // server renumbers the rounds on delete, so an open
+                  // editingRound=2 would end up pointing at a different
+                  // round, and saving would overwrite the wrong one with no
+                  // visible error. Silent corruption.
                   cancelEdit()
                   mutate(() => deleteMatch(sessionId, m.round))
                 }}
                 disabled={busy}
               >
-                borrar
+                delete
               </button>
             </span>
             {m.notes && <p className="round-notes">{m.notes}</p>}
@@ -367,10 +368,10 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
       </div>
 
       <form onSubmit={handleAdd} className="match-form round-form">
-        <h3>{editingRound === null ? `Ronda ${session.matches.length + 1}` : `Corregir ronda ${editingRound}`}</h3>
+        <h3>{editingRound === null ? `Round ${session.matches.length + 1}` : `Correct round ${editingRound}`}</h3>
 
         <label>
-          Mazo del rival
+          Opponent&apos;s deck
           <input
             type="text"
             value={form.opponent_archetype}
@@ -381,7 +382,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
         </label>
 
         <label>
-          Pokémon del rival <span className="optional">opcional</span>
+          Opponent&apos;s Pokémon <span className="optional">optional</span>
           <span className="pkm-two">
             <PokemonPicker
               value={form.opponent_primary}
@@ -391,13 +392,13 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
             <PokemonPicker
               value={form.opponent_secondary}
               onSelect={(p) => setForm({ ...form, opponent_secondary: p })}
-              placeholder="segundo"
+              placeholder="second"
             />
           </span>
         </label>
 
         <label>
-          Resultado
+          Result
           <select
             value={form.result}
             onChange={(e) => setForm({ ...form, result: e.target.value })}
@@ -411,22 +412,22 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
         </label>
 
         <label>
-          Notas <span className="optional">opcional</span>
+          Notes <span className="optional">optional</span>
           <textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={2}
-            placeholder="Qué pasó, qué cambiarías…"
+            placeholder="What happened, what you'd change…"
           />
         </label>
 
         <div className="round-form-actions">
           <button type="submit" disabled={busy}>
-            {editingRound === null ? 'Añadir ronda' : 'Guardar corrección'}
+            {editingRound === null ? 'Add round' : 'Save correction'}
           </button>
           {editingRound !== null && (
             <button type="button" className="secondary" onClick={cancelEdit}>
-              Cancelar
+              Cancel
             </button>
           )}
         </div>

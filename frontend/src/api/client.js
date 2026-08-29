@@ -1,21 +1,22 @@
 /**
- * Cliente HTTP compartido por los módulos de src/api/.
+ * HTTP client shared by the modules in src/api/.
  *
- * Se extrajo de matches.js cuando apareció cards.js y ambos necesitaban el mismo
- * manejo de errores. No se creó "por si acaso": la duplicación existía primero.
+ * It was extracted from matches.js when cards.js appeared and both needed
+ * the same error handling. It wasn't created "just in case": the duplication
+ * existed first.
  */
 
 const API_URL = import.meta.env.VITE_API_URL
 
 /**
- * Envoltorio sobre fetch que convierte respuestas de error en excepciones.
+ * Wrapper around fetch that turns error responses into exceptions.
  *
- * Recordatorio de por qué hace falta: **fetch NO rechaza ante 4xx o 5xx**. Solo
- * rechaza si la petición no llegó a completarse. Ver
+ * Reminder of why it's needed: **fetch does NOT reject on 4xx or 5xx**. It
+ * only rejects if the request failed to complete. See
  * log_mentor/05_JAVASCRIPT_FETCH_ERROR_HANDLING.md
  *
- * @param {string} path  ruta bajo la API, por ejemplo '/api/cards'
- * @param {RequestInit} [options]  admite `signal` para cancelar con AbortController
+ * @param {string} path  path under the API, e.g. '/api/cards'
+ * @param {RequestInit} [options]  supports `signal` to cancel via AbortController
  */
 export async function request(path, options) {
   const response = await fetch(`${API_URL}${path}`, options)
@@ -24,15 +25,16 @@ export async function request(path, options) {
     throw new Error(await errorMessage(response))
   }
 
-  // 204 No Content no trae cuerpo, así que response.json() lanzaría
-  // "Unexpected end of JSON input". Lo devuelve DELETE, que dice "hecho" sin
-  // nada que entregar: devolver el recurso recién borrado sería contradictorio.
+  // 204 No Content carries no body, so response.json() would throw
+  // "Unexpected end of JSON input". DELETE returns it, saying "done" with
+  // nothing to deliver: returning the resource that was just deleted would
+  // be contradictory.
   if (response.status === 204) return null
 
   return response.json()
 }
 
-/** Construye una query string omitiendo null, undefined, '' y false. */
+/** Builds a query string, omitting null, undefined, '' and false. */
 export function queryString(params) {
   const search = new URLSearchParams()
 
@@ -47,20 +49,20 @@ export function queryString(params) {
   return encoded ? `?${encoded}` : ''
 }
 
-/** Extrae un mensaje legible del cuerpo de error de FastAPI. */
+/** Extracts a readable message from FastAPI's error body. */
 async function errorMessage(response) {
   const fallback = `${response.status} ${response.statusText}`
 
   try {
     const body = await response.json()
 
-    // 422 de validación: detail es un array de {loc, msg, type}.
+    // 422 validation error: detail is an array of {loc, msg, type}.
     if (Array.isArray(body.detail)) {
       return body.detail.map((e) => `${e.loc?.join('.')}: ${e.msg}`).join(' · ')
     }
     return body.detail ?? fallback
   } catch {
-    // El cuerpo no era JSON: página de error de un proxy, por ejemplo.
+    // The body wasn't JSON: a proxy's error page, for example.
     return fallback
   }
 }

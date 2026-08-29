@@ -7,31 +7,33 @@ import SessionList from './components/SessionList'
 import './App.css'
 
 const TABS = [
-  { id: 'sessions', label: 'Sesiones' },
-  { id: 'decks', label: 'Mazos' },
-  { id: 'cards', label: 'Cartas' },
+  { id: 'sessions', label: 'Sessions' },
+  { id: 'decks', label: 'Decks' },
+  { id: 'cards', label: 'Cards' },
 ]
 
 export default function App() {
   const [tab, setTab] = useState('sessions')
-  // Qué mazo o sesión está abierto. null = el listado. Es navegación, y con dos
-  // niveles no justifica todavía un router: dos variables de estado dicen lo
-  // mismo sin añadir una dependencia y un mecanismo nuevo.
+  // Which deck or session is open. null = the listing. This is navigation, and
+  // with two levels it does not yet justify a router: two state variables say
+  // the same thing without adding a dependency and a new mechanism.
   const [openDeckId, setOpenDeckId] = useState(null)
-  // Si el mazo abierto se acaba de crear. Lo usa el constructor para enfocar el
-  // nombre provisional; va aparte del id porque son dos cosas distintas.
+  // Whether the open deck was just created. The builder uses it to focus the
+  // provisional name; it's kept apart from the id because they're two
+  // different things.
   const [deckIsNew, setDeckIsNew] = useState(false)
-  // En qué carpeta está parado el listado de mazos. Vive aquí porque DeckList se
-  // desmonta al abrir un mazo, y al volver hay que aterrizar donde estabas.
+  // Which folder the deck listing is standing in. Lives here because DeckList
+  // unmounts when a deck opens, and coming back has to land where you were.
   const [deckFolderId, setDeckFolderId] = useState(null)
   const [openSessionId, setOpenSessionId] = useState(null)
-  // Si la sesión se abre para editarla. Va aparte del id y no dentro de él
-  // porque son dos cosas distintas: cuál está abierta, y en qué modo.
+  // Whether the session opens for editing. It's kept apart from the id, not
+  // folded into it, because they're two different things: which one is open,
+  // and in what mode.
   const [editSessionOnOpen, setEditSessionOnOpen] = useState(false)
 
-  function openSession(id, editar = false) {
+  function openSession(id, editing = false) {
     setOpenSessionId(id)
-    setEditSessionOnOpen(editar)
+    setEditSessionOnOpen(editing)
   }
 
   function switchTab(id) {
@@ -60,9 +62,9 @@ export default function App() {
         </nav>
       </header>
 
-      {/* Renderizado condicional, no CSS: la pestaña oculta se DESMONTA. Eso
-          cancela sus peticiones en vuelo, gracias a las limpiezas de useEffect.
-          Ocultarla con display:none la dejaría viva y consultando. */}
+      {/* Conditional rendering, not CSS: the hidden tab gets UNMOUNTED. That
+          cancels its in-flight requests, thanks to the useEffect cleanups.
+          Hiding it with display:none would leave it alive and querying. */}
       {tab === 'sessions' &&
         (openSessionId ? (
           <SessionDetail
@@ -88,9 +90,9 @@ export default function App() {
           <DeckList
             currentId={deckFolderId}
             setCurrentId={setDeckFolderId}
-            onOpen={(id, nuevo = false) => {
+            onOpen={(id, isNew = false) => {
               setOpenDeckId(id)
-              setDeckIsNew(nuevo)
+              setDeckIsNew(isNew)
             }}
           />
         ))}

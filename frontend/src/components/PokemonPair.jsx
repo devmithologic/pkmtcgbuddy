@@ -1,19 +1,20 @@
 /**
- * Los dos sprites de un mazo, juntos.
+ * The two sprites of a deck, together.
  *
- * Presentacional puro y diminuto, pero extraído a su propio fichero porque
- * aparece en varios sitios —listado de mazos, cabecera del constructor y cada
- * ronda de una sesión— y duplicarlo garantiza que acaben divergiendo.
+ * Pure and tiny presentational component, but pulled out into its own file
+ * because it appears in several places — deck listing, builder header and
+ * every round of a session — and duplicating it guarantees they'd end up
+ * diverging.
  *
- * `variant` elige entre las dos imágenes que da la API para el mismo Pokémon:
+ * `variant` picks between the two images the API gives for the same Pokémon:
  *
- *   icon   sprite de 96×96 y 1.2 KB. Para lo denso: las rondas de una sesión.
- *   art    render de HOME, 512×512 y ~124 KB. Para donde la imagen es la
- *          cabecera y hay dos o tres, no veinte.
+ *   icon   96×96 sprite, 1.2 KB. For dense contexts: a session's rounds.
+ *   art    HOME render, 512×512, ~124 KB. For where the image is the heading
+ *          and there are two or three, not twenty.
  *
- * Es un solo prop porque la decisión es del sitio que lo usa, no del componente:
- * el mismo par de Pokémon se pinta grande en la ficha del mazo y pequeño en la
- * ronda que se jugó con él.
+ * It's a single prop because the decision belongs to the call site, not to
+ * the component: the same pair of Pokémon is rendered large on the deck's
+ * card and small on the round that was played with it.
  */
 export default function PokemonPair({
   primary,
@@ -30,15 +31,15 @@ export default function PokemonPair({
         <img
           key={p.dex_id}
           src={variant === 'art' ? p.art_url : p.icon_url}
-          /* El alt lleva el nombre porque el sprite ES la información aquí, no
-             decoración: sin él, un lector de pantalla no sabría contra qué mazo
-             se jugó. */
+          /* alt carries the name because the sprite IS the information here,
+             not decoration: without it, a screen reader wouldn't know which
+             deck was played against. */
           alt={p.name}
           title={p.name}
-          /* width y height explícitos, no solo el CSS: reservan el hueco antes
-             de que la imagen llegue. Sin ellos, `loading="lazy"` colapsa la
-             fila y la empuja al cargar — el mismo Cumulative Layout Shift que
-             ya rompió la rejilla de cartas. */
+          /* Explicit width and height, not just CSS: they reserve the space
+             before the image arrives. Without them, `loading="lazy"` collapses
+             the row and pushes it on load — the same Cumulative Layout Shift
+             that already broke the card grid. */
           width={size}
           height={size}
           loading="lazy"

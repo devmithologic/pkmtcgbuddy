@@ -3,22 +3,22 @@ import { getCard } from '../api/cards'
 
 const CATEGORY_LABEL = {
   Pokemon: 'Pokémon',
-  Trainer: 'Entrenador',
-  Energy: 'Energía',
+  Trainer: 'Trainer',
+  Energy: 'Energy',
 }
 
 /**
- * Detalle de una carta.
+ * Detail of a card.
  *
- * Existe como componente aparte por una razón concreta, no por gusto: el listado
- * de TCGdex solo devuelve id, nombre e imagen. Rareza, marca de regulación y
- * legalidad requieren una llamada por carta.
+ * It exists as a separate component for a concrete reason, not by taste: the
+ * TCGdex listing only returns id, name and image. Rarity, regulation mark and
+ * legality each require one call per card.
  *
- * Pedir eso para las 24 cartas de la rejilla sería el problema **N+1**: una
- * consulta para la lista, más una por elemento. Con ~150ms cada una, serían más
- * de tres segundos y 24 peticiones para datos que el usuario quizá no mire. Así
- * que el detalle se pide solo cuando elige una carta: una llamada, cuando hace
- * falta.
+ * Asking for that for the 24 cards in the grid would be the **N+1** problem:
+ * one query for the list, plus one per item. At ~150ms each, that would be
+ * over three seconds and 24 requests for data the user may never look at. So
+ * the detail is only requested when they pick a card: one call, when it's
+ * needed.
  */
 export default function CardDetail({ cardId, onClose }) {
   const [card, setCard] = useState(null)
@@ -36,17 +36,17 @@ export default function CardDetail({ cardId, onClose }) {
       })
 
     return () => controller.abort()
-    // cardId en las dependencias: elegir otra carta vuelve a pedir el detalle.
+    // cardId in the dependencies: picking another card fetches the detail again.
   }, [cardId])
 
   return (
     <aside className="card-detail">
-      <button type="button" className="close" onClick={onClose} aria-label="Cerrar">
+      <button type="button" className="close" onClick={onClose} aria-label="Close">
         ×
       </button>
 
       {error && <p className="error">{error}</p>}
-      {!card && !error && <p>Cargando…</p>}
+      {!card && !error && <p>Loading…</p>}
 
       {card && (
         <>
@@ -54,16 +54,16 @@ export default function CardDetail({ cardId, onClose }) {
           <h3>{card.name}</h3>
 
           <dl>
-            <dt>Categoría</dt>
+            <dt>Category</dt>
             <dd>{CATEGORY_LABEL[card.category] ?? card.category}</dd>
 
-            <dt>Rareza</dt>
+            <dt>Rarity</dt>
             <dd>{card.rarity ?? '—'}</dd>
 
-            <dt>Marca de regulación</dt>
+            <dt>Regulation mark</dt>
             <dd>{card.regulation_mark ?? '—'}</dd>
 
-            <dt>Legalidad</dt>
+            <dt>Legality</dt>
             <dd>
               <span className={card.legal_standard ? 'legal' : 'illegal'}>
                 Standard {card.legal_standard ? '✓' : '✗'}
@@ -74,7 +74,7 @@ export default function CardDetail({ cardId, onClose }) {
             </dd>
           </dl>
 
-          {card.is_ace_spec && <p className="ace-spec">ACE SPEC — máximo 1 por mazo</p>}
+          {card.is_ace_spec && <p className="ace-spec">ACE SPEC — max 1 per deck</p>}
         </>
       )}
     </aside>

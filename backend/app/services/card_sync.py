@@ -1,26 +1,26 @@
-"""Descarga el catálogo de TCGdex y lo guarda en MongoDB.
+"""Downloads TCGdex's catalogue and saves it into MongoDB.
 
-Se ejecuta a mano, no en cada arranque:
+Run by hand, not on every startup:
 
-    python -m app.services.card_sync            # cartas legales en Expanded
+    python -m app.services.card_sync            # cards legal in Expanded
     python -m app.services.card_sync --format standard
-    python -m app.services.card_sync --resort   # sin red: recalcula el orden
+    python -m app.services.card_sync --resort   # no network: recomputes order
 
-Por qué existe: una llamada en vivo por búsqueda convierte el tiempo de servicio
-de un tercero en el nuestro. El 9 de agosto de 2026 la API de TCGdex estuvo caída
-—handshake TLS agotado, luego conexión rechazada— y el buscador dejó de funcionar
-por completo aunque nuestro servidor y nuestra base estaban perfectos.
+Why it exists: a live call per search turns a third party's response time into
+our own. On August 9, 2026, TCGdex's API was down — TLS handshake timing out,
+then connection refused — and search stopped working entirely even though our
+own server and our own database were perfectly fine.
 
-Sincronizando, TCGdex pasa de ser una dependencia de tiempo de ejecución a una de
-tiempo de despliegue. Puede caerse: el buscador sigue.
+By syncing, TCGdex goes from being a runtime dependency to a deploy-time one.
+It can go down: search keeps working.
 
-Sobre el N+1 que hay aquí dentro: el listado de TCGdex no devuelve categoría,
-rareza ni legalidad, así que hace falta una petición por carta. Eso es exactamente
-lo que log_mentor/08_HTTP_N_PLUS_ONE.md dice que hay que evitar... en una petición
-web. En un trabajo por lotes el cálculo es otro: nadie espera delante de una
-pantalla, se ejecuta una vez cada varias semanas, y el coste se paga aquí para que
-no lo pague cada búsqueda. La misma estructura es un defecto o una decisión según
-quién esté esperando.
+About the N+1 in here: TCGdex's list doesn't return category, rarity, or
+legality, so one request per card is needed. That is exactly what
+log_mentor/08_HTTP_N_PLUS_ONE.md says to avoid... inside a web request. In a
+batch job the math is different: nobody is waiting in front of a screen, it
+runs once every few weeks, and the cost is paid here so that every search
+doesn't have to pay it. The same structure is a flaw or a decision depending on
+who is the one waiting.
 """
 
 import argparse
@@ -41,19 +41,19 @@ from app.services.card_source import (
     connect_card_source,
 )
 
-# Cuántos detalles se piden a la vez. Ni 1 (lentísimo) ni 200 (maleducado, y buena
-# forma de que te limiten). TCGdex no publica límite de peticiones, así que este
-# número es prudencia, no obligación.
+# How many details are requested at once. Neither 1 (painfully slow) nor 200
+# (rude, and a good way to get rate-limited). TCGdex doesn't publish a rate
+# limit, so this number is prudence, not a requirement.
 CONCURRENCY = 8
 
-# Cada cuántas cartas se escribe en Mongo. Escribir de una en una son miles de
-# viajes de red; acumular todo en memoria y escribir al final significa perderlo
-# todo si algo falla a mitad.
+# How many cards get written to Mongo at a time. Writing one at a time is
+# thousands of network round trips; buffering everything in memory and writing
+# at the end means losing it all if something fails partway through.
 BATCH_SIZE = 200
 
 
 async def _list_all_ids(deck_format: DeckFormat) -> list[str]:
-    """Recorre el listado paginado hasta agotarlo."""
+    """Walks the paginated list until it runs out."""
     ids: list[str] = []
     page = 1
 
@@ -62,7 +62,7 @@ async def _list_all_ids(deck_format: DeckFormat) -> list[str]:
             deck_format=deck_format, page=page, page_size=100
         )
         ids.extend(card.id for card in result.cards)
-        print(f"  listadas {len(ids)} cartas…", end="\r", flush=True)
+        print(f"  listed {len(ids)} cards…", end="\r", flush=True)
 
         if not result.has_more:
             break
@@ -73,11 +73,11 @@ async def _list_all_ids(deck_format: DeckFormat) -> list[str]:
 
 
 async def _fetch_details(ids: list[str]) -> list[dict]:
-    """Pide el detalle de cada carta con concurrencia acotada.
+    """Requests each card's detail with bounded concurrency.
 
-    El Semaphore es lo que convierte "lanza 6.000 peticiones" en "ten como mucho
-    8 en vuelo". Sin él, asyncio las dispararía todas a la vez: agotaría el pool
-    de conexiones y probablemente provocaría que nos bloqueen.
+    The Semaphore is what turns "fire off 6,000 requests" into "keep at most
+    8 in flight". Without it, asyncio would fire them all at once: it would
+    exhaust the connection pool and would probably get us rate-limited.
     """
     semaphore = asyncio.Semaphore(CONCURRENCY)
     documents: list[dict] = []
@@ -92,124 +92,126 @@ async def _fetch_details(ids: list[str]) -> list[dict]:
                 if card is not None:
                     documents.append(card_repository.card_to_document(card))
             except (CardSourceError, Exception) as exc:  # noqa: B014
-                # Una carta que falla no debe abortar la sincronización entera.
-                # Se anota y se sigue: 5.999 cartas son mejor que ninguna.
+                # A card that fails must not abort the whole sync. It's
+                # logged and we move on: 5,999 cards beats zero.
                 failed.append(f"{card_id}: {type(exc).__name__}")
             finally:
                 done += 1
                 if done % 25 == 0:
-                    print(f"  detalles {done}/{len(ids)}…", end="\r", flush=True)
+                    print(f"  details {done}/{len(ids)}…", end="\r", flush=True)
 
     await asyncio.gather(*(fetch(card_id) for card_id in ids))
-    print(f"  detalles {done}/{len(ids)}   ")
+    print(f"  details {done}/{len(ids)}   ")
 
     if failed:
-        print(f"  {len(failed)} cartas fallaron; primeras: {failed[:3]}")
+        print(f"  {len(failed)} cards failed; first ones: {failed[:3]}")
 
     return documents
 
 
-# Categorías cuya carta ES su nombre. Ver _reprint_key.
-_CATEGORIAS_POR_NOMBRE = {"Trainer", "Energy"}
+# Categories whose card IS its name. See _reprint_key.
+_CATEGORIES_BY_NAME = {"Trainer", "Energy"}
 
-# El paréntesis con el que TCGdex distingue el personaje del arte:
-# "Boss's Orders (Giovanni)". No está impreso en el nombre de la carta.
-_SUFIJO_DE_ARTE = re.compile(r"\s*\([^)]*\)\s*$")
+# The parenthetical TCGdex uses to distinguish the character from the artwork:
+# "Boss's Orders (Giovanni)". It isn't printed on the card's name.
+_ART_SUFFIX = re.compile(r"\s*\([^)]*\)\s*$")
 
 
 def _reprint_key(document: dict) -> str | None:
-    """Qué cuenta como «la misma carta» al propagar legalidad.
+    """What counts as "the same card" when propagating legality.
 
-    La clave depende de la CATEGORÍA, porque la regla del juego depende de la
-    categoría:
+    The key depends on the CATEGORY, because the game's rule depends on the
+    category:
 
-    - **Pokémon: la huella completa** (`identity`, nombre más texto y ataques).
-      Dos Pikachu de sets distintos atacan distinto: son cartas diferentes, no
-      reimpresiones. Agruparlos por nombre fusionaría 1235 nombres de Pokémon
-      que no tienen nada que ver entre sí.
+    - **Pokémon: the full fingerprint** (`identity`, name plus text and
+      attacks). Two Pikachu from different sets attack differently: they are
+      different cards, not reprints of each other. Grouping them by name
+      would merge 1235 Pokémon names that have nothing to do with each other.
 
-    - **Trainer y Energy: el nombre.** Aquí el nombre ES la carta. No pueden
-      existir dos Trainer distintos con el mismo nombre legales a la vez, y el
-      reglamento dice que una impresión antigua se juega CON EL TEXTO ACTUAL.
-      Por eso una diferencia de redacción no la convierte en otra carta.
+    - **Trainer and Energy: the name.** Here the name IS the card. Two
+      different Trainers with the same name can't both be legal at the same
+      time, and the rulebook says an old printing is played WITH THE CURRENT
+      TEXT. So a wording difference doesn't make it a different card.
 
-    Esto último es un cambio de criterio, y conviene decir por qué. Antes todo se
-    agrupaba por la huella, y el efecto colateral estaba anotado como límite
-    conocido: Pokémon reescribió las plantillas de texto en la era Escarlata y
-    Púrpura, así que Boss's Orders «Switch 1 of your opponent's Benched Pokémon
-    with their Active Pokémon» no agrupa con «Switch in 1 of your opponent's
-    Benched Pokémon to the Active Spot», siendo la misma carta. Son 25 nombres y
-    192 impresiones.
+    This last part is a change of approach, and it's worth saying why.
+    Everything used to be grouped by fingerprint, and the side effect was
+    noted as a known limitation: Pokémon rewrote its text templates in the
+    Scarlet & Violet era, so Boss's Orders' "Switch 1 of your opponent's
+    Benched Pokémon with their Active Pokémon" didn't group with "Switch in 1
+    of your opponent's Benched Pokémon to the Active Spot", even though it's
+    the same card. That's 25 names and 192 printings.
 
-    El motivo por el que se dejó abierto era que agrupar por nombre legalizaría
-    por error la Poké Ball que lanza moneda. Eso ya no se sostiene: las tres
-    impresiones de Poké Ball lanzan moneda, incluida la legal actual
-    (`me03-080`, Mega Evolution). El bloqueo caducó cuando el juego reimprimió
-    justo esa versión.
+    The reason it was left open was that grouping by name would wrongly make
+    the coin-flipping Poké Ball legal. That no longer holds: all three
+    printings of Poké Ball flip a coin, including the currently legal one
+    (`me03-080`, Mega Evolution). The concern expired the moment the game
+    reprinted that very version.
 
-    Se quita el sufijo de arte porque «Boss's Orders (Giovanni)» es Boss's
-    Orders: el paréntesis lo pone TCGdex, no la carta.
+    The art suffix is stripped because "Boss's Orders (Giovanni)" is Boss's
+    Orders: the parenthetical is TCGdex's doing, not the card's.
     """
-    if document.get("category") in _CATEGORIAS_POR_NOMBRE:
-        return "name:" + _SUFIJO_DE_ARTE.sub("", document["name"]).strip().lower()
+    if document.get("category") in _CATEGORIES_BY_NAME:
+        return "name:" + _ART_SUFFIX.sub("", document["name"]).strip().lower()
     return document.get("identity")
 
 
 def _apply_reprint_rule(documents: list[dict]) -> int:
-    """Propaga la legalidad entre impresiones de la misma carta.
+    """Propagates legality across printings of the same card.
 
-    El reglamento dice que si una carta se reimprime en un set legal, las
-    impresiones antiguas también se pueden jugar. Boss's Orders tiene
-    impresiones con marca D, F, G e I: todas son legales en Standard porque la
-    de marca I lo es.
+    The rulebook says that if a card is reprinted in a legal set, older
+    printings become playable too. Boss's Orders has printings with
+    regulation marks D, F, G, and I: all of them are legal in Standard
+    because the I-marked one is.
 
-    TCGdex no modela eso. Marca la legalidad por impresión, así que reporta las
-    de marca G como ilegales. Sin esta pasada, la aplicación rechazaría la
-    Boss's Orders de Paldea Evolved que el jugador tiene en la mano.
+    TCGdex doesn't model that. It marks legality per printing, so it reports
+    the G-marked ones as illegal. Without this pass, the application would
+    reject the Paldea Evolved Boss's Orders the player is holding.
 
-    Qué se considera «la misma carta» lo decide `_reprint_key`, y no es lo mismo
-    para un Pokémon que para un Trainer.
+    What counts as "the same card" is decided by `_reprint_key`, and it isn't
+    the same for a Pokémon as it is for a Trainer.
 
-    Se hace aquí y no en el adaptador por una razón de forma: el adaptador
-    traduce UNA carta y no puede saber nada de las demás. Esta regla necesita ver
-    el conjunto entero, y el sync ya lo tiene en memoria antes de escribir.
+    This is done here and not in the adapter, for a reason of shape: the
+    adapter translates ONE card and can't know anything about the others.
+    This rule needs to see the whole set, and the sync already has it in
+    memory before writing.
     """
-    legales_std: set[str] = set()
-    legales_exp: set[str] = set()
+    legal_standard_keys: set[str] = set()
+    legal_expanded_keys: set[str] = set()
 
     for doc in documents:
-        clave = _reprint_key(doc)
-        if clave:
+        key = _reprint_key(doc)
+        if key:
             if doc["legal_standard"]:
-                legales_std.add(clave)
+                legal_standard_keys.add(key)
             if doc["legal_expanded"]:
-                legales_exp.add(clave)
+                legal_expanded_keys.add(key)
 
-    promovidas = 0
+    promoted = 0
     for doc in documents:
-        clave = _reprint_key(doc)
-        if not clave:
+        key = _reprint_key(doc)
+        if not key:
             continue
-        cambio = False
-        if not doc["legal_standard"] and clave in legales_std:
+        changed = False
+        if not doc["legal_standard"] and key in legal_standard_keys:
             doc["legal_standard"] = True
-            cambio = True
-        if not doc["legal_expanded"] and clave in legales_exp:
+            changed = True
+        if not doc["legal_expanded"] and key in legal_expanded_keys:
             doc["legal_expanded"] = True
-            cambio = True
-        promovidas += cambio
+            changed = True
+        promoted += changed
 
-    return promovidas
+    return promoted
 
 
 async def _write(documents: list[dict]) -> tuple[int, int]:
-    """Escribe en lotes con upsert, para que resincronizar sea seguro.
+    """Writes in batches with upsert, so re-syncing is safe.
 
-    UpdateOne(..., upsert=True) inserta si no existe y actualiza si existe. La
-    alternativa —borrar todo y reinsertar— deja la colección vacía durante unos
-    segundos: cualquier búsqueda en ese hueco no encuentra nada.
+    UpdateOne(..., upsert=True) inserts if it doesn't exist and updates if it
+    does. The alternative — dropping everything and reinserting — leaves the
+    collection empty for a few seconds: any search in that gap finds nothing.
 
-    bulk_write manda todas las operaciones del lote en un solo viaje de red.
+    bulk_write sends every operation in the batch in a single network round
+    trip.
     """
     collection = card_repository._collection()
     inserted = updated = 0
@@ -221,11 +223,11 @@ async def _write(documents: list[dict]) -> tuple[int, int]:
                 UpdateOne({"_id": doc["_id"]}, {"$set": doc}, upsert=True)
                 for doc in batch
             ],
-            ordered=False,  # un fallo no detiene el resto del lote
+            ordered=False,  # a failure doesn't stop the rest of the batch
         )
         inserted += result.upserted_count
         updated += result.modified_count
-        print(f"  escritas {min(start + BATCH_SIZE, len(documents))}/{len(documents)}…",
+        print(f"  written {min(start + BATCH_SIZE, len(documents))}/{len(documents)}…",
               end="\r", flush=True)
 
     print()
@@ -233,38 +235,38 @@ async def _write(documents: list[dict]) -> tuple[int, int]:
 
 
 def _stamp_set_dates(documents: list[dict], dates: dict[str, str]) -> int:
-    """Copia en cada carta la fecha de su set. Devuelve cuántas quedaron sin ella.
+    """Copies its set's date onto each card. Returns how many were left without one.
 
-    Es desnormalización deliberada, y el motivo es que ordenar por un campo que
-    vive en OTRA colección obligaría a un $lookup en cada búsqueda. Con el dato
-    en la propia carta, el índice compuesto de card_repository resuelve el orden
-    sin tocar nada más.
+    This is deliberate denormalization, and the reason is that sorting by a
+    field that lives in ANOTHER collection would force a $lookup on every
+    search. With the value on the card itself, card_repository's compound
+    index resolves the ordering without touching anything else.
 
-    El precio de desnormalizar es el de siempre: si un set cambiara de fecha,
-    estas copias quedarían viejas. Aquí no puede: la fecha de publicación de un
-    set es pasado, y el pasado no se edita.
+    The cost of denormalizing is the usual one: if a set's date ever changed,
+    these copies would go stale. It can't happen here: a set's release date is
+    the past, and the past doesn't get edited.
     """
-    sin_fecha = 0
+    without_date = 0
     for doc in documents:
-        fecha = dates.get(card_repository.set_id_of(doc["_id"]))
-        doc["set_release_date"] = fecha
-        if not fecha:
-            sin_fecha += 1
-    return sin_fecha
+        date = dates.get(card_repository.set_id_of(doc["_id"]))
+        doc["set_release_date"] = date
+        if not date:
+            without_date += 1
+    return without_date
 
 
 async def resort() -> None:
-    """Recalcula los campos de orden de las cartas YA guardadas. Sin red.
+    """Recomputes the sort fields of cards ALREADY saved. No network.
 
-    Existe porque los 15021 documentos escritos antes de que existieran
-    `sort_name`, `printing_rank` y `set_release_date` no los tienen, y sin ellos
-    el buscador ordena por un campo que no está — que en Mongo no es un error,
-    es simplemente todo empatado.
+    It exists because the 15021 documents written before `sort_name`,
+    `printing_rank`, and `set_release_date` existed don't have them, and
+    without them search sorts by a field that isn't there — which in Mongo
+    isn't an error, it's just everything tied.
 
-    Los tres se calculan con lo que ya hay en casa: los dos primeros salen del
-    propio documento, y la fecha, de la colección `sets`. Resincronizar contra
-    TCGdex también los arreglaría, pero serían minutos de red para calcular algo
-    que no hace falta pedirle a nadie.
+    All three are computed from what's already on hand: the first two come
+    from the document itself, and the date from the `sets` collection.
+    Re-syncing against TCGdex would also fix them, but that would be minutes
+    of network calls to compute something nobody needs to be asked for.
     """
     started = time.perf_counter()
     await connect_to_mongo()
@@ -273,31 +275,31 @@ async def resort() -> None:
         await card_repository.ensure_indexes()
 
         dates = await set_repository.release_dates()
-        print(f"{len(dates)} sets con fecha")
+        print(f"{len(dates)} sets with a date")
         if not dates:
-            print("La colección `sets` está vacía. Ejecuta antes:")
+            print("The `sets` collection is empty. Run this first:")
             print("  python -m app.services.set_sync")
             return
 
-        escritas, sin_fecha = await card_repository.restamp_sort_fields(dates, BATCH_SIZE)
+        written, without_date = await card_repository.restamp_sort_fields(dates, BATCH_SIZE)
 
-        # Y de paso se reaplica la regla de reimpresión, que también se puede
-        # recalcular con lo que hay en casa. Solo añade legalidad, nunca la
-        # quita, así que volver a pasarla es inofensivo.
-        instantanea = await card_repository.legality_snapshot()
-        antes = {d["_id"]: (d["legal_standard"], d["legal_expanded"]) for d in instantanea}
-        promovidas = _apply_reprint_rule(instantanea)
-        cambiadas = [
+        # And while we're at it, the reprint rule is reapplied too, since it
+        # can also be recomputed from what's already on hand. It only ever
+        # adds legality, never removes it, so running it again is harmless.
+        snapshot = await card_repository.legality_snapshot()
+        before = {d["_id"]: (d["legal_standard"], d["legal_expanded"]) for d in snapshot}
+        promoted = _apply_reprint_rule(snapshot)
+        changed_docs = [
             d
-            for d in instantanea
-            if antes[d["_id"]] != (d["legal_standard"], d["legal_expanded"])
+            for d in snapshot
+            if before[d["_id"]] != (d["legal_standard"], d["legal_expanded"])
         ]
-        await card_repository.save_legality(cambiadas, BATCH_SIZE)
+        await card_repository.save_legality(changed_docs, BATCH_SIZE)
 
         elapsed = time.perf_counter() - started
         print(
-            f"Listo en {elapsed:.1f}s · {escritas} cartas · {sin_fecha} sin fecha de set"
-            f" · {promovidas} impresiones promovidas a legal"
+            f"Done in {elapsed:.1f}s · {written} cards · {without_date} without a set date"
+            f" · {promoted} printings promoted to legal"
         )
     finally:
         await close_mongo_connection()
@@ -312,39 +314,41 @@ async def sync(deck_format: DeckFormat) -> None:
     try:
         await card_repository.ensure_indexes()
 
-        print(f"Sincronizando cartas legales en {deck_format.value}…")
+        print(f"Syncing cards legal in {deck_format.value}…")
         ids = await _list_all_ids(deck_format)
 
         if not ids:
-            print("TCGdex no devolvió cartas. ¿Está disponible?")
+            print("TCGdex did not return any cards. Is it available?")
             return
 
         documents = await _fetch_details(ids)
 
-        promovidas = _apply_reprint_rule(documents)
-        print(f"  regla de reimpresión: {promovidas} impresiones promovidas a legal")
+        promoted = _apply_reprint_rule(documents)
+        print(f"  reprint rule: {promoted} printings promoted to legal")
 
-        # La fecha del set se estampa aquí y no en card_to_document porque no
-        # sale de la carta: hay que ir a buscarla a otra colección, y esa es una
-        # consulta que no puede colarse dentro de una función de traducción.
-        sin_fecha = _stamp_set_dates(documents, await set_repository.release_dates())
-        if sin_fecha:
+        # The set's date is stamped here and not in card_to_document because
+        # it doesn't come from the card: it has to be looked up in another
+        # collection, and that's a query that shouldn't sneak into a
+        # translation function.
+        without_date = _stamp_set_dates(documents, await set_repository.release_dates())
+        if without_date:
             print(
-                f"  {sin_fecha} cartas sin fecha de set. Si son muchas, falta:"
+                f"  {without_date} cards without a set date. If there are many, run:"
                 " python -m app.services.set_sync"
             )
 
-        # Después de estampar las fechas, no antes: elegir qué impresión de cada
-        # energía se ofrece necesita saber cuál es la más reciente. Va aquí y no
-        # en card_to_document porque es una decisión sobre el CONJUNTO, y esa
-        # función ve una carta cada vez.
-        duplicadas = card_repository.energy_duplicates(documents)
+        # After stamping the dates, not before: deciding which printing of
+        # each energy gets offered needs to know which one is the most
+        # recent. It goes here and not in card_to_document because it's a
+        # decision about the WHOLE SET, and that function only ever sees one
+        # card at a time.
+        duplicates = card_repository.energy_duplicates(documents)
         for doc in documents:
-            doc["is_energy_duplicate"] = doc["_id"] in duplicadas
-        basicas = sum(1 for d in documents if d.get("is_basic_energy"))
+            doc["is_energy_duplicate"] = doc["_id"] in duplicates
+        basic_count = sum(1 for d in documents if d.get("is_basic_energy"))
         print(
-            f"  energías básicas: {basicas} impresiones,"
-            f" {basicas - len(duplicadas)} ofrecidas en el buscador"
+            f"  basic energies: {basic_count} printings,"
+            f" {basic_count - len(duplicates)} offered in the search"
         )
 
         inserted, updated = await _write(documents)
@@ -352,33 +356,33 @@ async def sync(deck_format: DeckFormat) -> None:
         total = await card_repository.count_cards()
         elapsed = time.perf_counter() - started
         print(
-            f"\nListo en {elapsed:.0f}s · {inserted} nuevas · {updated} actualizadas"
-            f" · {total} cartas en la base"
+            f"\nDone in {elapsed:.0f}s · {inserted} new · {updated} updated"
+            f" · {total} cards in the database"
         )
     finally:
-        # finally, no al final del try: si TCGdex falla a mitad, las conexiones
-        # se cierran igual.
+        # finally, not at the end of the try: if TCGdex fails partway
+        # through, the connections still get closed.
         await close_card_source()
         await close_mongo_connection()
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sincroniza cartas de TCGdex a MongoDB")
+    parser = argparse.ArgumentParser(description="Syncs cards from TCGdex to MongoDB")
     parser.add_argument(
         "--format",
         choices=[f.value for f in DeckFormat],
         default=DeckFormat.EXPANDED.value,
         help=(
-            "Formato a sincronizar. Expanded por defecto porque incluye a Standard:"
-            " sincronizar Standard dejaría fuera cartas que un mazo Expanded necesita."
+            "Format to sync. Defaults to Expanded because it includes Standard:"
+            " syncing Standard would leave out cards an Expanded deck needs."
         ),
     )
     parser.add_argument(
         "--resort",
         action="store_true",
         help=(
-            "No descarga nada: recalcula los campos de orden de las cartas ya"
-            " guardadas. Ejecutar después de set_sync la primera vez."
+            "Downloads nothing: recomputes the sort fields of cards already"
+            " saved. Run after set_sync the first time."
         ),
     )
     args = parser.parse_args()
@@ -389,10 +393,10 @@ def main() -> int:
         else:
             asyncio.run(sync(DeckFormat(args.format)))
     except KeyboardInterrupt:
-        print("\nInterrumpido. Lo ya escrito se conserva; volver a ejecutar continúa.")
+        print("\nInterrupted. What was already written is kept; running again continues.")
         return 130
     except Exception as exc:
-        print(f"\nFalló la sincronización: {type(exc).__name__}: {exc}")
+        print(f"\nSync failed: {type(exc).__name__}: {exc}")
         return 1
 
     return 0

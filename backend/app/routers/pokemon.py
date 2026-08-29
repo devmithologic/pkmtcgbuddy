@@ -1,8 +1,8 @@
-"""Endpoint de búsqueda de Pokémon.
+"""Pokémon search endpoint.
 
-Solo lectura y contra nuestra propia colección: PokeAPI no se consulta al atender
-una petición. Es la misma decisión que con las cartas, y por el mismo motivo —el
-9 de agosto TCGdex estuvo caída y el buscador de cartas dejó de existir.
+Read-only, and against our own collection: PokeAPI is never queried while
+handling a request. Same decision as with cards, and for the same reason — on
+August 9 TCGdex was down and the card search stopped existing.
 """
 
 from fastapi import APIRouter, Query
@@ -15,12 +15,12 @@ router = APIRouter(prefix="/pokemon", tags=["pokemon"])
 
 @router.get("", response_model=list[PokemonRefOut])
 async def search_pokemon(
-    q: str = Query(min_length=2, description="Parte del nombre"),
+    q: str = Query(min_length=2, description="Part of the name"),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> list[PokemonRefOut]:
-    """Busca Pokémon por nombre, por subcadena.
+    """Search Pokémon by name, by substring.
 
-    min_length=2 por lo mismo que en el buscador de cartas: una sola letra
-    devuelve cientos de resultados y no ayuda a nadie.
+    min_length=2 for the same reason as the card search: a single letter
+    returns hundreds of results and helps nobody.
     """
     return await pokemon_repository.search(q, limit=limit)

@@ -1,16 +1,17 @@
-"""Acceso a la colección `cards` de MongoDB.
+"""Access to MongoDB's `cards` collection.
 
-Este módulo es el gemelo local de services/card_source.py. Uno lee de TCGdex,
-el otro de nuestra base. Ambos devuelven los mismos modelos —Card, CardSummary,
-CardSearchResult— así que el router puede cambiar de uno a otro sin enterarse.
+This module is the local twin of services/card_source.py. One reads from
+TCGdex, the other from our own database. Both return the same models —Card,
+CardSummary, CardSearchResult— so the router can switch from one to the other
+without knowing it.
 
-Esa simetría no es casual: es lo que hace posible sustituir "llamada en vivo" por
-"consulta local" cambiando dos líneas del router. Cuando el adaptador se escribió,
-esa ventaja era una promesa; aquí es donde se cobra.
+That symmetry isn't an accident: it's what makes it possible to replace "live
+call" with "local query" by changing two lines in the router. When the
+adapter was written, that advantage was a promise; here is where it pays off.
 
-El patrón se llama *repository*: una capa que encapsula el acceso a datos y expone
-operaciones del dominio ("busca cartas legales en Standard") en lugar de detalles
-de almacenamiento (filtros, índices, cursores).
+The pattern is called *repository*: a layer that encapsulates data access and
+exposes domain operations ("find legal cards in Standard") instead of storage
+details (filters, indexes, cursors).
 """
 
 from datetime import datetime, timezone
@@ -28,8 +29,9 @@ from app.models.card import (
 
 COLLECTION = "cards"
 
-# La rareza de una impresión normal. Las energías básicas se reimprimen también
-# como secretas —"Hyper rare", "Ultra Rare"—, que son la misma carta con adornos.
+# The rarity of a plain printing. Basic energies also get reprinted as
+# secrets —"Hyper Rare", "Ultra Rare"—, which are the same card with
+# decorations.
 PLAIN_RARITY = "Common"
 
 
@@ -38,46 +40,48 @@ def _collection():
 
 
 def set_id_of(card_id: str) -> str:
-    """El id del set al que pertenece una carta: `me01-077` -> `me01`.
+    """The id of the set a card belongs to: `me01-077` -> `me01`.
 
-    rpartition y NUNCA split: 21 ids de set llevan guiones dentro
-    (`tk-ex-latia`), así que partir por el primero devolvería `tk` y la carta se
-    quedaría sin fecha. Es la misma trampa que ya documenta deck_text.py.
+    rpartition and NEVER split: 21 set ids carry hyphens inside them
+    (`tk-ex-latia`), so splitting on the first one would return `tk` and the
+    card would end up without a date. It's the same trap deck_text.py already
+    documents.
     """
     return card_id.rpartition("-")[0]
 
 
 def sort_name(name: str, is_basic_energy: bool) -> str:
-    """El nombre por el que se ordena, que no siempre es el nombre.
+    """The name to sort by, which isn't always the name.
 
-    TCGdex llama `Metal Energy` a la energía básica normal y `Basic Metal Energy`
-    a la secreta dorada. Son la misma carta, pero ordenando por nombre la dorada
-    gana SIEMPRE por alfabeto, da igual lo que digan la fecha o la rareza: la «B»
-    va antes que la «M». Quitando el prefijo, las dos caen en el mismo grupo y el
-    desempate lo decide `printing_rank`.
+    TCGdex calls the normal basic energy `Metal Energy` and the golden secret
+    `Basic Metal Energy`. They're the same card, but sorting by name the
+    golden one ALWAYS wins alphabetically, no matter what the date or rarity
+    say: "B" comes before "M". Stripping the prefix, the two fall into the
+    same group and the tiebreak is decided by `printing_rank`.
 
-    Solo para las básicas. `Basic Research Note` no es la reimpresión de ninguna
-    `Research Note`, y recortarle el prefijo la mandaría a otro sitio de la lista.
+    Only for basics. `Basic Research Note` is not the reprint of any
+    `Research Note`, and trimming its prefix would send it to the wrong place
+    in the list.
     """
-    bajo = name.lower()
-    if is_basic_energy and bajo.startswith("basic "):
-        return bajo.removeprefix("basic ")
-    return bajo
+    lower_name = name.lower()
+    if is_basic_energy and lower_name.startswith("basic "):
+        return lower_name.removeprefix("basic ")
+    return lower_name
 
 
 def search_name(name: str, is_basic_energy: bool) -> str:
-    """El texto contra el que busca el filtro, que no siempre es el nombre.
+    """The text the filter searches against, which isn't always the name.
 
-    A una energía básica se le antepone «basic», aunque su impresión no lo lleve.
-    El motivo es que las dos formas del nombre circulan: la carta vigente se
-    llama `Metal Energy` en TCGdex, pero quien construye un mazo la busca —y la
-    escribe en una lista— como *basic Metal Energy*. Sin esto, teclear «basic»
-    encontraba únicamente las ocho secretas doradas, que son las únicas ocho que
-    llevan la palabra en el nombre.
+    A basic energy gets "basic" prepended, even if its printing doesn't carry
+    it. The reason is that both forms of the name circulate: the current card
+    is called `Metal Energy` in TCGdex, but whoever builds a deck searches for
+    it — and writes it in a decklist — as *basic Metal Energy*. Without this,
+    typing "basic" would only find the eight golden secrets, which are the
+    only eight that carry the word in their name.
 
-    Anteponer, y no guardar las dos formas por separado, funciona porque la
-    búsqueda es por subcadena: «basic metal energy» CONTIENE «metal energy», así
-    que un solo campo responde a las dos maneras de escribirlo.
+    Prepending, instead of storing both forms separately, works because the
+    search is by substring: "basic metal energy" CONTAINS "metal energy", so a
+    single field answers to both ways of writing it.
     """
     if is_basic_energy:
         return f"basic {sort_name(name, True)}"
@@ -85,14 +89,15 @@ def search_name(name: str, is_basic_energy: bool) -> str:
 
 
 def printing_rank(is_basic_energy: bool, rarity: str | None) -> int:
-    """0 para una impresión normal, 1 para una secreta. Solo mira las básicas.
+    """0 for a plain printing, 1 for a secret. Only looks at basics.
 
-    Acotado a las energías básicas a propósito. En una carta de verdad, cuál de
-    sus impresiones metes en el mazo es una decisión legítima —el arte importa, y
-    quien busca `Boss's Orders` quiere ver las suyas— así que degradar las
-    especiales reordenaría el buscador entero por una preferencia que nadie ha
-    pedido. En una energía básica no hay decisión: es la misma carta con mejor
-    foto, y lo que hace falta es que la normal se pueda encontrar.
+    Restricted to basic energies on purpose. On a real card, which of its
+    printings goes into the deck is a legitimate decision — the art matters,
+    and whoever is looking for `Boss's Orders` wants to see theirs — so
+    demoting the special ones would reorder the entire search over a
+    preference nobody asked for. On a basic energy there's no decision to
+    make: it's the same card with a nicer photo, and what's needed is for the
+    plain one to be findable.
     """
     if is_basic_energy and rarity != PLAIN_RARITY:
         return 1
@@ -100,20 +105,21 @@ def printing_rank(is_basic_energy: bool, rarity: str | None) -> int:
 
 
 async def ensure_indexes() -> None:
-    """Crea los índices que necesitan las búsquedas.
+    """Creates the indexes the searches need.
 
-    Sin índice, cada consulta recorre la colección entera (*collection scan*).
-    Con ~20.000 cartas eso son milisegundos y no se nota; el hábito importa
-    igualmente, porque el día que no se note ya será tarde.
+    Without an index, every query scans the whole collection (*collection
+    scan*). With ~20,000 cards that's milliseconds and goes unnoticed; the
+    habit matters all the same, because the day it stops going unnoticed it
+    will already be too late.
 
-    create_index es idempotente: si el índice existe, no hace nada. Por eso se
-    puede llamar en cada arranque sin comprobar antes.
+    create_index is idempotent: if the index exists, it does nothing. That's
+    why it can be called on every startup without checking first.
     """
     collection = _collection()
-    # Compuesto, y EXACTAMENTE en el orden en que se ordena en search_cards. Un
-    # índice solo sirve para ordenar si sus campos y sus direcciones coinciden
-    # con el sort; si no coinciden, Mongo trae los documentos y los ordena en
-    # memoria, con un tope de 32 MB a partir del cual la consulta falla.
+    # Compound, and in EXACTLY the order search_cards sorts by. An index only
+    # helps with sorting if its fields and directions match the sort; if they
+    # don't, Mongo fetches the documents and sorts them in memory, with a
+    # 32 MB cap past which the query fails.
     await collection.create_index(
         [
             ("sort_name", ASCENDING),
@@ -122,8 +128,9 @@ async def ensure_indexes() -> None:
             ("_id", ASCENDING),
         ]
     )
-    # El de identity lo usa la sustitución de imagen: sin él, cada página de
-    # resultados con una carta sin imagen recorrería la colección entera.
+    # The one on identity is used by the image substitution: without it, every
+    # results page with a card missing an image would scan the whole
+    # collection.
     await collection.create_index([("identity", ASCENDING)])
     await collection.create_index([("category", ASCENDING)])
     await collection.create_index([("legal_standard", ASCENDING)])
@@ -132,24 +139,24 @@ async def ensure_indexes() -> None:
 
 
 def card_to_document(card: Card) -> dict:
-    """Convierte una Card en documento almacenable.
+    """Converts a Card into a storable document.
 
-    Usa el id de TCGdex como _id en lugar de dejar que Mongo genere un ObjectId.
-    Es una *clave natural*: ya identifica la carta de forma única y estable, así
-    que reutilizarla hace que volver a sincronizar sea un upsert trivial en vez
-    de una búsqueda por otro campo.
+    Uses the TCGdex id as _id instead of letting Mongo generate an ObjectId.
+    It's a *natural key*: it already identifies the card uniquely and stably,
+    so reusing it makes resyncing a trivial upsert instead of a lookup by
+    another field.
     """
     return {
         "_id": card.id,
         "name": card.name,
-        # Campo derivado, guardado a propósito: buscar sin distinguir mayúsculas
-        # con una expresión regular sensible a ellas obligaría a Mongo a
-        # transformar cada documento en tiempo de consulta, y ningún índice
-        # podría ayudar. Precalcular es la versión barata.
+        # Derived field, stored on purpose: searching case-insensitively with
+        # a case-sensitive regular expression would force Mongo to transform
+        # every document at query time, and no index could help. Precomputing
+        # is the cheap version.
         "name_lower": card.name.lower(),
-        # Los dos campos por los que se ORDENA. Se guardan calculados por lo
-        # mismo que name_lower: derivarlos en tiempo de consulta impediría que
-        # ningún índice ayudase, y ordenar sin índice es ordenar en memoria.
+        # The two fields used to SORT. Stored precomputed for the same reason
+        # as name_lower: deriving them at query time would keep any index from
+        # helping, and sorting without an index is sorting in memory.
         "sort_name": sort_name(card.name, card.is_basic_energy),
         "search_name": search_name(card.name, card.is_basic_energy),
         "printing_rank": printing_rank(card.is_basic_energy, card.rarity),
@@ -177,8 +184,8 @@ def card_from_document(document: dict) -> Card:
         legal_standard=document["legal_standard"],
         legal_expanded=document["legal_expanded"],
         is_ace_spec=document["is_ace_spec"],
-        # .get con defecto: los documentos escritos antes de que existiera el
-        # campo no lo tienen. Una resincronización los completa.
+        # .get with a default: documents written before this field existed
+        # don't have it. A resync fills them in.
         is_basic_energy=document.get("is_basic_energy", False),
         identity=document.get("identity", ""),
     )
@@ -190,30 +197,31 @@ def _build_filter(
     category: CardCategory | None,
     ace_spec_only: bool,
 ) -> dict:
-    """Traduce los filtros del dominio a una consulta de MongoDB."""
-    # De cada energía básica se ofrece UNA impresión, no las 27. Va en el filtro
-    # y no en el orden porque son problemas distintos: ordenar decide cuál sale
-    # primero de las que entran, y aquí lo que hace falta es que las demás no
-    # entren. Buscar "basic" enseñaba ocho energías doradas de coleccionista
-    # justamente por esto — eran las únicas ocho cuyo NOMBRE lleva la palabra, y
-    # ningún orden puede rescatar a una carta que el filtro ya descartó.
+    """Translates the domain filters into a MongoDB query."""
+    # Each basic energy offers ONE printing, not the 27. This lives in the
+    # filter and not in the sort because they're different problems: sorting
+    # decides which one comes first among the ones that get in, and here what's
+    # needed is for the rest to not get in at all. Searching "basic" used to
+    # show eight golden collector energies exactly because of this — they were
+    # the only eight whose NAME carries the word, and no sort order can rescue
+    # a card the filter already threw out.
     #
-    # $ne y no False: los documentos escritos antes de que el campo existiera no
-    # lo tienen, y "no lo tiene" significa que se ofrece.
+    # $ne and not False: documents written before the field existed don't have
+    # it, and "doesn't have it" means it is offered.
     query: dict = {"is_energy_duplicate": {"$ne": True}}
 
     if name:
-        # $regex sin anclar reproduce el comportamiento de TCGdex: subcadena, no
-        # prefijo. "rod" encuentra "Aerodactyl".
+        # Unanchored $regex reproduces TCGdex's behavior: substring, not
+        # prefix. "rod" finds "Aerodactyl".
         #
-        # re.escape es obligatorio: sin él, un usuario que teclee "(" o "*"
-        # provoca una expresión inválida, y patrones como "(a+)+" son un vector
-        # de denegación de servicio por backtracking catastrófico (ReDoS).
+        # re.escape is mandatory: without it, a user who types "(" or "*"
+        # triggers an invalid expression, and patterns like "(a+)+" are a
+        # denial of service vector via catastrophic backtracking (ReDoS).
         import re
 
-        # Contra search_name y no contra name_lower: es el mismo texto salvo en
-        # las energías básicas, donde lleva delante el «basic» que su impresión
-        # puede no tener. Ver search_name().
+        # Against search_name and not against name_lower: it's the same text
+        # except for basic energies, where it carries a leading "basic" that
+        # its printing might not have. See search_name().
         query["search_name"] = {"$regex": re.escape(name.lower())}
 
     if category:
@@ -229,120 +237,122 @@ def _build_filter(
 
 
 async def _borrowed_images(documents: list[dict]) -> dict[str, str]:
-    """{card_id: url} para las cartas sin imagen, prestada por una reimpresión.
+    """{card_id: url} for cards with no image, borrowed from a reprint.
 
-    TCGdex no tiene imagen para 1035 de nuestras 15021 cartas, y entre ellas
-    está el set `sve` ENTERO —las 24 energías básicas vigentes—. Comprobado
-    contra su API, no deducido: `/cards/sve-008` devuelve `image: null`, y las 24
-    igual. No es un fallo nuestro y no lo podemos arreglar en el origen.
+    TCGdex has no image for 1035 of our 15021 cards, and among them is the
+    ENTIRE `sve` set — the 24 current basic energies. Confirmed against its
+    API, not inferred: `/cards/sve-008` returns `image: null`, and all 24 do
+    the same. It's not a bug on our side and we can't fix it at the source.
 
-    Pero 566 de esas 1035 tienen una reimpresión que sí tiene imagen, y una
-    reimpresión es LA MISMA CARTA: mismo texto, mismo todo salvo el arte. Se le
-    toma prestada la suya.
+    But 566 of those 1035 have a reprint that does have an image, and a
+    reprint is THE SAME CARD: same text, same everything except the art. Its
+    image gets borrowed.
 
-    Cuál se elige importa: entre las hermanas de `sve-008` hay una Ultra Rare de
-    Crown Zenith, y usarla devolvería a la pantalla exactamente la energía
-    recargada que este cambio quita. Por eso se ordena con el mismo criterio que
-    el buscador —primero las normales, y entre ellas la más nueva—.
+    Which one gets picked matters: among `sve-008`'s siblings there's a Crown
+    Zenith Ultra Rare, and using it would put right back on screen exactly the
+    collector's energy this change is trying to remove. That's why it's
+    sorted with the same criterion as the search — plain ones first, and among
+    those the newest one.
 
-    `identity` es la huella que ya calcula card_source para la regla de
-    reimpresión (ver card_sync._apply_reprint_rule): mismo concepto, cobrado por
-    segunda vez.
+    `identity` is the fingerprint card_source already computes for the reprint
+    rule (see card_sync._apply_reprint_rule): the same concept, charged for a
+    second time.
 
-    Se deriva al leer y NO se guarda. Guardar la URL prestada sería copiar en 566
-    documentos un dato que pertenece a otro y que caduca en cuanto salga una
-    impresión nueva — la misma decisión que ya está tomada para los sprites de
-    Pokémon, vista desde el otro lado.
+    Derived on read and NOT stored. Storing the borrowed URL would mean
+    copying into 566 documents a piece of data that belongs to another
+    document and that goes stale the moment a new printing comes out — the
+    same decision already made for Pokemon sprites, seen from the other side.
 
-    Cuesta UNA consulta por página, no una por carta: se juntan las identidades
-    que faltan y se piden todas juntas.
+    Costs ONE query per page, not one per card: the missing identities are
+    gathered and requested together.
     """
-    identidades = {
+    identities = {
         doc["identity"]
         for doc in documents
         if not doc.get("image_url") and doc.get("identity")
     }
-    if not identidades:
+    if not identities:
         return {}
 
     cursor = _collection().find(
-        {"identity": {"$in": list(identidades)}, "image_url": {"$ne": None}},
+        {"identity": {"$in": list(identities)}, "image_url": {"$ne": None}},
         {"identity": 1, "image_url": 1, "printing_rank": 1, "set_release_date": 1},
     )
 
-    mejor: dict[str, dict] = {}
-    async for candidata in cursor:
-        actual = mejor.get(candidata["identity"])
-        if actual is None or _es_mejor_impresion(candidata, actual):
-            mejor[candidata["identity"]] = candidata
+    best: dict[str, dict] = {}
+    async for candidate in cursor:
+        current = best.get(candidate["identity"])
+        if current is None or _is_better_printing(candidate, current):
+            best[candidate["identity"]] = candidate
 
     return {
-        doc["_id"]: mejor[doc["identity"]]["image_url"]
+        doc["_id"]: best[doc["identity"]]["image_url"]
         for doc in documents
-        if not doc.get("image_url") and doc.get("identity") in mejor
+        if not doc.get("image_url") and doc.get("identity") in best
     }
 
 
-def _es_mejor_impresion(candidata: dict, actual: dict) -> bool:
-    """¿La candidata es "más la carta" que la actual?
+def _is_better_printing(candidate: dict, current: dict) -> bool:
+    """Is the candidate "more the card" than the current one?
 
-    Tres criterios, los mismos y en el mismo orden que usa el buscador: primero
-    una impresión normal antes que una secreta, luego la más nueva, y el id para
-    desempatar. Las fechas son "YYYY-MM-DD", así que compararlas como cadenas ya
-    es compararlas como fechas.
+    Three criteria, the same ones and in the same order the search uses:
+    first a plain printing over a secret one, then the newest, and the id to
+    break ties. Dates are "YYYY-MM-DD", so comparing them as strings is
+    already comparing them as dates.
 
-    Se usa para dos cosas distintas que resultan ser la misma pregunta: de qué
-    reimpresión copiar una imagen que falta, y cuál de las 27 impresiones de
-    Metal Energy es la que ofrece el buscador.
+    Used for two different things that turn out to be the same question:
+    which reprint to copy a missing image from, and which of Metal Energy's
+    27 printings is the one the search offers.
     """
-    rank_c = candidata.get("printing_rank", 0)
-    rank_a = actual.get("printing_rank", 0)
-    if rank_c != rank_a:
-        return rank_c < rank_a
+    rank_candidate = candidate.get("printing_rank", 0)
+    rank_current = current.get("printing_rank", 0)
+    if rank_candidate != rank_current:
+        return rank_candidate < rank_current
 
-    # Sin fecha pierde: una carta sin datar no puede ser "la más nueva".
-    fecha_c = candidata.get("set_release_date") or ""
-    fecha_a = actual.get("set_release_date") or ""
-    if fecha_c != fecha_a:
-        return fecha_c > fecha_a
+    # No date loses: an undated card can't be "the newest".
+    date_candidate = candidate.get("set_release_date") or ""
+    date_current = current.get("set_release_date") or ""
+    if date_candidate != date_current:
+        return date_candidate > date_current
 
-    # El desempate por id no es cosmético: sin él, cuál gana depende del orden en
-    # que Mongo devuelva los documentos, y dos ejecuciones podrían elegir
-    # impresiones distintas.
-    return candidata["_id"] < actual["_id"]
+    # The id tiebreak isn't cosmetic: without it, which one wins depends on
+    # the order Mongo happens to return documents in, and two runs could pick
+    # different printings.
+    return candidate["_id"] < current["_id"]
 
 
 def energy_duplicates(documents: list[dict]) -> set[str]:
-    """Los ids de las impresiones de energía básica que el buscador NO ofrece.
+    """The ids of basic energy printings the search does NOT offer.
 
-    De las 322 impresiones de energía básica que hay sincronizadas, el selector
-    de cartas enseña una por tipo: la normal más reciente. Las otras 313 siguen
-    en la base y se resuelven perfectamente por id —un mazo que ya tenga dentro
-    la dorada de SFA la sigue viendo— pero no se ofrecen al construir.
+    Of the 322 synced basic energy printings, the card selector shows one per
+    type: the most recent plain one. The other 313 stay in the database and
+    resolve perfectly by id — a deck that already has the SFA golden one in it
+    keeps seeing it — but they aren't offered when building.
 
-    Por qué las energías básicas y no todas las cartas: en una carta de verdad,
-    cuál de sus impresiones metes es una decisión legítima y el arte importa, así
-    que el buscador enseña las suyas. En una energía básica no hay decisión, son
-    la misma carta, y ofrecer 27 Metal Energy no es dar a elegir: es esconder la
-    que sirve entre 26 que no aportan nada.
+    Why basic energies and not every card: on a real card, which of its
+    printings you put in is a legitimate decision and the art matters, so the
+    search shows all of them. On a basic energy there's no decision to make,
+    they're the same card, and offering 27 Metal Energy printings isn't
+    offering a choice: it's hiding the one that's useful among 26 that add
+    nothing.
 
-    Recibe TODOS los documentos y no consulta nada, porque «la más reciente» solo
-    se puede saber mirando el conjunto. Por eso este cálculo no puede vivir en
-    card_to_document, que ve una carta cada vez.
+    Takes ALL the documents and queries nothing, because "the most recent" can
+    only be known by looking at the whole set. That is why this calculation
+    cannot live in `card_to_document`, which sees one card at a time.
     """
-    mejores: dict[str, dict] = {}
-    basicas: list[dict] = []
+    best: dict[str, dict] = {}
+    basics: list[dict] = []
 
     for doc in documents:
         if not doc.get("is_basic_energy"):
             continue
-        basicas.append(doc)
-        actual = mejores.get(doc["sort_name"])
-        if actual is None or _es_mejor_impresion(doc, actual):
-            mejores[doc["sort_name"]] = doc
+        basics.append(doc)
+        current = best.get(doc["sort_name"])
+        if current is None or _is_better_printing(doc, current):
+            best[doc["sort_name"]] = doc
 
-    ganadores = {doc["_id"] for doc in mejores.values()}
-    return {doc["_id"] for doc in basicas if doc["_id"] not in ganadores}
+    winners = {doc["_id"] for doc in best.values()}
+    return {doc["_id"] for doc in basics if doc["_id"] not in winners}
 
 
 async def search_cards(
@@ -353,43 +363,44 @@ async def search_cards(
     page: int = 1,
     page_size: int = 24,
 ) -> CardSearchResult:
-    """Busca en la colección local. Misma firma que card_source.search_cards."""
+    """Searches the local collection. Same signature as card_source.search_cards."""
     query = _build_filter(name, deck_format, category, ace_spec_only)
 
-    # skip/limit sobre nuestra propia base sí permite el truco de pedir uno de
-    # más, porque aquí el desplazamiento es explícito y no depende del límite.
-    # Es justo lo que no se podía hacer contra la paginación por número de
-    # página de TCGdex.
+    # skip/limit against our own database does allow the "fetch one extra"
+    # trick, because here the offset is explicit and doesn't depend on the
+    # limit. This is exactly what couldn't be done against TCGdex's
+    # page-number pagination.
     skip = (page - 1) * page_size
 
     cursor = (
         _collection()
         .find(query, {"name": 1, "image_url": 1, "identity": 1})
-        # Cuatro claves, y cada una arregla un problema distinto:
+        # Four keys, and each one fixes a different problem:
         #
-        #   sort_name         agrupa `Basic Metal Energy` con `Metal Energy`
-        #   printing_rank     las secretas de una básica, después de las normales
-        #   set_release_date  entre impresiones normales, gana la más nueva
-        #   _id               desempate final, ver abajo
+        #   sort_name         groups `Basic Metal Energy` with `Metal Energy`
+        #   printing_rank     a basic's secrets, after the plain ones
+        #   set_release_date  among plain printings, the newest one wins
+        #   _id               final tiebreak, see below
         #
-        # Las tres primeras son la respuesta a que buscar «metal» devolviera
-        # arriba del todo una energía dorada de coleccionista y ninguna normal
-        # visible: la dorada ganaba por alfabeto y las 26 normales salían por
-        # orden de id, así que la primera era de 1999.
+        # The first three are the answer to searching "metal" returning a
+        # golden collector energy at the very top and no plain one visible:
+        # the golden one won alphabetically and the 26 plain ones came out in
+        # id order, so the first was from 1999.
         #
-        # El _id final no es cosmético.
+        # The final _id isn't cosmetic.
         #
-        # El nombre NO es único: hay decenas de cartas llamadas "Pikachu", y
-        # entre las ACE SPEC hay cuatro nombres repetidos. Con una clave de orden
-        # que admite empates, MongoDB no garantiza en qué orden devuelve los
-        # empatados, y puede resolverlos distinto en dos ejecuciones de la misma
-        # consulta —depende del plan que elija, que a su vez depende del límite.
+        # The name is NOT unique: there are dozens of cards named "Pikachu",
+        # and among ACE SPECs there are four repeated names. With a sort key
+        # that allows ties, MongoDB doesn't guarantee what order it returns
+        # the tied documents in, and it can resolve them differently across
+        # two runs of the same query — it depends on the plan it picks, which
+        # in turn depends on the limit.
         #
-        # Sobre una sola consulta da igual. Al paginar con skip/limit es un fallo:
-        # cada página es una consulta independiente, así que un empate que caiga
-        # justo en la frontera puede hacer que una carta salga en las dos páginas
-        # o en ninguna. Añadir _id —único por definición— hace el orden TOTAL y
-        # por tanto determinista.
+        # On a single query it doesn't matter. When paginating with
+        # skip/limit it's a bug: each page is an independent query, so a tie
+        # that falls right on the boundary can make a card show up on both
+        # pages or on neither. Adding _id — unique by definition — makes the
+        # order TOTAL and therefore deterministic.
         .sort(
             [
                 ("sort_name", ASCENDING),
@@ -405,17 +416,17 @@ async def search_cards(
     documents = [doc async for doc in cursor]
     has_more = len(documents) > page_size
 
-    pagina = documents[:page_size]
-    prestadas = await _borrowed_images(pagina)
+    page_items = documents[:page_size]
+    borrowed = await _borrowed_images(page_items)
 
     return CardSearchResult(
         cards=[
             CardSummary(
                 id=doc["_id"],
                 name=doc["name"],
-                image_url=doc.get("image_url") or prestadas.get(doc["_id"]),
+                image_url=doc.get("image_url") or borrowed.get(doc["_id"]),
             )
-            for doc in pagina
+            for doc in page_items
         ],
         page=page,
         page_size=page_size,
@@ -424,74 +435,77 @@ async def search_cards(
 
 
 async def get_card(card_id: str) -> Card | None:
-    """Detalle de una carta. Aquí no hay problema N+1 que evitar: la búsqueda
-    podría devolver el documento completo sin coste extra. Se mantiene la
-    división en dos endpoints por compatibilidad con lo que ya usa el frontend."""
+    """A card's detail. There's no N+1 problem to avoid here: the search
+    could return the full document at no extra cost. The split into two
+    endpoints is kept for compatibility with what the frontend already
+    uses."""
     document = await _collection().find_one({"_id": card_id})
     if not document:
         return None
 
-    carta = card_from_document(document)
-    if not carta.image_url:
-        # La ficha de una carta es donde más se nota que falte la imagen, y aquí
-        # la consulta extra solo ocurre cuando de verdad falta.
-        carta.image_url = (await _borrowed_images([document])).get(card_id)
-    return carta
+    card = card_from_document(document)
+    if not card.image_url:
+        # A card's detail page is where a missing image is most noticeable,
+        # and here the extra query only happens when it's actually missing.
+        card.image_url = (await _borrowed_images([document])).get(card_id)
+    return card
 
 
 async def get_cards_by_ids(card_ids: list[str]) -> dict[str, Card]:
-    """Resuelve varias cartas de una vez. Devuelve {card_id: Card}.
+    """Resolves several cards at once. Returns {card_id: Card}.
 
-    Existe para validar un mazo. Un mazo son hasta 60 entradas, y la regla de las
-    4 copias necesita el nombre de cada una — pedirlas de una en una serían 60
-    consultas: el problema N+1 de log_mentor/08, esta vez contra nuestra propia
-    base en lugar de contra una API.
+    Exists to validate a deck. A deck has up to 60 entries, and the 4-copy
+    rule needs each one's name — fetching them one at a time would be 60
+    queries: the N+1 problem from log_mentor/08, this time against our own
+    database instead of an API.
 
-    `$in` las trae todas en una sola consulta, y el índice sobre _id la resuelve
-    directamente. Devolver un dict en vez de una lista es deliberado: quien valida
-    necesita buscar por id, y una lista le obligaría a recorrerla por cada carta.
+    `$in` brings them all back in a single query, and the index on _id
+    resolves it directly. Returning a dict instead of a list is deliberate:
+    whoever is validating needs to look up by id, and a list would force them
+    to scan it for every card.
 
-    Los ids que no existan simplemente no aparecen en el resultado; detectarlo es
-    trabajo de deck_rules, que emite UNKNOWN_CARD.
+    Ids that don't exist simply don't show up in the result; detecting that is
+    deck_rules's job, which raises UNKNOWN_CARD.
     """
     if not card_ids:
         return {}
 
-    # set() elimina duplicados: una lista puede repetir el mismo id si el cliente
-    # manda dos entradas de la misma carta.
+    # set() removes duplicates: a list can repeat the same id if the client
+    # sends two entries of the same card.
     cursor = _collection().find({"_id": {"$in": list(set(card_ids))}})
     documents = [doc async for doc in cursor]
 
-    # La misma sustitución que en el buscador, y hace falta aquí también: esta
-    # es la consulta que pinta la rejilla del mazo, así que sin ella una energía
-    # ya guardada seguiría saliendo sin imagen aunque el buscador la enseñara.
-    prestadas = await _borrowed_images(documents)
+    # The same substitution as in the search, and it's needed here too: this
+    # is the query that paints the deck grid, so without it an already-saved
+    # energy would keep showing up without an image even though the search
+    # shows one for it.
+    borrowed = await _borrowed_images(documents)
 
-    cartas = {}
+    cards = {}
     for doc in documents:
-        carta = card_from_document(doc)
-        if not carta.image_url:
-            carta.image_url = prestadas.get(doc["_id"])
-        cartas[doc["_id"]] = carta
-    return cartas
+        card = card_from_document(doc)
+        if not card.image_url:
+            card.image_url = borrowed.get(doc["_id"])
+        cards[doc["_id"]] = card
+    return cards
 
 
 def _derived(document: dict, dates: dict[str, str]) -> dict:
-    """Los campos de orden de una carta, calculados desde lo que ya está guardado.
+    """A card's sort fields, computed from what's already stored.
 
-    Existe para que las dos pasadas del rellenado calculen exactamente lo mismo:
-    la primera necesita `sort_name` y `printing_rank` para decidir qué impresión
-    de cada energía se ofrece, y la segunda los vuelve a necesitar para
-    escribirlos. Duplicar el cálculo en los dos sitios es cómo se acaba con dos
-    reglas que divergen.
+    Exists so both passes of the backfill compute exactly the same thing: the
+    first pass needs `sort_name` and `printing_rank` to decide which printing
+    of each energy is offered, and the second pass needs them again to write
+    them. Duplicating the calculation in both places is how you end up with
+    two rules that drift apart.
     """
-    basica = document.get("is_basic_energy", False)
+    basic = document.get("is_basic_energy", False)
     return {
         "_id": document["_id"],
-        "is_basic_energy": basica,
-        "sort_name": sort_name(document["name"], basica),
-        "search_name": search_name(document["name"], basica),
-        "printing_rank": printing_rank(basica, document.get("rarity")),
+        "is_basic_energy": basic,
+        "sort_name": sort_name(document["name"], basic),
+        "search_name": search_name(document["name"], basic),
+        "printing_rank": printing_rank(basic, document.get("rarity")),
         "set_release_date": dates.get(set_id_of(document["_id"])),
     }
 
@@ -499,79 +513,83 @@ def _derived(document: dict, dates: dict[str, str]) -> dict:
 async def restamp_sort_fields(
     dates: dict[str, str], batch_size: int
 ) -> tuple[int, int]:
-    """Recalcula `sort_name`, `printing_rank` y `set_release_date` en todas las
-    cartas ya guardadas. Devuelve (escritas, cuántas se quedaron sin fecha).
+    """Recomputes `sort_name`, `printing_rank` and `set_release_date` on every
+    card already stored. Returns (written, how many were left without a date).
 
-    Lo llama el trabajo por lotes `card_sync.resort()`. Vive aquí y no allí
-    porque es una operación sobre la colección de cartas de principio a fin: la
-    única pieza que viene de fuera es el diccionario de fechas, que es de otra
-    colección y por eso se recibe como argumento en vez de consultarse.
+    Called by the batch job `card_sync.resort()`. Lives here and not there
+    because it's an operation over the cards collection from start to finish:
+    the only piece that comes from outside is the dictionary of dates, which
+    belongs to another collection and is therefore received as an argument
+    instead of being queried here.
 
-    Se proyectan solo los tres campos que hacen falta para calcular: traer 15021
-    documentos enteros para leerles el nombre sería mover megabytes por gusto.
+    Only the three fields needed for the calculation are projected: fetching
+    15021 full documents just to read their name would move megabytes for no
+    reason.
 
-    Son DOS pasadas porque `is_energy_duplicate` no se puede decidir carta a
-    carta: para saber si esta Metal Energy es la que se ofrece hay que haber
-    visto las otras 26. La primera pasada mira solo las energías básicas —322
-    documentos— y la segunda escribe.
+    There are TWO passes because `is_energy_duplicate` can't be decided card
+    by card: to know whether this Metal Energy is the one offered, all 26
+    others need to have been seen first. The first pass looks only at basic
+    energies —322 documents— and the second one writes.
     """
     collection = _collection()
 
-    basicas = [
+    basics = [
         _derived(doc, dates)
         async for doc in collection.find(
             {"is_basic_energy": True}, {"name": 1, "rarity": 1, "is_basic_energy": 1}
         )
     ]
-    duplicadas = energy_duplicates(basicas)
+    duplicates = energy_duplicates(basics)
 
     cursor = collection.find({}, {"name": 1, "rarity": 1, "is_basic_energy": 1})
 
-    operaciones: list[UpdateOne] = []
-    escritas = 0
-    sin_fecha = 0
+    operations: list[UpdateOne] = []
+    written = 0
+    without_date = 0
 
     async for doc in cursor:
-        campos = _derived(doc, dates)
-        if not campos["set_release_date"]:
-            sin_fecha += 1
+        fields = _derived(doc, dates)
+        if not fields["set_release_date"]:
+            without_date += 1
 
-        operaciones.append(
+        operations.append(
             UpdateOne(
                 {"_id": doc["_id"]},
                 {
                     "$set": {
-                        "sort_name": campos["sort_name"],
-                        "search_name": campos["search_name"],
-                        "printing_rank": campos["printing_rank"],
-                        "set_release_date": campos["set_release_date"],
-                        "is_energy_duplicate": doc["_id"] in duplicadas,
+                        "sort_name": fields["sort_name"],
+                        "search_name": fields["search_name"],
+                        "printing_rank": fields["printing_rank"],
+                        "set_release_date": fields["set_release_date"],
+                        "is_energy_duplicate": doc["_id"] in duplicates,
                     }
                 },
             )
         )
 
-        # En lotes por lo mismo que el sync: una escritura por carta son 15021
-        # viajes de red, y acumularlo todo para escribir al final significa
-        # perderlo entero si algo falla a mitad.
-        if len(operaciones) >= batch_size:
-            await collection.bulk_write(operaciones, ordered=False)
-            escritas += len(operaciones)
-            operaciones = []
+        # In batches for the same reason as the sync job: one write per card
+        # would be 15021 network round trips, and buffering everything to
+        # write at the end would mean losing it all if something fails
+        # halfway through.
+        if len(operations) >= batch_size:
+            await collection.bulk_write(operations, ordered=False)
+            written += len(operations)
+            operations = []
 
-    if operaciones:
-        await collection.bulk_write(operaciones, ordered=False)
-        escritas += len(operaciones)
+    if operations:
+        await collection.bulk_write(operations, ordered=False)
+        written += len(operations)
 
-    return escritas, sin_fecha
+    return written, without_date
 
 
 async def legality_snapshot() -> list[dict]:
-    """Lo mínimo de cada carta para reaplicar la regla de reimpresión sin red.
+    """The minimum needed from each card to reapply the reprint rule without
+    the network.
 
-    Cinco campos de 15021 documentos. La regla necesita ver el conjunto entero
-    —una impresión es legal por lo que sean las OTRAS— así que no hay forma de
-    hacerlo carta a carta ni en streaming.
+    Five fields from 15021 documents. The rule needs to see the whole set at
+    once — a printing is legal because of what the OTHERS are — so there's no
+    way to do it card by card or streaming.
     """
     cursor = _collection().find(
         {},
@@ -587,18 +605,19 @@ async def legality_snapshot() -> list[dict]:
 
 
 async def save_legality(documents: list[dict], batch_size: int) -> int:
-    """Guarda `legal_standard` y `legal_expanded` de los documentos que se pasen.
+    """Saves `legal_standard` and `legal_expanded` for the documents passed in.
 
-    Recibe solo los que cambiaron, no los 15021: quien aplica la regla sabe
-    cuáles tocó y escribir los demás sería reescribir el valor que ya tenían.
+    Receives only the ones that changed, not all 15021: whoever applies the
+    rule knows which ones it touched, and writing the rest would just be
+    rewriting the value they already had.
     """
     if not documents:
         return 0
 
     collection = _collection()
-    escritas = 0
+    written = 0
     for start in range(0, len(documents), batch_size):
-        lote = documents[start : start + batch_size]
+        batch = documents[start : start + batch_size]
         await collection.bulk_write(
             [
                 UpdateOne(
@@ -610,15 +629,15 @@ async def save_legality(documents: list[dict], batch_size: int) -> int:
                         }
                     },
                 )
-                for doc in lote
+                for doc in batch
             ],
             ordered=False,
         )
-        escritas += len(lote)
-    return escritas
+        written += len(batch)
+    return written
 
 
 async def count_cards() -> int:
-    """Cuántas cartas hay sincronizadas. Sirve para distinguir «no hay
-    resultados» de «nunca se ha sincronizado», que son problemas distintos."""
+    """How many cards are synced. Used to tell "no results" apart from "never
+    synced", which are different problems."""
     return await _collection().count_documents({})

@@ -4,13 +4,13 @@ import { listTags } from '../api/sessions'
 import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
 
 /**
- * A partir de cuántas partidas un porcentaje empieza a significar algo.
+ * How many games it takes before a percentage starts to mean something.
  *
- * No es una regla estadística, es una advertencia visual: 100% de 1 partida y
- * 62% de 26 se leen igual si solo miras el número. Los renglones por debajo de
- * este umbral se marcan para que no se confundan con una tendencia.
+ * It's not a statistical rule, it's a visual warning: 100% of 1 game and
+ * 62% of 26 read the same if you only look at the number. Rows below this
+ * threshold are flagged so they aren't mistaken for a trend.
  */
-const MUESTRA_MINIMA = 5
+const MIN_SAMPLE = 5
 
 const EMPTY_FILTERS = { date_from: '', date_to: '', session_type: '', tag: '' }
 
@@ -18,19 +18,19 @@ function pct(rate) {
   return `${Math.round(rate * 100)}%`
 }
 
-/** Un renglón: etiqueta, barra proporcional al win rate, récord y porcentaje. */
+/** A row: label, bar proportional to the win rate, record and percentage. */
 function Row({ label, line, sub }) {
-  const escasa = line.played < MUESTRA_MINIMA
+  const thin = line.played < MIN_SAMPLE
 
   return (
-    <li className={`stat-row ${escasa ? 'is-thin' : ''}`}>
+    <li className={`stat-row ${thin ? 'is-thin' : ''}`}>
       <span className="stat-label">
         {label}
         {sub && <span className="stat-sub">{sub}</span>}
       </span>
 
-      {/* La barra es refuerzo visual del porcentaje que ya está escrito al
-          lado, así que se oculta a lectores de pantalla. */}
+      {/* The bar is a visual reinforcement of the percentage already
+          written next to it, so it's hidden from screen readers. */}
       <span className="stat-bar" aria-hidden="true">
         <span className="stat-bar-fill" style={{ width: pct(line.win_rate) }} />
       </span>
@@ -44,11 +44,12 @@ function Row({ label, line, sub }) {
 }
 
 /**
- * Estadísticas de un mazo.
+ * A deck's statistics.
  *
- * Nada se calcula aquí: el servidor agrega y devuelve los números hechos. Es la
- * misma regla que la validación del mazo y el récord de la sesión — una sola
- * implementación del cálculo, imposible que dos discrepen.
+ * Nothing is computed here: the server aggregates and returns the numbers
+ * already made. It's the same rule as deck validation and the session's
+ * record — one single implementation of the calculation, impossible for
+ * two to disagree.
  */
 export default function DeckStats({ deckId }) {
   const [stats, setStats] = useState(null)
@@ -60,10 +61,10 @@ export default function DeckStats({ deckId }) {
   useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
-    // Limpiar el error al reintentar. Sin esto, un fallo pasajero —reiniciar el
-    // backend— dejaba el panel clavado en el mensaje de error: el componente
-    // hace `if (error) return`, así que aunque la siguiente consulta fuera bien
-    // no había forma de volver salvo desmontando.
+    // Clear the error on retry. Without this, a transient failure —
+    // restarting the backend — left the panel stuck on the error message:
+    // the component does `if (error) return`, so even if the next query
+    // succeeded there was no way back short of unmounting.
     setError(null)
 
     getDeckStats(deckId, filters, controller.signal)
@@ -75,12 +76,12 @@ export default function DeckStats({ deckId }) {
         if (!controller.signal.aborted) setLoading(false)
       })
 
-    // Cambiar un filtro cancela la consulta anterior: las respuestas pueden
-    // llegar desordenadas. Ver log_mentor/09.
+    // Changing a filter cancels the previous query: responses can arrive
+    // out of order. See log_mentor/09.
     return () => controller.abort()
   }, [deckId, filters])
 
-  // Las etiquetas se cargan una vez: no dependen del mazo ni de los filtros.
+  // Tags are loaded once: they don't depend on the deck or the filters.
   useEffect(() => {
     let active = true
     listTags()
@@ -97,26 +98,26 @@ export default function DeckStats({ deckId }) {
   }
 
   if (error) return <p className="error">{error}</p>
-  if (!stats) return <p>Cargando…</p>
+  if (!stats) return <p>Loading…</p>
 
   const { overall, by_version: byVersion, by_archetype: byArchetype } = stats
-  const sinDatos = overall.played === 0
+  const noData = overall.played === 0
 
   return (
     <section className="deck-stats">
       <div className="stats-filters">
         <label>
-          Desde
+          From
           <input type="date" name="date_from" value={filters.date_from} onChange={handleFilter} />
         </label>
         <label>
-          Hasta
+          To
           <input type="date" name="date_to" value={filters.date_to} onChange={handleFilter} />
         </label>
         <label>
-          Tipo de evento
+          Event type
           <select name="session_type" value={filters.session_type} onChange={handleFilter}>
-            <option value="">Todos</option>
+            <option value="">All</option>
             {SESSION_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
@@ -126,9 +127,9 @@ export default function DeckStats({ deckId }) {
         </label>
         {tags.length > 0 && (
           <label>
-            Etiqueta
+            Tag
             <select name="tag" value={filters.tag} onChange={handleFilter}>
-              <option value="">Todas</option>
+              <option value="">All</option>
               {tags.map((t) => (
                 <option key={t.tag} value={t.tag}>
                   {t.tag} ({t.sessions})
@@ -140,14 +141,14 @@ export default function DeckStats({ deckId }) {
 
         {(filters.date_from || filters.date_to || filters.session_type || filters.tag) && (
           <button type="button" className="clear" onClick={() => setFilters(EMPTY_FILTERS)}>
-            limpiar
+            clear
           </button>
         )}
       </div>
 
-      {sinDatos ? (
+      {noData ? (
         <p className="empty">
-          Sin partidas para este recorte. Registra sesiones con este mazo en la pestaña Sesiones.
+          No games for this filter. Log sessions with this deck in the Sessions tab.
         </p>
       ) : (
         <>
@@ -157,15 +158,15 @@ export default function DeckStats({ deckId }) {
               {overall.wins}–{overall.losses}–{overall.ties}
             </span>
             <span className="overall-sub">
-              {overall.played} partidas en {stats.sessions_counted} sesion
-              {stats.sessions_counted === 1 ? '' : 'es'}
-              {loading && ' · actualizando…'}
+              {overall.played} games across {stats.sessions_counted}{' '}
+              {stats.sessions_counted === 1 ? 'session' : 'sessions'}
+              {loading && ' · updating…'}
             </span>
           </div>
 
-          {/* Por versión va primero a propósito: es la pregunta que ningún otro
-              tracker responde, y la razón de que exista el versionado. */}
-          <h3>Por versión</h3>
+          {/* By version comes first on purpose: it's the question no other
+              tracker answers, and the reason versioning exists. */}
+          <h3>By version</h3>
           <ul className="stat-list">
             {byVersion.map((v) => (
               <Row key={v.version_id} label={`v${v.version}`} sub={v.message} line={v} />
@@ -173,19 +174,20 @@ export default function DeckStats({ deckId }) {
           </ul>
           {byVersion.length === 1 && (
             <p className="hint">
-              Con una sola versión no hay comparación posible todavía. Crea una nueva versión al
-              cambiar cartas y estas cifras empezarán a decir si el cambio funcionó.
+              With only one version there is no comparison possible yet. Create a new version
+              when you change cards and these numbers will start showing whether the change
+              worked.
             </p>
           )}
 
-          <h3>Por rival</h3>
+          <h3>By opponent</h3>
           <ul className="stat-list">
             {byArchetype.map((a) => (
               <Row key={a.label} label={a.label} line={a} />
             ))}
           </ul>
 
-          <h3>Por tipo de evento</h3>
+          <h3>By event type</h3>
           <ul className="stat-list">
             {stats.by_session_type.map((t) => (
               <Row key={t.label} label={TYPE_LABEL[t.label] ?? t.label} line={t} />
@@ -193,8 +195,8 @@ export default function DeckStats({ deckId }) {
           </ul>
 
           <p className="hint">
-            Los renglones atenuados tienen menos de {MUESTRA_MINIMA} partidas: el porcentaje todavía
-            no significa gran cosa.
+            Dimmed rows have fewer than {MIN_SAMPLE} games: the percentage doesn&apos;t mean
+            much yet.
           </p>
         </>
       )}

@@ -9,19 +9,20 @@ function emptyFilters(format) {
 }
 
 /**
- * Buscador de cartas contra TCGdex.
+ * Card search against TCGdex.
  *
- * Dos problemas que aparecen en cuanto una búsqueda se dispara al teclear, y que
- * este componente resuelve de forma explícita:
+ * Two problems that show up as soon as a search fires on every keystroke,
+ * and that this component solves explicitly:
  *
- * 1. **Debounce.** Escribir "charizard" son nueve pulsaciones. Sin retardo, son
- *    nueve peticiones de las que solo importa la última. El temporizador reinicia
- *    en cada tecla y solo dispara cuando el usuario se detiene.
+ * 1. **Debounce.** Typing "charizard" is nine keystrokes. Without a delay,
+ *    that's nine requests when only the last one matters. The timer resets
+ *    on every keystroke and only fires once the user stops.
  *
- * 2. **Condición de carrera.** Las respuestas HTTP no llegan en el orden en que
- *    se pidieron. Si la búsqueda de "char" tarda 800ms y la de "charizard" 200ms,
- *    la lenta aterriza después y pisa los resultados correctos con los antiguos.
- *    AbortController cancela la anterior antes de lanzar la siguiente.
+ * 2. **Race condition.** HTTP responses don't arrive in the order they were
+ *    requested. If the search for "char" takes 800ms and "charizard" takes
+ *    200ms, the slow one lands afterward and overwrites the correct results
+ *    with the stale ones. AbortController cancels the previous one before
+ *    launching the next.
  */
 export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
   const [filters, setFilters] = useState(() => emptyFilters(defaultFormat))
@@ -33,25 +34,26 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
   const [selectedId, setSelectedId] = useState(null)
 
   /**
-   * Sigue al formato del mazo cuando este cambia.
+   * Follows the deck's format when it changes.
    *
-   * `useState(() => emptyFilters(defaultFormat))` solo corre AL MONTAR, así que
-   * al cambiar el mazo a Expanded el buscador se quedaba en Standard y ofrecía
-   * cartas del formato equivocado — que es el error que más caro sale aquí,
-   * porque la carta entra en la lista y solo lo dices el panel de validación
-   * después.
+   * `useState(() => emptyFilters(defaultFormat))` only runs ON MOUNT, so
+   * when the deck changed to Expanded the search box stayed on Standard and
+   * offered cards from the wrong format — which is the costliest mistake
+   * here, because the card gets added to the list and only the validation
+   * panel tells you about it afterward.
    *
-   * El efecto depende solo de `defaultFormat`, no de `filters`: si el usuario
-   * cambia el desplegable a mano para curiosear otro formato, su elección se
-   * respeta hasta que el mazo cambie de verdad.
+   * The effect depends only on `defaultFormat`, not on `filters`: if the
+   * user manually changes the dropdown to browse another format, their
+   * choice is respected until the deck actually changes.
    */
   useEffect(() => {
     setFilters((previous) => ({ ...previous, format: defaultFormat }))
-    // La página actual deja de significar nada al cambiar el conjunto.
+    // The current page stops meaning anything once the set changes.
     setPage(1)
   }, [defaultFormat])
 
-  // El backend exige 2 caracteres como mínimo; con menos, ni lo intentamos.
+  // The backend requires a minimum of 2 characters; with fewer, we don't
+  // even try.
   const nameQuery = filters.q.trim()
   const hasUsableName = nameQuery.length >= 2
   const canSearch = hasUsableName || filters.ace_spec
@@ -60,18 +62,18 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
     if (!canSearch) {
       setResults([])
       setHasMore(false)
-      // Estos dos hacen falta porque este retorno anticipado se salta el
-      // finally de más abajo. Si el usuario borra el texto mientras hay una
-      // búsqueda en vuelo, la limpieza aborta la petición, el finally no
-      // ejecuta setLoading(false) —está protegido por signal.aborted— y el
-      // efecto sale por aquí: «Buscando…» se quedaría para siempre, y el error
-      // de la búsqueda anterior seguiría en pantalla.
+      // These two are needed because this early return skips the finally
+      // block further down. If the user clears the text while a search is
+      // in flight, the cleanup aborts the request, the finally doesn't run
+      // setLoading(false) — it's guarded by signal.aborted — and the effect
+      // exits through here: "Searching…" would stay forever, and the
+      // previous search's error would still be on screen.
       setLoading(false)
       setError(null)
       return
     }
 
-    // Cancela la petición en vuelo cuando el efecto vuelve a correr.
+    // Cancels the request in flight when the effect runs again.
     const controller = new AbortController()
 
     const timer = setTimeout(async () => {
@@ -80,30 +82,30 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
 
       try {
         const data = await searchCards(
-          // Solo mandamos q si por sí solo supera el mínimo del backend. Con
-          // «Solo ACE SPEC» marcado, canSearch es cierto aunque haya una única
-          // letra escrita: enviarla provocaría un 422 y el usuario vería un
-          // error de validación en bruto en vez de resultados.
+          // We only send q if it alone clears the backend's minimum. With
+          // "Only ACE SPEC" checked, canSearch is true even with a single
+          // letter typed: sending it would trigger a 422 and the user
+          // would see a raw validation error instead of results.
           { ...filters, q: hasUsableName ? nameQuery : undefined, page },
           controller.signal,
         )
         setResults(data.cards)
         setHasMore(data.has_more)
       } catch (err) {
-        // Abortar es una cancelación deliberada, no un fallo que mostrar.
+        // Aborting is a deliberate cancellation, not a failure to show.
         if (err.name !== 'AbortError') setError(err.message)
       } finally {
         if (!controller.signal.aborted) setLoading(false)
       }
     }, DEBOUNCE_MS)
 
-    // Limpieza: cancela temporizador y petición. Se ejecuta antes de cada
-    // re-ejecución del efecto y al desmontar, así que cubre los dos problemas.
+    // Cleanup: cancels the timer and the request. Runs before every
+    // re-run of the effect and on unmount, so it covers both problems.
     return () => {
       clearTimeout(timer)
       controller.abort()
     }
-    // Cualquier cambio de filtro o de página relanza la búsqueda.
+    // Any change to a filter or the page relaunches the search.
   }, [filters, page, canSearch, hasUsableName, nameQuery])
 
   function handleFilterChange(event) {
@@ -112,18 +114,18 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
       ...previous,
       [name]: type === 'checkbox' ? checked : value,
     }))
-    // Cambiar un filtro invalida la página actual: la página 3 de otra búsqueda
-    // no significa nada.
+    // Changing a filter invalidates the current page: page 3 of a
+    // different search means nothing.
     setPage(1)
   }
 
   return (
     <section className="card-search">
-      <h2>Buscar cartas</h2>
+      <h2>Search cards</h2>
 
       <div className="filters">
         <label>
-          Nombre
+          Name
           <input
             type="text"
             name="q"
@@ -134,21 +136,21 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
         </label>
 
         <label>
-          Formato
+          Format
           <select name="format" value={filters.format} onChange={handleFilterChange}>
             <option value="standard">Standard</option>
             <option value="expanded">Expanded</option>
-            <option value="">Cualquiera</option>
+            <option value="">Any</option>
           </select>
         </label>
 
         <label>
-          Categoría
+          Category
           <select name="category" value={filters.category} onChange={handleFilterChange}>
-            <option value="">Todas</option>
+            <option value="">All</option>
             <option value="Pokemon">Pokémon</option>
-            <option value="Trainer">Entrenador</option>
-            <option value="Energy">Energía</option>
+            <option value="Trainer">Trainer</option>
+            <option value="Energy">Energy</option>
           </select>
         </label>
 
@@ -159,40 +161,41 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
             checked={filters.ace_spec}
             onChange={handleFilterChange}
           />
-          Solo ACE SPEC
+          ACE SPEC only
         </label>
       </div>
 
       <p className="hint">
-        La búsqueda es por subcadena: <code>rod</code> encuentra <code>Aerodactyl</code>.
+        Search is by substring: <code>rod</code> matches <code>Aerodactyl</code>.
       </p>
 
-      {!canSearch && <p className="empty">Escribe al menos 2 letras, o marca «Solo ACE SPEC».</p>}
-      {loading && <p>Buscando…</p>}
+      {!canSearch && <p className="empty">Type at least 2 letters, or check &quot;ACE SPEC only&quot;.</p>}
+      {loading && <p>Searching…</p>}
       {error && <p className="error">{error}</p>}
 
       {!loading && !error && canSearch && results.length === 0 && (
-        <p className="empty">Ninguna carta coincide.</p>
+        <p className="empty">No card matches.</p>
       )}
 
       <ul className="card-grid">
         {results.map((card) => (
           <li key={card.id}>
-            {/* Un solo componente, dos usos. Sin onPick es un buscador que
-                abre el detalle; con onPick, un selector que añade al mazo.
-                Duplicar el componente para el segundo caso habría duplicado
-                también el debounce, la cancelación y la paginación. */}
+            {/* One single component, two uses. Without onPick it's a
+                search box that opens the detail view; with onPick, a
+                picker that adds to the deck. Duplicating the component for
+                the second case would have also duplicated the debounce,
+                the cancellation and the pagination. */}
             <button
               type="button"
               onClick={() => (onPick ? onPick(card) : setSelectedId(card.id))}
-              title={onPick ? `Añadir ${card.name} al mazo` : card.name}
+              title={onPick ? `Add ${card.name} to deck` : card.name}
             >
               {card.image_url ? (
-                // loading="lazy" evita descargar 24 imágenes de golpe: el
-                // navegador solo pide las que entran en pantalla.
+                // loading="lazy" avoids downloading 24 images at once: the
+                // browser only requests the ones that enter the viewport.
                 <img src={card.image_url} alt={card.name} loading="lazy" />
               ) : (
-                <span className="no-image">sin imagen</span>
+                <span className="no-image">no image</span>
               )}
               <span className="card-name">{card.name}</span>
             </button>
@@ -203,11 +206,11 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
       {canSearch && (page > 1 || hasMore) && (
         <div className="pagination">
           <button type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-            Anterior
+            Previous
           </button>
-          <span>Página {page}</span>
+          <span>Page {page}</span>
           <button type="button" disabled={!hasMore} onClick={() => setPage((p) => p + 1)}>
-            Siguiente
+            Next
           </button>
         </div>
       )}

@@ -95,8 +95,11 @@ Short and real. Add entries as they become true, delete ones that stop being tru
 - Comments explain the mechanism and the failure they prevent, not what the line does. The repo is a
   learning artifact; a comment restating the code is dead weight, and a comment naming the bug that
   bit us is the whole point.
-- Code and comments are written in Spanish; `CLAUDE.md` and `log_mentor/` in English. Do not mix
-  within a file.
+- **Everything in this repository is written in English** — identifiers, comments, docstrings,
+  documentation and the strings the interface ships with. Spanish is reserved for exactly one place:
+  `frontend/src/i18n/es.js`, as a translation of the interface (not yet implemented; see
+  `docs/superpowers/plans/2026-08-28-i18n-locale-switch.md`). Conversation with the developer stays
+  in Spanish; the artifact does not.
 
 ## Before you act: read the decision record
 
@@ -127,6 +130,9 @@ an architecture, swapping a provider, or reopening any of these:
 | One `Menu` component for every popover | the only `document` listener in the app |
 | Deck lists import/export as PTCG Live text | the interop format; needs the `sets` collection |
 | Import takes what it resolves and reports the rest | a friend's list may cite an unsynced set |
+| English is the source language of the repo | a bilingual codebase drifts; the artifact is a portfolio |
+| The UI language will be detected, then remembered | `navigator.language` once, then `localStorage` wins; not yet implemented |
+| A `Violation` will carry a code and params, not prose | prose plus a code is two sources of truth; not yet implemented |
 
 **`docs/domain.md`** — Session, Match, Record, Tags, Deck, DeckVersion, Folder, Archetype, Matchup,
 and the deck legality rules. Read it before touching a model or adding a field. It also holds three

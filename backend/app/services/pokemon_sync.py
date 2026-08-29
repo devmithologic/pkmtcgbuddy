@@ -1,10 +1,11 @@
-"""Descarga el Pokédex nacional y lo guarda en MongoDB.
+"""Downloads the national Pokédex and saves it into MongoDB.
 
     python -m app.services.pokemon_sync
 
-Se ejecuta a mano y muy de vez en cuando: la lista solo cambia cuando sale una
-generación nueva. Es el mismo patrón que card_sync, pero mucho más pequeño —una
-petición en vez de 15.000— así que no necesita concurrencia acotada ni lotes.
+Run by hand, and very rarely: the list only changes when a new generation
+comes out. It's the same pattern as card_sync, just much smaller — one
+request instead of 15,000 — so it needs neither bounded concurrency nor
+batching.
 """
 
 import asyncio
@@ -24,20 +25,19 @@ async def sync() -> None:
     try:
         await pokemon_repository.ensure_indexes()
 
-        print("Descargando el Pokédex completo, con megas y formas…")
-        # fetch_all devuelve dicts planos; el modelo se construye aquí. Es este
-        # módulo el que hace de puente entre el adaptador y el modelo, para que
-        # ninguno de los dos tenga que importar al otro — ver el docstring de
-        # fetch_all.
-        pokemon = [PokemonRef(**entrada) for entrada in await fetch_all()]
+        print("Downloading the full Pokédex, with megas and forms…")
+        # fetch_all returns plain dicts; the model is built here. This module
+        # is the one that bridges the adapter and the model, so neither one
+        # has to import the other — see fetch_all's docstring.
+        pokemon = [PokemonRef(**entry) for entry in await fetch_all()]
         print(f"  {len(pokemon)} Pokémon")
 
-        escritos = await pokemon_repository.replace_all(pokemon)
+        written = await pokemon_repository.replace_all(pokemon)
         total = await pokemon_repository.count()
 
         print(
-            f"Listo en {time.perf_counter() - started:.1f}s · "
-            f"{escritos} escritos · {total} en la base"
+            f"Done in {time.perf_counter() - started:.1f}s · "
+            f"{written} written · {total} in the database"
         )
     finally:
         await close_mongo_connection()
@@ -47,7 +47,7 @@ def main() -> int:
     try:
         asyncio.run(sync())
     except Exception as exc:
-        print(f"Falló la sincronización: {type(exc).__name__}: {exc}")
+        print(f"Sync failed: {type(exc).__name__}: {exc}")
         return 1
     return 0
 

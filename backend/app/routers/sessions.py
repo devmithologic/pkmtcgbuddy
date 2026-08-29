@@ -1,13 +1,14 @@
-"""Endpoints del recurso /api/sessions.
+"""Endpoints for the /api/sessions resource.
 
-Las partidas son una subcolección: viven bajo `/api/sessions/{id}/matches` porque
-no existen fuera de su sesión. Que la URL lo refleje no es estética — le dice al
-cliente que no hay forma de pedir una partida suelta, que es exactamente la
-verdad del modelo.
+Games are a subcollection: they live under `/api/sessions/{id}/matches`
+because they don't exist outside their session. Having the URL reflect that
+isn't aesthetics — it tells the client there's no way to request a
+standalone game, which is exactly the truth of the model.
 
-Toda operación sobre una ronda devuelve la SESIÓN entera actualizada, igual que
-`PUT /api/decks/{id}/cards`. Así el cliente nunca recalcula el récord: llega
-hecho, y no hay dos versiones del cálculo que puedan discrepar.
+Every operation on a round returns the whole updated SESSION, the same as
+`PUT /api/decks/{id}/cards`. That way the client never recomputes the
+record: it arrives already done, and there aren't two versions of the
+calculation that could disagree.
 """
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -36,7 +37,7 @@ async def _load(session_id: str) -> dict:
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe la sesión {session_id}",
+            detail=f"Session {session_id} does not exist",
         )
     return session
 
@@ -59,8 +60,8 @@ def _to_out(session: dict, deck: dict | None) -> SessionOut:
 
 
 async def _respond(session_id: str) -> SessionOut:
-    """Relee la sesión y la devuelve resuelta. Un solo camino de salida para
-    todas las mutaciones, así no hay dos formas de construir la respuesta."""
+    """Rereads the session and returns it resolved. A single exit path for
+    all mutations, so there aren't two ways to build the response."""
     session = await _load(session_id)
     decks = await session_repository.resolve_decks([session])
     return _to_out(session, decks.get(session["deck_version_id"]))
@@ -68,16 +69,16 @@ async def _respond(session_id: str) -> SessionOut:
 
 @router.post("", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
 async def create_session(payload: SessionCreate) -> SessionOut:
-    """Crea una sesión vacía. Las rondas se añaden después, según se juegan."""
-    # Se valida el mazo ANTES de crear nada. Sin esto una sesión podría apuntar a
-    # una versión inventada y las estadísticas de la fase 4 tendrían que lidiar
-    # con referencias rotas.
+    """Creates an empty session. Rounds are added afterward, as they're played."""
+    # The deck is validated BEFORE creating anything. Without this a session
+    # could end up pointing at a made-up version, and phase 4's statistics
+    # would have to deal with broken references.
     oid = to_object_id(payload.deck_version_id)
     version = await deck_repository.get_version(oid) if oid else None
     if version is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"No existe la versión de mazo {payload.deck_version_id}",
+            detail=f"Deck version {payload.deck_version_id} does not exist",
         )
 
     session_id = await session_repository.create_session(payload)
@@ -86,9 +87,9 @@ async def create_session(payload: SessionCreate) -> SessionOut:
 
 @router.get("", response_model=list[SessionSummary])
 async def list_sessions(
-    tag: str | None = Query(default=None, description="Filtra por etiqueta"),
+    tag: str | None = Query(default=None, description="Filter by tag"),
 ) -> list[SessionSummary]:
-    """Listado, de la sesión más reciente a la más antigua."""
+    """Listing, from the most recent session to the oldest."""
     sessions = await session_repository.list_sessions(tag=tag)
     decks = await session_repository.resolve_decks(sessions)
 
@@ -109,27 +110,27 @@ async def list_sessions(
     ]
 
 
-# OJO: esta ruta va ANTES que /{session_id}. FastAPI resuelve por orden de
-# declaración, así que si /{session_id} fuera primero, "tags" se interpretaría
-# como un id de sesión y esto devolvería 404.
+# NOTE: this route goes BEFORE /{session_id}. FastAPI resolves by declaration
+# order, so if /{session_id} came first, "tags" would be read as a session id
+# and this would return 404.
 @router.get("/tags", response_model=list[TagCount])
 async def list_tags() -> list[TagCount]:
-    """Etiquetas en uso, con su número de sesiones."""
+    """Tags in use, with their number of sessions."""
     return [TagCount(**t) for t in await session_repository.list_tags()]
 
 
 @router.get("/{session_id}", response_model=SessionOut)
 async def get_session(session_id: str) -> SessionOut:
-    """Una sesión con sus rondas y su récord."""
+    """A session with its rounds and its record."""
     return await _respond(session_id)
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_session(session_id: str) -> None:
-    """Borra la sesión y todas sus rondas.
+    """Deletes the session and all its rounds.
 
-    204 No Content: la operación fue bien y no hay nada que devolver. Devolver
-    la sesión borrada sería contradictorio.
+    204 No Content: the operation went fine and there's nothing to return.
+    Returning the deleted session would be contradictory.
     """
     session = await _load(session_id)
     await session_repository.delete_session(session["_id"])
@@ -137,22 +138,23 @@ async def delete_session(session_id: str) -> None:
 
 @router.patch("/{session_id}", response_model=SessionOut)
 async def update_session(session_id: str, payload: SessionUpdate) -> SessionOut:
-    """Corrige los datos de la sesión: fecha, tipo, mazo, nombre o notas.
+    """Corrects the session's data: date, type, deck, name or notes.
 
-    Las rondas no pasan por aquí: cada una se guarda al añadirla. Esto es para
-    la cabecera del evento, que hasta ahora quedaba congelada al crearla.
+    Rounds don't go through here: each one is saved when it's added. This is
+    for the event's header, which until now stayed frozen once created.
     """
     session = await _load(session_id)
 
-    # Si se cambia de mazo, se valida igual que al crear. Sin esto, una
-    # corrección podría dejar la sesión apuntando a una versión inventada.
+    # If the deck changes, it's validated the same as when creating. Without
+    # this, a correction could leave the session pointing at a made-up
+    # version.
     if payload.deck_version_id is not None:
         oid = to_object_id(payload.deck_version_id)
         version = await deck_repository.get_version(oid) if oid else None
         if version is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"No existe la versión de mazo {payload.deck_version_id}",
+                detail=f"Deck version {payload.deck_version_id} does not exist",
             )
 
     await session_repository.update_session(session["_id"], payload)
@@ -163,7 +165,7 @@ async def update_session(session_id: str, payload: SessionUpdate) -> SessionOut:
     "/{session_id}/matches", response_model=SessionOut, status_code=status.HTTP_201_CREATED
 )
 async def add_match(session_id: str, payload: MatchCreate) -> SessionOut:
-    """Añade una ronda al final de la sesión."""
+    """Adds a round at the end of the session."""
     session = await _load(session_id)
     await session_repository.add_match(session["_id"], payload)
     return await _respond(session_id)
@@ -171,26 +173,26 @@ async def add_match(session_id: str, payload: MatchCreate) -> SessionOut:
 
 @router.put("/{session_id}/matches/{round_no}", response_model=SessionOut)
 async def update_match(session_id: str, round_no: int, payload: MatchCreate) -> SessionOut:
-    """Corrige una ronda ya registrada. Te equivocaste de arquetipo, o de
-    resultado."""
+    """Corrects a round already recorded. You got the archetype wrong, or the
+    result."""
     session = await _load(session_id)
 
     if not await session_repository.update_match(session["_id"], round_no, payload):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"La sesión no tiene una ronda {round_no}",
+            detail=f"The session has no round {round_no}",
         )
     return await _respond(session_id)
 
 
 @router.delete("/{session_id}/matches/{round_no}", response_model=SessionOut)
 async def delete_match(session_id: str, round_no: int) -> SessionOut:
-    """Borra una ronda. Las siguientes se renumeran para no dejar huecos."""
+    """Deletes a round. The following ones are renumbered so there are no gaps."""
     session = await _load(session_id)
 
     if not await session_repository.delete_match(session["_id"], round_no):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"La sesión no tiene una ronda {round_no}",
+            detail=f"The session has no round {round_no}",
         )
     return await _respond(session_id)

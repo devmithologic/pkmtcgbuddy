@@ -1,23 +1,23 @@
-"""Agregaciones sobre `sessions`.
+"""Aggregations over `sessions`.
 
-Aquí vive el *aggregation pipeline*, que es la herramienta de MongoDB para
-responder preguntas que `find()` no puede: contar, agrupar, cruzar colecciones.
-Funciona como una tubería — cada etapa recibe los documentos de la anterior y
-entrega los suyos a la siguiente.
+This is where the *aggregation pipeline* lives, MongoDB's tool for answering
+questions `find()` can't: counting, grouping, joining collections. It works
+like a pipe — each stage receives the previous stage's documents and hands its
+own to the next one.
 
-La tubería de este módulo hace esto:
+This module's pipeline does the following:
 
-    $match   quedarse solo con las sesiones de este mazo y del periodo pedido
-    $unwind  una sesión con 5 rondas se convierte en 5 documentos, uno por ronda
-    $facet   calcular VARIOS agrupamientos distintos sobre esos mismos documentos
+    $match   keep only the sessions for this deck and the requested period
+    $unwind  a session with 5 rounds becomes 5 documents, one per round
+    $facet   compute SEVERAL different groupings over those same documents
 
-`$unwind` es la clave de que las partidas estén embebidas: convierte el array en
-filas, y a partir de ahí se agrupa como si cada ronda fuera un documento suelto.
+`$unwind` is the key to the games being embedded: it turns the array into
+rows, and from there grouping proceeds as if each round were its own document.
 
-`$facet` es lo que evita recorrer los datos cuatro veces. Sin él harían falta
-cuatro consultas —global, por versión, por rival, por tipo de evento— cada una
-releyendo las mismas sesiones. Con `$facet`, una sola lectura alimenta las
-cuatro ramas.
+`$facet` is what avoids scanning the data four times. Without it, four
+separate queries would be needed — overall, by version, by opponent, by event
+type — each one re-reading the same sessions. With `$facet`, a single read
+feeds all four branches.
 """
 
 from datetime import date
@@ -28,9 +28,9 @@ from app.db.mongo import get_database
 from app.models.match import date_to_bson
 from app.models.session import SessionType
 
-# Se repite en las cuatro ramas del $facet, así que se construye una vez.
-# $cond dentro de $sum es el equivalente a "cuenta 1 si se cumple, 0 si no":
-# MongoDB no tiene un COUNT(*) FILTER como SQL, se emula así.
+# Repeated across the four branches of the $facet, so it's built once.
+# $cond inside $sum is the equivalent of "count 1 if this holds, 0 if not":
+# MongoDB has no COUNT(*) FILTER like SQL, so it's emulated this way.
 _COUNTERS = {
     "wins": {"$sum": {"$cond": [{"$eq": ["$matches.result", "win"]}, 1, 0]}},
     "losses": {"$sum": {"$cond": [{"$eq": ["$matches.result", "loss"]}, 1, 0]}},
@@ -45,56 +45,59 @@ async def deck_stats(
     session_type: SessionType | None = None,
     tag: str | None = None,
 ) -> dict:
-    """Agrega las partidas de un mazo, cortadas de cuatro formas.
+    """Aggregates a deck's games, sliced four ways.
 
-    `version_ids` son TODAS las versiones del mazo: una sesión referencia una
-    versión concreta, así que para las estadísticas del mazo entero hay que
-    reunirlas. Quien llama las resuelve, para que este módulo no dependa del
-    repositorio de mazos.
+    `version_ids` are ALL of the deck's versions: a session references one
+    specific version, so getting stats for the whole deck means gathering all
+    of them. The caller resolves them, so this module doesn't depend on the
+    deck repository.
     """
     if not version_ids:
         return {"overall": [], "by_version": [], "by_archetype": [], "by_session_type": [], "sessions": 0}
 
-    filtro: dict = {"deck_version_id": {"$in": version_ids}}
+    filter_: dict = {"deck_version_id": {"$in": version_ids}}
 
     if date_from or date_to:
-        rango = {}
+        range_ = {}
         if date_from:
-            rango["$gte"] = date_to_bson(date_from)
+            range_["$gte"] = date_to_bson(date_from)
         if date_to:
-            # $lte y no $lt: date_to es inclusivo, y las fechas se guardan a
-            # medianoche, así que el día completo entra.
-            rango["$lte"] = date_to_bson(date_to)
-        filtro["played_at"] = rango
+            # $lte and not $lt: date_to is inclusive, and dates are stored at
+            # midnight, so the entire day is included.
+            range_["$lte"] = date_to_bson(date_to)
+        filter_["played_at"] = range_
 
     if session_type:
-        filtro["session_type"] = session_type.value
+        filter_["session_type"] = session_type.value
 
-    # Igualdad contra un array: casa si la sesión contiene esa etiqueta.
+    # Equality against an array: matches if the session contains that tag.
     if tag:
-        filtro["tags"] = tag
+        filter_["tags"] = tag
 
-    coleccion = get_database()["sessions"]
+    collection = get_database()["sessions"]
 
-    # Las sesiones se cuentan en una consulta aparte, no dentro de la tubería.
+    # Sessions are counted in a separate query, not inside the pipeline.
     #
-    # El intento natural era meter un $facet con dos ramas —contar sesiones por
-    # un lado, desdoblar y agrupar por otro— pero MongoDB lo rechaza:
+    # The natural attempt was to put a $facet with two branches — count
+    # sessions on one side, unwind and group on the other — but MongoDB
+    # rejects it:
     #
     #     $facet is not allowed to be used within a $facet stage
     #
-    # No se pueden anidar. Y hacerlo después de $unwind daría partidas en vez de
-    # sesiones, porque para entonces cada ronda ya es un documento. Dos consultas
-    # es la salida honesta, y la segunda es un contador con índice.
-    # Se excluyen las sesiones sin rondas. El $unwind de abajo las descarta, así
-    # que contarlas aquí daría "3 sesiones" junto a totales sacados de una sola
-    # — y con ninguna ronda, "0-0-0 en 3 sesiones", que se lee como un error.
-    total_sesiones = await coleccion.count_documents({**filtro, "matches": {"$ne": []}})
+    # They can't be nested. And doing it after $unwind would give games
+    # instead of sessions, because by then each round is already its own
+    # document. Two queries is the honest way out, and the second one is a
+    # count backed by an index.
+    # Sessions with no rounds are excluded. The $unwind below discards them
+    # anyway, so counting them here would give "3 sessions" next to totals
+    # drawn from just one — and with zero rounds, "0-0-0 across 3 sessions",
+    # which reads like a bug.
+    total_sessions = await collection.count_documents({**filter_, "matches": {"$ne": []}})
 
     pipeline = [
-        {"$match": filtro},
-        # Convierte una sesión de 5 rondas en 5 documentos, uno por ronda. Es lo
-        # que permite agrupar partidas estando embebidas.
+        {"$match": filter_},
+        # Turns a session with 5 rounds into 5 documents, one per round. This
+        # is what allows grouping games while they're embedded.
         {"$unwind": "$matches"},
         {
             "$facet": {
@@ -104,8 +107,8 @@ async def deck_stats(
                 ],
                 "by_archetype": [
                     {"$group": {"_id": "$matches.opponent_archetype", **_COUNTERS}},
-                    # Más partidas primero: un matchup de 8 dice más que uno de 1,
-                    # y conviene que se lea antes.
+                    # Most games first: a matchup of 8 says more than one of 1,
+                    # and it's worth reading before it.
                     {"$sort": {"wins": -1, "losses": -1, "_id": 1}},
                 ],
                 "by_session_type": [
@@ -115,14 +118,14 @@ async def deck_stats(
         },
     ]
 
-    cursor = await coleccion.aggregate(pipeline)
-    resultado = [doc async for doc in cursor]
-    ramas = resultado[0] if resultado else {}
+    cursor = await collection.aggregate(pipeline)
+    result = [doc async for doc in cursor]
+    branches = result[0] if result else {}
 
     return {
-        "sessions": total_sesiones,
-        "overall": ramas.get("overall", []),
-        "by_version": ramas.get("by_version", []),
-        "by_archetype": ramas.get("by_archetype", []),
-        "by_session_type": ramas.get("by_session_type", []),
+        "sessions": total_sessions,
+        "overall": branches.get("overall", []),
+        "by_version": branches.get("by_version", []),
+        "by_archetype": branches.get("by_archetype", []),
+        "by_session_type": branches.get("by_session_type", []),
     }

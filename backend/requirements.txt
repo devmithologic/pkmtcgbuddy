@@ -1,8 +1,8 @@
-# Cotas mínimas, no versiones exactas: pip instalará la última compatible.
-# Cuando el slice funcione, `pip freeze` te dará las versiones exactas que acabaste usando.
+# Lower bounds, not exact versions: pip will install the latest compatible one.
+# Once the slice works, `pip freeze` will give you the exact versions you ended up using.
 
-fastapi>=0.115           # framework web
-uvicorn[standard]>=0.32  # servidor ASGI que ejecuta la app
-pymongo>=4.13            # driver de MongoDB; incluye AsyncMongoClient (sustituye a Motor)
-pydantic-settings>=2.6   # carga configuración desde .env con validación de tipos
-httpx>=0.28              # cliente HTTP async; lo usamos para hablar con TCGdex
+fastapi>=0.115           # web framework
+uvicorn[standard]>=0.32  # ASGI server that runs the app
+pymongo>=4.13            # MongoDB driver; includes AsyncMongoClient (replaces Motor)
+pydantic-settings>=2.6   # loads configuration from .env with type validation
+httpx>=0.28              # async HTTP client; we use it to talk to TCGdex

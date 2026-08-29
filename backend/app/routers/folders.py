@@ -1,4 +1,4 @@
-"""Carpetas de mazos."""
+"""Deck folders."""
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status
@@ -19,21 +19,21 @@ def _to_out(doc: dict) -> FolderOut:
     )
 
 
-async def _existe_o_404(folder_id: ObjectId) -> dict:
+async def _exists_or_404(folder_id: ObjectId) -> dict:
     doc = await folder_repository.get_folder(folder_id)
     if not doc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa carpeta no existe")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That folder does not exist")
     return doc
 
 
 @router.get("", response_model=list[FolderOut])
 async def list_folders() -> list[FolderOut]:
-    """Todas las carpetas, planas.
+    """All folders, flat.
 
-    El árbol lo arma el cliente a partir de `parent_id`. Devolverlo ya anidado
-    obligaría a un modelo recursivo y no ahorraría nada: son diez documentos, y
-    el frontend necesita de todos modos poder recorrerlos por id para pintar los
-    desplegables de «mover a».
+    The client builds the tree from `parent_id`. Returning it already nested
+    would require a recursive model and would not save anything: there are ten
+    documents, and the frontend needs to be able to walk them by id anyway to
+    render the "move to" dropdowns.
     """
     return [_to_out(d) for d in await folder_repository.list_folders()]
 
@@ -43,7 +43,7 @@ async def create_folder(payload: FolderCreate) -> FolderOut:
     parent = None
     if payload.parent_id:
         parent = to_object_id(payload.parent_id)
-        await _existe_o_404(parent)
+        await _exists_or_404(parent)
 
     folder_id = await folder_repository.create_folder(payload.name, parent)
     doc = await folder_repository.get_folder(to_object_id(folder_id))
@@ -53,19 +53,19 @@ async def create_folder(payload: FolderCreate) -> FolderOut:
 @router.patch("/{folder_id}", response_model=FolderOut)
 async def update_folder(folder_id: str, payload: FolderUpdate) -> FolderOut:
     oid = to_object_id(folder_id)
-    await _existe_o_404(oid)
+    await _exists_or_404(oid)
 
-    # Mover: hay que comprobar el ciclo ANTES de escribir. Si se escribe primero
-    # y se comprueba después, el árbol ya está roto y hace falta deshacerlo.
-    campos = payload.model_dump(exclude_unset=True)
-    if "parent_id" in campos:
-        nuevo = to_object_id(campos["parent_id"]) if campos["parent_id"] else None
-        if nuevo is not None:
-            await _existe_o_404(nuevo)
-        if await folder_repository.crearia_ciclo(oid, nuevo):
+    # Moving: the cycle must be checked BEFORE writing. If it writes first and
+    # checks after, the tree is already broken and has to be undone.
+    fields = payload.model_dump(exclude_unset=True)
+    if "parent_id" in fields:
+        new_parent_id = to_object_id(fields["parent_id"]) if fields["parent_id"] else None
+        if new_parent_id is not None:
+            await _exists_or_404(new_parent_id)
+        if await folder_repository.would_create_cycle(oid, new_parent_id):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                "Una carpeta no puede moverse dentro de sí misma ni de una de sus subcarpetas",
+                "A folder cannot be moved inside itself or one of its subfolders",
             )
 
     await folder_repository.update_folder(oid, payload)
@@ -74,6 +74,6 @@ async def update_folder(folder_id: str, payload: FolderUpdate) -> FolderOut:
 
 @router.delete("/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_folder(folder_id: str) -> None:
-    """Borra la carpeta. Sus mazos y subcarpetas suben al padre, no se borran."""
+    """Deletes the folder. Its decks and subfolders move up to the parent; they are not deleted."""
     if not await folder_repository.delete_folder(to_object_id(folder_id)):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa carpeta no existe")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That folder does not exist")

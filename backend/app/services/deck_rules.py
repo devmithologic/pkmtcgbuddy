@@ -1,22 +1,23 @@
-"""Reglas de construcción de mazo del Pokémon TCG.
+"""Deck-construction rules for the Pokémon TCG.
 
-Vive aparte de los endpoints y del repositorio a propósito: `validate_deck` es una
-función pura —recibe datos, devuelve datos, no toca red ni base— así que se puede
-razonar y probar sin arrancar nada. Cuando lleguen los tests en la fase 5, este
-fichero será el más fácil de cubrir del proyecto.
+Lives apart from the endpoints and the repository on purpose: `validate_deck` is a
+pure function — it receives data, returns data, never touches the network or the
+database — so it can be reasoned about and tested without starting anything up.
+When the tests arrive in phase 5, this file will be the easiest one in the project
+to cover.
 
-Reglas implementadas:
+Implemented rules:
 
-  1. Exactamente 60 cartas.
-  2. Como mucho 4 copias con el mismo NOMBRE. Dos impresiones distintas de Iono
-     cuentan juntas: la regla es por nombre, no por carta.
-  3. La energía básica está exenta de la regla anterior. Un mazo puede llevar
-     veinte Lightning Energy.
-  4. Como mucho 1 ACE SPEC en total. No es "una por nombre": es una en el mazo.
-  5. Todas las cartas legales en el formato declarado por el mazo.
+  1. Exactly 60 cards.
+  2. At most 4 copies with the same NAME. Two different printings of Iono count
+     together: the rule is per name, not per card.
+  3. Basic energy is exempt from the previous rule. A deck can carry twenty
+     Lightning Energy.
+  4. At most 1 ACE SPEC total. It is not "one per name": it is one per deck.
+  5. Every card legal in the format the deck declares.
 
-No implementada, y conviene saberlo: el límite de 1 Pokémon Radiant por mazo. Se
-detectaría igual que las ACE SPEC, por rareza.
+Not implemented, and worth knowing: the limit of 1 Radiant Pokémon per deck. It
+would be caught the same way ACE SPEC is, by rarity.
 """
 
 from collections import defaultdict
@@ -38,65 +39,66 @@ def validate_deck(
     catalogue: dict[str, Card],
     deck_format: DeckFormat,
 ) -> DeckValidation:
-    """Comprueba una lista contra las reglas del formato.
+    """Checks a decklist against the format's rules.
 
-    `catalogue` mapea card_id -> Card, ya resuelto por quien llama. Se recibe hecho
-    en lugar de consultarlo aquí para que esta función no dependa de la base: es
-    lo que la mantiene pura y probable.
+    `catalogue` maps card_id -> Card, already resolved by the caller. It arrives
+    already built instead of being looked up here so this function does not
+    depend on the database: that is what keeps it pure and testable.
     """
     violations: list[Violation] = []
 
-    # --- carta desconocida -------------------------------------------------
-    # Primero, porque el resto de reglas necesitan los datos de cada carta. Puede
-    # pasar de verdad: una carta que se sincronizó con --format standard y luego
-    # desaparece del filtro, o un id inventado por un cliente.
+    # --- unknown card --------------------------------------------------------
+    # First, because the rest of the rules need each card's data. It can genuinely
+    # happen: a card that was synced with --format standard and later falls out
+    # of the filter, or an id made up by a client.
     unknown = [entry.card_id for entry in cards if entry.card_id not in catalogue]
     if unknown:
         violations.append(
             Violation(
                 code=ViolationCode.UNKNOWN_CARD,
-                message=f"{len(unknown)} carta(s) no están en el catálogo sincronizado",
+                message=f"{len(unknown)} card(s) are not in the synced catalogue",
                 card_ids=unknown,
             )
         )
 
     known = [entry for entry in cards if entry.card_id in catalogue]
 
-    # --- tamaño ------------------------------------------------------------
+    # --- size ------------------------------------------------------------
     total = sum(entry.quantity for entry in cards)
     if total != DECK_SIZE:
-        faltan = DECK_SIZE - total
-        detalle = f"faltan {faltan}" if faltan > 0 else f"sobran {-faltan}"
+        missing = DECK_SIZE - total
+        detail = f"missing {missing}" if missing > 0 else f"extra {-missing}"
         violations.append(
             Violation(
                 code=ViolationCode.WRONG_SIZE,
-                message=f"Un mazo son {DECK_SIZE} cartas: hay {total}, {detalle}",
+                message=f"A deck is {DECK_SIZE} cards: there are {total}, {detail}",
             )
         )
 
-    # --- 4 copias por nombre -----------------------------------------------
-    # Se agrupa por nombre, no por card_id: "Iono" de un set y "Iono" de otro son
-    # la misma carta para el reglamento. Por eso hace falta resolver los nombres,
-    # y por eso el catálogo llega como parámetro.
-    por_nombre: dict[str, int] = defaultdict(int)
-    ids_por_nombre: dict[str, list[str]] = defaultdict(list)
+    # --- 4 copies per name -----------------------------------------------
+    # Grouped by name, not by card_id: "Iono" from one set and "Iono" from
+    # another are the same card as far as the rulebook is concerned. That is why
+    # the names have to be resolved, and why the catalogue arrives as a
+    # parameter.
+    by_name: dict[str, int] = defaultdict(int)
+    ids_by_name: dict[str, list[str]] = defaultdict(list)
 
     for entry in known:
         card = catalogue[entry.card_id]
         if card.is_basic_energy:
-            continue  # exenta
-        por_nombre[card.name] += entry.quantity
-        ids_por_nombre[card.name].append(entry.card_id)
+            continue  # exempt
+        by_name[card.name] += entry.quantity
+        ids_by_name[card.name].append(entry.card_id)
 
-    excedidas = {
-        nombre: n for nombre, n in por_nombre.items() if n > MAX_COPIES_PER_NAME
+    exceeded = {
+        name: n for name, n in by_name.items() if n > MAX_COPIES_PER_NAME
     }
-    for nombre, n in sorted(excedidas.items()):
+    for name, n in sorted(exceeded.items()):
         violations.append(
             Violation(
                 code=ViolationCode.TOO_MANY_COPIES,
-                message=f"«{nombre}»: {n} copias, el máximo son {MAX_COPIES_PER_NAME}",
-                card_ids=ids_por_nombre[nombre],
+                message=f'"{name}": {n} copies, the maximum is {MAX_COPIES_PER_NAME}',
+                card_ids=ids_by_name[name],
             )
         )
 
@@ -108,30 +110,30 @@ def validate_deck(
             Violation(
                 code=ViolationCode.TOO_MANY_ACE_SPEC,
                 message=(
-                    f"{ace_total} cartas ACE SPEC: solo se permite "
-                    f"{MAX_ACE_SPEC} por mazo"
+                    f"{ace_total} ACE SPEC cards: only {MAX_ACE_SPEC} is "
+                    "allowed per deck"
                 ),
                 card_ids=ace_ids,
             )
         )
 
-    # --- legalidad en el formato -------------------------------------------
-    ilegales = [
+    # --- legality in the format -------------------------------------------
+    illegal_ids = [
         entry.card_id
         for entry in known
         if not catalogue[entry.card_id].is_legal_in(deck_format)
     ]
-    if ilegales:
-        nombres = sorted({catalogue[cid].name for cid in ilegales})
-        muestra = ", ".join(nombres[:3]) + ("…" if len(nombres) > 3 else "")
+    if illegal_ids:
+        names = sorted({catalogue[cid].name for cid in illegal_ids})
+        sample = ", ".join(names[:3]) + ("…" if len(names) > 3 else "")
         violations.append(
             Violation(
                 code=ViolationCode.ILLEGAL_IN_FORMAT,
                 message=(
-                    f"{len(ilegales)} carta(s) no son legales en "
-                    f"{deck_format.value}: {muestra}"
+                    f"{len(illegal_ids)} card(s) are not legal in "
+                    f"{deck_format.value}: {sample}"
                 ),
-                card_ids=ilegales,
+                card_ids=illegal_ids,
             )
         )
 

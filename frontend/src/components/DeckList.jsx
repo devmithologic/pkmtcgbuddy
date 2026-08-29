@@ -11,41 +11,42 @@ import {
 import Menu from './Menu'
 import PokemonPair from './PokemonPair'
 
-const CLAVE_VISTA = 'pkmtcgbuddy.deckView'
+const VIEW_STORAGE_KEY = 'pkmtcgbuddy.deckView'
 
-function vistaGuardada() {
-  return localStorage.getItem(CLAVE_VISTA) === 'flat' ? 'flat' : 'folders'
+function savedView() {
+  return localStorage.getItem(VIEW_STORAGE_KEY) === 'flat' ? 'flat' : 'folders'
 }
 
 /**
- * Mazos y carpetas, navegando como en un explorador de archivos.
+ * Decks and folders, navigated like a file explorer.
  *
- * El cambio respecto a la versión anterior no es estético. Antes se pintaba el
- * árbol ENTERO desplegado y el formulario de creación vivía siempre a un lado;
- * ahora se ve una sola carpeta cada vez y se entra en ella. Dos consecuencias
- * que valen la pena:
+ * The change from the previous version isn't cosmetic. Before, the WHOLE
+ * tree was rendered expanded and the creation form always lived off to the
+ * side; now only one folder is shown at a time and you navigate into it.
+ * Two consequences worth having:
  *
- * - Lo que se crea, se crea DONDE ESTÁS. Un selector de carpeta en el
- *   formulario era pedir dos veces el mismo dato: la navegación ya lo dice.
- * - Desaparece el grupo «Sin carpeta». Nunca fue una carpeta, era el resto; con
- *   navegación, la raíz ya ES ese sitio.
+ * - What you create is created WHERE YOU ARE. A folder selector in the
+ *   form was asking for the same data twice: the navigation already says it.
+ * - The "No folder" group disappears. It was never a folder, it was the
+ *   rest; with navigation, the root already IS that place.
  */
 export default function DeckList({ onOpen, currentId, setCurrentId }) {
   const [decks, setDecks] = useState([])
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [view, setView] = useState(vistaGuardada)
+  const [view, setView] = useState(savedView)
 
-  // `currentId` —dónde estás, null es la raíz— vive en App y no aquí. Al abrir
-  // un mazo, App desmonta este componente para pintar el constructor, así que un
-  // estado local se perdía: volvías siempre a la raíz en vez de a la carpeta de
-  // la que saliste. Es el precio de no tener router; subir el estado un nivel lo
-  // paga sin añadir una dependencia.
+  // `currentId` — where you are, null is the root — lives in App and not
+  // here. When a deck opens, App unmounts this component to render the
+  // builder, so local state was getting lost: you'd always land back on the
+  // root instead of the folder you came from. That's the price of not
+  // having a router; lifting the state one level up pays it without adding
+  // a dependency.
 
-  // Renombrado en el sitio: {kind: 'folder'|'deck', id, name}.
-  // Pantalla de importar: null cuando no está abierta. Guarda el texto pegado y
-  // el informe de lo que no se pudo resolver.
+  // In-place rename: {kind: 'folder'|'deck', id, name}.
+  // Import screen: null when it's not open. Holds the pasted text and the
+  // report of what couldn't be resolved.
   const [importing, setImporting] = useState(null)
   const [renaming, setRenaming] = useState(null)
   const [confirming, setConfirming] = useState(null)
@@ -73,42 +74,42 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
     }
   }, [])
 
-  const porId = new Map(folders.map((f) => [f.id, f]))
-  const planas = flattenTree(buildTree(folders))
+  const byId = new Map(folders.map((f) => [f.id, f]))
+  const flatFolders = flattenTree(buildTree(folders))
 
-  /** Camino desde la raíz hasta la carpeta actual, para la miga de pan. */
-  function ruta(id) {
-    const camino = []
-    let actual = id ? porId.get(id) : null
-    while (actual) {
-      camino.unshift(actual)
-      actual = actual.parent_id ? porId.get(actual.parent_id) : null
+  /** Path from the root to the current folder, for the breadcrumb. */
+  function getPath(id) {
+    const path = []
+    let current = id ? byId.get(id) : null
+    while (current) {
+      path.unshift(current)
+      current = current.parent_id ? byId.get(current.parent_id) : null
     }
-    return camino
+    return path
   }
 
-  const camino = ruta(currentId)
-  const subcarpetas = folders.filter((f) => (f.parent_id ?? null) === currentId)
-  const mazosAqui = decks.filter((d) => (d.folder_id ?? null) === currentId)
+  const path = getPath(currentId)
+  const subfolders = folders.filter((f) => (f.parent_id ?? null) === currentId)
+  const decksHere = decks.filter((d) => (d.folder_id ?? null) === currentId)
 
-  function esDescendiente(candidato, ancestro) {
-    let actual = porId.get(candidato)
-    while (actual?.parent_id) {
-      if (actual.parent_id === ancestro) return true
-      actual = porId.get(actual.parent_id)
+  function isDescendant(candidateId, ancestorId) {
+    let current = byId.get(candidateId)
+    while (current?.parent_id) {
+      if (current.parent_id === ancestorId) return true
+      current = byId.get(current.parent_id)
     }
     return false
   }
 
-  function cambiaVista(v) {
+  function changeView(v) {
     setView(v)
-    localStorage.setItem(CLAVE_VISTA, v)
+    localStorage.setItem(VIEW_STORAGE_KEY, v)
   }
 
-  async function conError(accion) {
+  async function withErrorHandling(action) {
     setError(null)
     try {
-      await accion()
+      await action()
       await reload()
     } catch (err) {
       setError(err.message)
@@ -116,29 +117,30 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   }
 
   /**
-   * Crea el mazo y entra directo al constructor.
+   * Creates the deck and goes straight into the builder.
    *
-   * Sin formulario previo: el nombre y el formato se editan dentro, igual que
-   * una carpeta se renombra en su fila. La carpeta sale de dónde estás, no de
-   * un desplegable — preguntarlo sería pedir dos veces el mismo dato.
+   * No form beforehand: the name and format are edited inside, the same way
+   * a folder is renamed in its row. The folder comes from where you are,
+   * not from a dropdown — asking for it would be requesting the same data
+   * twice.
    */
-  async function creaMazo() {
+  async function createNewDeck() {
     setError(null)
     try {
       const deck = await createDeck({
-        name: 'Mazo nuevo',
+        name: 'New deck',
         deck_format: 'standard',
         folder_id: currentId,
       })
-      // El segundo argumento le dice al constructor que es recién creado, para
-      // que enfoque el nombre con el texto seleccionado.
+      // The second argument tells the builder it was just created, so it
+      // focuses the name with the text selected.
       onOpen(deck.id, true)
     } catch (err) {
       setError(err.message)
     }
   }
 
-  async function importaLista(event) {
+  async function importList(event) {
     event.preventDefault()
     setError(null)
     setImporting((p) => ({ ...p, busy: true }))
@@ -148,9 +150,10 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
         name: importing.name.trim() || null,
         folder_id: currentId,
       })
-      // Si TODO entró, no hay nada que contar: se abre el mazo y ya. Si algo se
-      // quedó fuera, se enseña el informe antes de continuar — que es el punto
-      // de haber elegido «importar lo que resuelva y decir qué no».
+      // If EVERYTHING came in, there's nothing to report: the deck just
+      // opens. If something got left out, the report is shown before
+      // continuing — which is the whole point of having chosen "import what
+      // resolves and say what didn't".
       if (r.unresolved.length === 0) {
         setImporting(null)
         onOpen(r.deck.id)
@@ -164,64 +167,66 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   }
 
   /**
-   * Crea la carpeta y la deja lista para renombrar, como un escritorio.
+   * Creates the folder and leaves it ready to rename, like a desktop.
    *
-   * Se crea primero con un nombre provisional y se edita después, en vez de
-   * pedir el nombre antes: así la carpeta existe desde el primer momento —se ve
-   * dónde ha caído— y cancelar el renombrado deja algo, no nada.
+   * It's created first with a placeholder name and edited afterward,
+   * instead of asking for the name up front: this way the folder exists
+   * from the first moment — you can see where it landed — and canceling
+   * the rename leaves something, not nothing.
    */
-  async function creaCarpeta() {
+  async function createNewFolder() {
     setError(null)
     try {
-      const carpeta = await createFolder({ name: 'Carpeta nueva', parent_id: currentId })
+      const folder = await createFolder({ name: 'New folder', parent_id: currentId })
       await reload()
-      setRenaming({ kind: 'folder', id: carpeta.id, name: carpeta.name })
+      setRenaming({ kind: 'folder', id: folder.id, name: folder.name })
     } catch (err) {
       setError(err.message)
     }
   }
 
-  async function guardaNombre(event) {
+  async function saveName(event) {
     event.preventDefault()
-    // Se llama desde onSubmit y desde onBlur. Escape cancela poniendo `renaming`
-    // a null, así que un blur que llegue después encontraría nada que guardar.
+    // Called from both onSubmit and onBlur. Escape cancels by setting
+    // `renaming` to null, so a blur that arrives afterward would find
+    // nothing to save.
     if (!renaming) return
     const { kind, id, name } = renaming
-    const limpio = name.trim()
-    if (!limpio) return
-    await conError(() =>
-      kind === 'folder' ? updateFolder(id, { name: limpio }) : updateDeck(id, { name: limpio }),
+    const cleaned = name.trim()
+    if (!cleaned) return
+    await withErrorHandling(() =>
+      kind === 'folder' ? updateFolder(id, { name: cleaned }) : updateDeck(id, { name: cleaned }),
     )
     setRenaming(null)
   }
 
-  function destinos(item, kind) {
-    const actual = kind === 'folder' ? item.parent_id : item.folder_id
+  function moveTargets(item, kind) {
+    const current = kind === 'folder' ? item.parent_id : item.folder_id
     return [
-      ...planas
+      ...flatFolders
         .filter(
           (f) =>
             f.id !== (kind === 'folder' ? item.id : null) &&
-            f.id !== actual &&
-            !(kind === 'folder' && esDescendiente(f.id, item.id)),
+            f.id !== current &&
+            !(kind === 'folder' && isDescendant(f.id, item.id)),
         )
         .map((f) => ({
           icon: '📂',
-          label: `${'· '.repeat(f.depth)}Mover a ${f.name}`,
+          label: `${'· '.repeat(f.depth)}Move to ${f.name}`,
           onSelect: () =>
-            conError(() =>
+            withErrorHandling(() =>
               kind === 'folder'
                 ? updateFolder(item.id, { parent_id: f.id })
                 : updateDeck(item.id, { folder_id: f.id }),
             ),
         })),
-      ...(actual
+      ...(current
         ? [
             {
               icon: '↩',
-              label: 'Mover a la raíz',
+              label: 'Move to root',
               onSelect: () =>
-                conError(() =>
+                withErrorHandling(() =>
                   kind === 'folder'
                     ? updateFolder(item.id, { parent_id: null })
                     : updateDeck(item.id, { folder_id: null }),
@@ -232,23 +237,24 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
     ]
   }
 
-  const editando = (item, kind) => renaming?.kind === kind && renaming.id === item.id
+  const isRenaming = (item, kind) => renaming?.kind === kind && renaming.id === item.id
 
-  /** El nombre de una fila, o el campo para cambiarlo si se está renombrando. */
-  function nombreEditable(item, kind, className) {
-    if (!editando(item, kind)) return <span className={className}>{item.name}</span>
+  /** A row's name, or the field to change it if it's being renamed. */
+  function editableName(item, kind, className) {
+    if (!isRenaming(item, kind)) return <span className={className}>{item.name}</span>
 
     return (
-      <form className="rename" onSubmit={guardaNombre}>
+      <form className="rename" onSubmit={saveName}>
         <input
           type="text"
           value={renaming.name}
           onChange={(e) => setRenaming({ ...renaming, name: e.target.value })}
           onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
-          onBlur={guardaNombre}
-          aria-label="Nuevo nombre"
-          /* eslint-disable-next-line jsx-a11y/no-autofocus -- el campo aparece
-             por una acción explícita y es lo único con lo que interactuar. */
+          onBlur={saveName}
+          aria-label="New name"
+          /* eslint-disable-next-line jsx-a11y/no-autofocus -- the field
+             appears from an explicit action and is the only thing to
+             interact with. */
           autoFocus
           required
         />
@@ -257,68 +263,69 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   }
 
   /**
-   * El cuerpo de una fila: un <button> normalmente, un <div> mientras se
-   * renombra.
+   * A row's body: a <button> normally, a <div> while renaming.
    *
-   * No es un capricho de marcado, arregla un fallo concreto: el campo de texto
-   * vivía DENTRO del botón de la fila, y el modelo de contenido de <button>
-   * prohíbe meter elementos interactivos dentro. El navegador no da error, hace
-   * algo peor: activa el botón al pulsar la BARRA ESPACIADORA, sin importar que
-   * el foco estuviera en el campo. Escribir «Testing For Puebla» era imposible
-   * porque el primer espacio entraba en la carpeta.
+   * It's not a whim of markup, it fixes a concrete bug: the text field used
+   * to live INSIDE the row's button, and a <button>'s content model
+   * forbids nesting interactive elements inside it. The browser doesn't
+   * throw an error, it does something worse: it activates the button when
+   * you press the SPACE BAR, no matter that focus was in the field. Typing
+   * "Testing For Puebla" was impossible because the first space entered the
+   * folder.
    *
-   * Space y Enter activan un botón por definición —así se usa sin ratón— así
-   * que no había nada que interceptar: mientras el input estuviera dentro, el
-   * conflicto era estructural. La solución es no anidarlos.
+   * Space and Enter activate a button by definition — that's how it's used
+   * without a mouse — so there was nothing to intercept: as long as the
+   * input was nested inside, the conflict was structural. The fix is not to
+   * nest them.
    */
-  function CuerpoFila({ activo, onOpen: abrir, children }) {
-    if (!activo) return <div className="row-main">{children}</div>
+  function RowBody({ active, onOpen: open, children }) {
+    if (!active) return <div className="row-main">{children}</div>
     return (
-      <button type="button" className="row-main" onClick={abrir}>
+      <button type="button" className="row-main" onClick={open}>
         {children}
       </button>
     )
   }
 
-  function filaCarpeta(carpeta) {
-    const dentro = decks.filter((d) => d.folder_id === carpeta.id).length
-    const hijas = folders.filter((f) => f.parent_id === carpeta.id).length
+  function folderRow(folder) {
+    const deckCount = decks.filter((d) => d.folder_id === folder.id).length
+    const childCount = folders.filter((f) => f.parent_id === folder.id).length
 
     return (
-      <li key={`f-${carpeta.id}`} className="deck-row folder-row">
-        <CuerpoFila
-          activo={!editando(carpeta, 'folder')}
+      <li key={`f-${folder.id}`} className="deck-row folder-row">
+        <RowBody
+          active={!isRenaming(folder, 'folder')}
           onOpen={() => {
-            setCurrentId(carpeta.id)
+            setCurrentId(folder.id)
             setCreating(false)
           }}
         >
           <span className="row-icon" aria-hidden="true">
             📁
           </span>
-          {nombreEditable(carpeta, 'folder', 'deck-name')}
+          {editableName(folder, 'folder', 'deck-name')}
           <span className="deck-meta">
             {[
-              hijas && `${hijas} ${hijas === 1 ? 'carpeta' : 'carpetas'}`,
-              `${dentro} ${dentro === 1 ? 'mazo' : 'mazos'}`,
+              childCount && `${childCount} ${childCount === 1 ? 'folder' : 'folders'}`,
+              `${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}`,
             ]
               .filter(Boolean)
               .join(' · ')}
           </span>
           <span />
-        </CuerpoFila>
+        </RowBody>
 
-        {confirming?.id === carpeta.id ? (
+        {confirming?.id === folder.id ? (
           <span className="confirm-delete">
-            ¿Borrar?
+            Delete?
             <button
               type="button"
               onClick={async () => {
-                await conError(() => deleteFolder(carpeta.id))
+                await withErrorHandling(() => deleteFolder(folder.id))
                 setConfirming(null)
               }}
             >
-              Sí
+              Yes
             </button>
             <button type="button" onClick={() => setConfirming(null)}>
               No
@@ -326,20 +333,20 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           </span>
         ) : (
           <Menu
-            label={`Acciones de ${carpeta.name}`}
+            label={`Actions for ${folder.name}`}
             actions={[
               {
                 icon: '✏️',
-                label: 'Renombrar',
+                label: 'Rename',
                 onSelect: () =>
-                  setRenaming({ kind: 'folder', id: carpeta.id, name: carpeta.name }),
+                  setRenaming({ kind: 'folder', id: folder.id, name: folder.name }),
               },
-              ...destinos(carpeta, 'folder'),
+              ...moveTargets(folder, 'folder'),
               {
                 icon: '✕',
-                label: 'Borrar',
+                label: 'Delete',
                 danger: true,
-                onSelect: () => setConfirming({ kind: 'folder', id: carpeta.id }),
+                onSelect: () => setConfirming({ kind: 'folder', id: folder.id }),
               },
             ]}
           />
@@ -348,13 +355,13 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
     )
   }
 
-  function filaMazo(deck) {
+  function deckRow(deck) {
     return (
       <li key={`d-${deck.id}`} className="deck-row">
-        <CuerpoFila activo={!editando(deck, 'deck')} onOpen={() => onOpen(deck.id)}>
-          {/* El hueco existe siempre, tenga iconos el mazo o no: sin él, los
-              mazos sin Pokémon empiezan su nombre 130 px antes y la lista queda
-              con el borde izquierdo dentado. */}
+        <RowBody active={!isRenaming(deck, 'deck')} onOpen={() => onOpen(deck.id)}>
+          {/* The slot always exists, whether the deck has icons or not:
+              without it, decks with no Pokémon start their name 130 px
+              earlier and the list ends up with a jagged left edge. */}
           <span className="pkm-slot">
             <PokemonPair
               primary={deck.primary_pokemon}
@@ -363,7 +370,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
               variant="art"
             />
           </span>
-          {nombreEditable(deck, 'deck', 'deck-name')}
+          {editableName(deck, 'deck', 'deck-name')}
           <span className="deck-meta">
             {deck.deck_format === 'standard' ? 'Standard' : 'Expanded'} · v
             {deck.current_version}
@@ -371,19 +378,19 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           <span className={`deck-count ${deck.is_legal ? 'ok' : ''}`}>
             {deck.total_cards}/60
           </span>
-        </CuerpoFila>
+        </RowBody>
 
         {confirming?.id === deck.id ? (
           <span className="confirm-delete">
-            ¿Borrar?
+            Delete?
             <button
               type="button"
               onClick={async () => {
-                await conError(() => deleteDeck(deck.id))
+                await withErrorHandling(() => deleteDeck(deck.id))
                 setConfirming(null)
               }}
             >
-              Sí
+              Yes
             </button>
             <button type="button" onClick={() => setConfirming(null)}>
               No
@@ -391,17 +398,17 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           </span>
         ) : (
           <Menu
-            label={`Acciones de ${deck.name}`}
+            label={`Actions for ${deck.name}`}
             actions={[
               {
                 icon: '✏️',
-                label: 'Renombrar',
+                label: 'Rename',
                 onSelect: () => setRenaming({ kind: 'deck', id: deck.id, name: deck.name }),
               },
-              ...destinos(deck, 'deck'),
+              ...moveTargets(deck, 'deck'),
               {
                 icon: '✕',
-                label: 'Borrar',
+                label: 'Delete',
                 danger: true,
                 onSelect: () => setConfirming({ kind: 'deck', id: deck.id }),
               },
@@ -416,18 +423,19 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   return (
     <section className="decks-screen">
       <div className="deck-toolbar">
-        {/* Miga de pan. Cada tramo es un botón: subir dos niveles es un clic, no
-            dos. En la vista plana no hay dónde estar, así que no se pinta. */}
+        {/* Breadcrumb. Each segment is a button: going up two levels is one
+            click, not two. In the flat view there's nowhere to be, so it's
+            not rendered. */}
         {view === 'folders' ? (
-          <nav className="breadcrumb" aria-label="Ruta">
+          <nav className="breadcrumb" aria-label="Breadcrumb">
             <button
               type="button"
               onClick={() => setCurrentId(null)}
               disabled={currentId === null}
             >
-              Mazos
+              Decks
             </button>
-            {camino.map((c) => (
+            {path.map((c) => (
               <span key={c.id}>
                 <span className="sep" aria-hidden="true">
                   ›
@@ -443,58 +451,58 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
             ))}
           </nav>
         ) : (
-          <h2 className="breadcrumb-title">Todos los mazos ({decks.length})</h2>
+          <h2 className="breadcrumb-title">All decks ({decks.length})</h2>
         )}
 
         <div className="toolbar-right">
           <Menu
-              trigger="+ Nuevo"
-              label="Crear"
+              trigger="+ New"
+              label="Create"
               className="new-menu"
               align="left"
               actions={[
-                { icon: '📁', label: 'Nueva carpeta', onSelect: creaCarpeta },
-              { icon: '🃏', label: 'Nuevo mazo', onSelect: creaMazo },
+                { icon: '📁', label: 'New folder', onSelect: createNewFolder },
+              { icon: '🃏', label: 'New deck', onSelect: createNewDeck },
               {
                 icon: '📋',
-                label: 'Importar lista',
+                label: 'Import list',
                 onSelect: () => setImporting({ text: '', name: '', busy: false, report: null }),
               },
             ]}
           />
 
-          <div className="view-switch" role="group" aria-label="Cómo ver los mazos">
+          <div className="view-switch" role="group" aria-label="View mode">
             <button
               type="button"
               className={view === 'folders' ? 'active' : ''}
-              onClick={() => cambiaVista('folders')}
+              onClick={() => changeView('folders')}
             >
-              Carpetas
+              Folders
             </button>
             <button
               type="button"
               className={view === 'flat' ? 'active' : ''}
-              onClick={() => cambiaVista('flat')}
+              onClick={() => changeView('flat')}
             >
-              Todos
+              All
             </button>
           </div>
         </div>
       </div>
 
       {error && <p className="error">{error}</p>}
-      {loading && <p>Cargando…</p>}
+      {loading && <p>Loading…</p>}
 
       {importing ? (
-        <form className="deck-import" onSubmit={importaLista}>
-          <h3>Importar lista</h3>
+        <form className="deck-import" onSubmit={importList}>
+          <h3>Import list</h3>
           <p className="hint">
-            Pega una lista en el formato de PTCG Live o Limitless. Se creará un mazo en{' '}
-            <strong>{camino.length ? camino[camino.length - 1].name : 'Mazos'}</strong>.
+            Paste a list in PTCG Live or Limitless format. A deck will be created in{' '}
+            <strong>{path.length ? path[path.length - 1].name : 'Decks'}</strong>.
           </p>
 
           <label>
-            Nombre <span className="optional">opcional</span>
+            Name <span className="optional">optional</span>
             <input
               type="text"
               value={importing.name}
@@ -504,38 +512,39 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           </label>
 
           <label>
-            Lista
+            List
             <textarea
               value={importing.text}
               onChange={(e) => setImporting({ ...importing, text: e.target.value, report: null })}
               rows={16}
               spellCheck={false}
               placeholder={'Pokémon: 17\n3 Riolu PRE 50\n3 Mega Lucario ex MEG 77\n…'}
-              /* eslint-disable-next-line jsx-a11y/no-autofocus -- la pantalla
-                 existe solo para pegar aquí. */
+              /* eslint-disable-next-line jsx-a11y/no-autofocus -- the
+                 screen exists only to paste here. */
               autoFocus
               required
             />
           </label>
 
-          {/* El informe solo aparece cuando algo se quedó fuera. Sale ANTES de
-              abrir el mazo, para que la decisión de continuar sea del usuario y
-              no un aviso que se pierde. */}
+          {/* The report only appears when something got left out. It shows
+              up BEFORE opening the deck, so the decision to continue is the
+              user's, not a warning that gets lost. */}
           {importing.report && (
             <div className="import-report">
               <p>
-                Importadas <strong>{importing.report.imported_cards}</strong> cartas. No se
-                reconocieron {importing.report.unresolved.length}{' '}
-                {importing.report.unresolved.length === 1 ? 'línea' : 'líneas'}:
+                Imported <strong>{importing.report.imported_cards}</strong>{' '}
+                {importing.report.imported_cards === 1 ? 'card' : 'cards'}.{' '}
+                {importing.report.unresolved.length}{' '}
+                {importing.report.unresolved.length === 1 ? 'line' : 'lines'} not recognized:
               </p>
               <ul>
-                {importing.report.unresolved.map((linea) => (
-                  <li key={linea}>{linea}</li>
+                {importing.report.unresolved.map((line) => (
+                  <li key={line}>{line}</li>
                 ))}
               </ul>
               <p className="hint">
-                Puede ser una errata, o una carta de un set que todavía no está sincronizado.
-                Añádelas a mano en el constructor.
+                It could be a typo, or a card from a set that hasn&apos;t been synced yet. Add
+                them by hand in the builder.
               </p>
             </div>
           )}
@@ -543,30 +552,30 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           <div className="builder-actions">
             {importing.report ? (
               <button type="button" onClick={() => onOpen(importing.report.deck.id)}>
-                Abrir el mazo
+                Open the deck
               </button>
             ) : (
               <button type="submit" disabled={importing.busy}>
-                {importing.busy ? 'Importando…' : 'Importar'}
+                {importing.busy ? 'Importing…' : 'Import'}
               </button>
             )}
             <button type="button" className="secondary" onClick={() => setImporting(null)}>
-              Cancelar
+              Cancel
             </button>
           </div>
         </form>
       ) : view === 'flat' ? (
-        <ul className="deck-list">{decks.map(filaMazo)}</ul>
+        <ul className="deck-list">{decks.map(deckRow)}</ul>
       ) : (
         <>
           <ul className="deck-list">
-            {subcarpetas.map(filaCarpeta)}
-            {mazosAqui.map(filaMazo)}
+            {subfolders.map(folderRow)}
+            {decksHere.map(deckRow)}
           </ul>
 
-          {!loading && subcarpetas.length === 0 && mazosAqui.length === 0 && (
+          {!loading && subfolders.length === 0 && decksHere.length === 0 && (
             <p className="empty">
-              {currentId ? 'Esta carpeta está vacía.' : 'Todavía no hay mazos.'}
+              {currentId ? 'This folder is empty.' : 'No decks yet.'}
             </p>
           )}
         </>

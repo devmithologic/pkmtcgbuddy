@@ -1,7 +1,7 @@
-"""El formato de texto con el que se intercambian listas de mazo.
+"""The text format decklists are exchanged in.
 
-Es el que exporta PTCG Live y el que aceptan Limitless y el resto de
-constructores de la red, así que es el formato de interoperabilidad de facto:
+It is the one PTCG Live exports and the one Limitless and the rest of the
+network's deck builders accept, so it is the de facto interoperability format:
 
     Pokémon: 17
     3 Riolu PRE 50
@@ -13,38 +13,38 @@ constructores de la red, así que es el formato de interoperabilidad de facto:
     Energy: 10
     7 Fighting Energy MEE 6
 
-Cada línea es `<cantidad> <nombre> <ABREVIATURA> <número>`. Las cabeceras de
-categoría llevan su total y son informativas: la categoría real de una carta la
-sabe el catálogo, así que se leen y se descartan — creer a la cabecera nos haría
-importar como Trainer una carta que el usuario colocó en la sección equivocada.
+Each line is `<quantity> <name> <ABBREVIATION> <number>`. Category headers carry
+their own total and are informational: a card's real category is known by the
+catalogue, so they are read and discarded — trusting the header would let us
+import as Trainer a card the user placed in the wrong section.
 
-Sin E/S ni framework, igual que `deck_rules.py`: aquí solo se pasa de texto a
-estructura y al revés. Resolver las cartas contra el catálogo es trabajo del
-router, que sí tiene base de datos.
+No I/O and no framework, same as `deck_rules.py`: this only turns text into a
+structure and back. Resolving the cards against the catalogue is the router's
+job, since it is the one with a database.
 """
 
 import re
 from dataclasses import dataclass
 
 # `3 Mega Lucario ex MEG 77`
-#   cantidad · nombre (perezoso, puede llevar espacios) · abreviatura · número
+#   quantity · name (lazy, may contain spaces) · abbreviation · number
 #
-# La abreviatura es de letras y dígitos —hay sets como `sv10.5w` cuyo código es
-# `WHT`, pero también promos tipo `SVP`— y el número puede no ser solo dígitos:
-# existen `TG01` y `SV001`. Anclar al final de la línea es lo que permite que el
-# nombre contenga espacios sin ambigüedad.
-LINEA = re.compile(
+# The abbreviation is letters and digits — there are sets like `sv10.5w` whose
+# code is `WHT`, but also promos like `SVP` — and the number may not be digits
+# only: `TG01` and `SV001` exist. Anchoring to the end of the line is what lets
+# the name contain spaces without ambiguity.
+LINE = re.compile(
     r"^\s*(\d+)\s+(.+?)\s+([A-Za-z][A-Za-z0-9]{1,5})\s+([A-Za-z]*\d+[A-Za-z]*)\s*$"
 )
 
-# `Pokémon: 17`, `Trainer: 33`, `Energy: 10`, y sus variantes en otros idiomas o
-# sin el total.
-CABECERA = re.compile(r"^\s*[A-Za-zÀ-ÿ\s]+:\s*\d*\s*$")
+# `Pokémon: 17`, `Trainer: 33`, `Energy: 10`, and their variants in other
+# languages or without the total.
+HEADER = re.compile(r"^\s*[A-Za-zÀ-ÿ\s]+:\s*\d*\s*$")
 
 
 @dataclass(frozen=True)
 class ParsedLine:
-    """Una línea de carta ya troceada, todavía sin resolver."""
+    """A card line already split apart, not yet resolved."""
 
     quantity: int
     name: str
@@ -54,107 +54,108 @@ class ParsedLine:
 
 
 def normalize_number(number: str) -> str:
-    """Quita los ceros a la izquierda del tramo numérico final.
+    """Strips the leading zeros from the trailing numeric run.
 
-    Es la diferencia que hace que la mitad de una lista no se encuentre. TCGdex
-    guarda `me01-077`; el formato de texto escribe `MEG 77`. Comparar las
-    cadenas tal cual falla en toda carta cuyo número tenga menos de tres cifras,
-    que son la mayoría.
+    This is the difference that keeps half a list from being found. TCGdex
+    stores `me01-077`; the text format writes `MEG 77`. Comparing the strings
+    as-is fails on every card whose number has fewer than three digits, which
+    is most of them.
 
-    Se conserva el prefijo de letras porque hay números que no son solo dígitos:
+    The letter prefix is kept because some numbers are not digits only:
     `TG01` -> `TG1`, `SV001` -> `SV1`.
     """
     m = re.match(r"^(.*?)(\d+)$", number)
     if not m:
         return number.upper()
-    prefijo, digitos = m.groups()
-    return f"{prefijo.upper()}{int(digitos)}"
+    prefix, digits = m.groups()
+    return f"{prefix.upper()}{int(digits)}"
 
 
 def candidate_ids(set_id: str, number: str) -> list[str]:
-    """Los ids que podría tener esa carta en el catálogo.
+    """The ids that card could have in the catalogue.
 
-    En vez de guardar un número normalizado en las 15.000 cartas —que obligaría
-    a resincronizarlas— se generan las variantes de relleno y se buscan todas de
-    una vez con un `$in`. Una consulta para la lista entera, no una por línea.
+    Instead of storing a normalized number on the 15,000 cards — which would
+    force resyncing them all — the padded variants are generated and looked up
+    all at once with an `$in`. One query for the whole list, not one per line.
     """
     m = re.match(r"^(.*?)(\d+)$", number)
     if not m:
         return [f"{set_id}-{number}"]
 
-    prefijo, digitos = m.groups()
-    n = int(digitos)
-    # dict.fromkeys y no set: quita duplicados —un número de dos cifras da lo
-    # mismo con relleno 1 y 2— conservando el orden, que hace el $in legible al
-    # depurar.
+    prefix, digits = m.groups()
+    n = int(digits)
+    # dict.fromkeys, not set: it drops duplicates — a two-digit number gives the
+    # same result with padding 1 and 2 — while keeping order, which makes the
+    # $in readable when debugging.
     return list(
-        dict.fromkeys(f"{set_id}-{prefijo}{n:0{ancho}d}" for ancho in (1, 2, 3, 4))
+        dict.fromkeys(f"{set_id}-{prefix}{n:0{width}d}" for width in (1, 2, 3, 4))
     )
 
 
 def parse(text: str) -> tuple[list[ParsedLine], list[str]]:
-    """Trocea el texto. Devuelve (líneas de carta, líneas no reconocidas).
+    """Splits the text apart. Returns (card lines, unrecognized lines).
 
-    Las cabeceras y las líneas en blanco no cuentan como fallo: se descartan en
-    silencio porque son parte del formato. Lo que se devuelve como no reconocido
-    es lo que parecía una carta y no encajó, para poder enseñárselo al usuario
-    tal como lo escribió.
+    Headers and blank lines do not count as a failure: they are silently
+    dropped because they are part of the format. What comes back as
+    unrecognized is what looked like a card and did not fit, so it can be
+    shown to the user exactly as they wrote it.
     """
-    lineas: list[ParsedLine] = []
-    sueltas: list[str] = []
+    lines: list[ParsedLine] = []
+    unmatched: list[str] = []
 
-    for bruta in text.splitlines():
-        if not bruta.strip() or CABECERA.match(bruta):
+    for raw_line in text.splitlines():
+        if not raw_line.strip() or HEADER.match(raw_line):
             continue
 
-        m = LINEA.match(bruta)
+        m = LINE.match(raw_line)
         if not m:
-            sueltas.append(bruta.strip())
+            unmatched.append(raw_line.strip())
             continue
 
-        cantidad, nombre, codigo, numero = m.groups()
-        lineas.append(
+        quantity, name, code, number = m.groups()
+        lines.append(
             ParsedLine(
-                quantity=int(cantidad),
-                name=nombre.strip(),
-                set_code=codigo.upper(),
-                number=numero,
-                raw=bruta.strip(),
+                quantity=int(quantity),
+                name=name.strip(),
+                set_code=code.upper(),
+                number=number,
+                raw=raw_line.strip(),
             )
         )
 
-    return lineas, sueltas
+    return lines, unmatched
 
 
-# Orden y etiquetas de las secciones al exportar. El formato las espera en este
-# orden y con estos nombres en inglés, que es lo que leen las demás
-# herramientas: traducirlas rompería la interoperabilidad, que es todo el punto.
-SECCIONES = [("Pokemon", "Pokémon"), ("Trainer", "Trainer"), ("Energy", "Energy")]
+# Order and labels of the sections when exporting. The format expects them in
+# this order and with these English names, which is what the other tools
+# read: translating them would break the interoperability that is the whole
+# point.
+SECTIONS = [("Pokemon", "Pokémon"), ("Trainer", "Trainer"), ("Energy", "Energy")]
 
 
 def render(entries: list[dict]) -> str:
-    """Compone el texto a partir de las cartas ya resueltas.
+    """Composes the text from cards that are already resolved.
 
-    Cada entrada: {quantity, name, category, set_code, number}. Una carta sin
-    `set_code` —de un set sin abreviatura oficial— se escribe igualmente con su
-    nombre y cantidad: la lista resultante no será importable tal cual en otra
-    herramienta, pero perder la carta al exportar sería peor que dar una línea
-    que el usuario puede corregir.
+    Each entry: {quantity, name, category, set_code, number}. A card with no
+    `set_code` — from a set with no official abbreviation — is still written
+    out with its name and quantity: the resulting list will not be importable
+    as-is in another tool, but dropping the card on export would be worse than
+    giving a line the user can fix.
     """
-    bloques = []
+    blocks = []
 
-    for clave, etiqueta in SECCIONES:
-        grupo = [e for e in entries if e["category"] == clave]
-        if not grupo:
+    for key, label in SECTIONS:
+        group = [e for e in entries if e["category"] == key]
+        if not group:
             continue
 
-        total = sum(e["quantity"] for e in grupo)
-        lineas = [f"{etiqueta}: {total}"]
-        for e in grupo:
-            codigo = e.get("set_code")
-            numero = e.get("number")
-            sufijo = f" {codigo} {numero}" if codigo and numero else ""
-            lineas.append(f"{e['quantity']} {e['name']}{sufijo}")
-        bloques.append("\n".join(lineas))
+        total = sum(e["quantity"] for e in group)
+        lines = [f"{label}: {total}"]
+        for e in group:
+            code = e.get("set_code")
+            number = e.get("number")
+            suffix = f" {code} {number}" if code and number else ""
+            lines.append(f"{e['quantity']} {e['name']}{suffix}")
+        blocks.append("\n".join(lines))
 
-    return "\n\n".join(bloques) + "\n" if bloques else ""
+    return "\n\n".join(blocks) + "\n" if blocks else ""

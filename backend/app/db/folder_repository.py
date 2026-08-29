@@ -1,14 +1,14 @@
-"""Acceso a la colección `folders`.
+"""Access to the `folders` collection.
 
     folders                      decks
       _id                          _id
-      name                         folder_id  -> folders._id  (o null)
+      name                         folder_id  -> folders._id  (or null)
       parent_id -> folders._id     …
       created_at
 
-Una decena de documentos de tres campos. Todas las operaciones se traen la
-colección entera, y eso no es descuido: es lo que permite usar el modelo de árbol
-más simple. Ver el docstring de models/folder.py.
+A handful of documents with three fields. Every operation fetches the whole
+collection, and that's not carelessness: it's what allows using the simplest
+possible tree model. See the docstring in models/folder.py.
 """
 
 from datetime import datetime, timezone
@@ -29,18 +29,18 @@ def _collection():
 
 async def ensure_indexes() -> None:
     await _collection().create_index([("parent_id", ASCENDING)])
-    # Los mazos se filtran por carpeta al agrupar el listado.
+    # Decks are filtered by folder when grouping the listing.
     await get_database()[DECKS].create_index([("folder_id", ASCENDING)])
 
 
 async def list_folders() -> list[dict]:
-    """Todas las carpetas, con cuántos mazos cuelgan directamente de cada una.
+    """All folders, with how many decks hang directly off each one.
 
-    Dos consultas para el árbol entero, pase el que pase. El recuento sale de una
-    agregación sobre `decks` y no de contar dentro del bucle: eso último sería
-    una consulta por carpeta, el N+1 de siempre.
+    Two queries for the whole tree, no matter what. The count comes from an
+    aggregation over `decks` and not from counting inside a loop: that would be
+    one query per folder, the usual N+1.
     """
-    carpetas = [doc async for doc in _collection().find().sort("name", ASCENDING)]
+    folders = [doc async for doc in _collection().find().sort("name", ASCENDING)]
 
     cursor = await get_database()[DECKS].aggregate(
         [
@@ -48,11 +48,11 @@ async def list_folders() -> list[dict]:
             {"$group": {"_id": "$folder_id", "n": {"$sum": 1}}},
         ]
     )
-    recuentos = {d["_id"]: d["n"] async for d in cursor}
+    counts = {d["_id"]: d["n"] async for d in cursor}
 
-    for c in carpetas:
-        c["deck_count"] = recuentos.get(c["_id"], 0)
-    return carpetas
+    for c in folders:
+        c["deck_count"] = counts.get(c["_id"], 0)
+    return folders
 
 
 async def get_folder(folder_id: ObjectId) -> dict | None:
@@ -70,77 +70,78 @@ async def create_folder(name: str, parent_id: ObjectId | None) -> str:
     return str(result.inserted_id)
 
 
-async def _mapa_de_padres() -> dict[ObjectId, ObjectId | None]:
+async def _parent_map() -> dict[ObjectId, ObjectId | None]:
     return {d["_id"]: d.get("parent_id") async for d in _collection().find({}, {"parent_id": 1})}
 
 
-async def crearia_ciclo(folder_id: ObjectId, nuevo_padre: ObjectId | None) -> bool:
-    """¿Meter `folder_id` dentro de `nuevo_padre` cerraría un bucle?
+async def would_create_cycle(folder_id: ObjectId, new_parent: ObjectId | None) -> bool:
+    """Would putting `folder_id` inside `new_parent` close a loop?
 
-    Es la comprobación que distingue un árbol de un grafo, y sin ella la
-    estructura se corrompe en silencio: arrastrar «Competitivo» dentro de su
-    propia hija «Standard» deja a las dos fuera del árbol —ninguna cuelga ya de
-    la raíz— así que desaparecen del listado sin borrarse, y recorrer el ciclo
-    para pintarlas cuelga el navegador.
+    This is the check that distinguishes a tree from a graph, and without it
+    the structure silently corrupts: dragging "Competitive" inside its own
+    child "Standard" leaves both of them outside the tree — neither hangs from
+    the root anymore — so they vanish from the listing without being deleted,
+    and walking the cycle to render them hangs the browser.
 
-    Se resuelve subiendo desde el padre propuesto hacia la raíz: si por el camino
-    aparece la propia carpeta, la rama se cerraría sobre sí misma. Termina
-    siempre, porque el árbol ya existente no tiene ciclos y cada paso sube uno.
+    Solved by climbing from the proposed parent toward the root: if the
+    folder itself shows up along the way, the branch would close on itself. It
+    always terminates, because the existing tree has no cycles and each step
+    climbs one level.
     """
-    if nuevo_padre is None:
+    if new_parent is None:
         return False
-    if nuevo_padre == folder_id:
+    if new_parent == folder_id:
         return True
 
-    padres = await _mapa_de_padres()
-    actual = nuevo_padre
-    while actual is not None:
-        if actual == folder_id:
+    parents = await _parent_map()
+    current = new_parent
+    while current is not None:
+        if current == folder_id:
             return True
-        actual = padres.get(actual)
+        current = parents.get(current)
     return False
 
 
 async def update_folder(folder_id: ObjectId, payload: FolderUpdate) -> None:
-    """Renombra o mueve.
+    """Renames or moves.
 
-    exclude_unset otra vez, y aquí es imprescindible en los dos sentidos:
-    `parent_id: None` significa «a la raíz» y hay que aplicarlo, mientras que un
-    `name: None` solo puede ser basura y se descarta.
+    exclude_unset again, and here it's essential in both directions:
+    `parent_id: None` means "to the root" and must be applied, while a
+    `name: None` can only be client noise and is dropped.
     """
-    cambios = payload.model_dump(exclude_unset=True)
+    changes = payload.model_dump(exclude_unset=True)
 
-    if "name" in cambios and cambios["name"] is None:
-        del cambios["name"]
+    if "name" in changes and changes["name"] is None:
+        del changes["name"]
 
-    if "parent_id" in cambios:
-        cambios["parent_id"] = (
-            ObjectId(cambios["parent_id"]) if cambios["parent_id"] else None
+    if "parent_id" in changes:
+        changes["parent_id"] = (
+            ObjectId(changes["parent_id"]) if changes["parent_id"] else None
         )
 
-    if not cambios:
+    if not changes:
         return
 
-    await _collection().update_one({"_id": folder_id}, {"$set": cambios})
+    await _collection().update_one({"_id": folder_id}, {"$set": changes})
 
 
 async def delete_folder(folder_id: ObjectId) -> bool:
-    """Borra la carpeta y SUBE su contenido al padre. Nunca borra mazos.
+    """Deletes the folder and MOVES its contents UP to the parent. Never deletes decks.
 
-    Es la parte que hay que decidir, no la que se programa sola: borrar una
-    carpeta con cuatro mazos dentro no puede llevarse los mazos por delante. Se
-    heredan hacia arriba, que es lo que hace un gestor de archivos cuando
-    desagrupas: si la carpeta estaba en la raíz, sus hijos acaban en la raíz.
+    This is the part that has to be decided, not the part that codes itself:
+    deleting a folder with four decks inside can't take the decks down with it.
+    They're inherited upward, which is what a file manager does when you
+    ungroup: if the folder was at the root, its children end up at the root.
     """
-    carpeta = await _collection().find_one({"_id": folder_id})
-    if not carpeta:
+    folder = await _collection().find_one({"_id": folder_id})
+    if not folder:
         return False
 
-    abuelo = carpeta.get("parent_id")
+    grandparent = folder.get("parent_id")
 
-    await _collection().update_many({"parent_id": folder_id}, {"$set": {"parent_id": abuelo}})
+    await _collection().update_many({"parent_id": folder_id}, {"$set": {"parent_id": grandparent}})
     await get_database()[DECKS].update_many(
-        {"folder_id": folder_id}, {"$set": {"folder_id": abuelo}}
+        {"folder_id": folder_id}, {"$set": {"folder_id": grandparent}}
     )
     await _collection().delete_one({"_id": folder_id})
     return True

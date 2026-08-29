@@ -1,9 +1,10 @@
-"""Acceso a las colecciones `decks` y `deck_versions`.
+"""Access to the `decks` and `deck_versions` collections.
 
-Dos colecciones referenciadas, no versiones embebidas dentro del mazo. La razón
-decisiva es la que viene después: una partida podrá guardar el _id real de la
-versión jugada, y agrupar estadísticas por versión será una consulta directa. Con
-las versiones embebidas, la partida tendría que apuntar a un subdocumento.
+Two referenced collections, not versions embedded inside the deck. The
+deciding reason is the one that comes next: a game will be able to store the
+real _id of the version it was played with, and grouping stats by version will
+be a direct query. With embedded versions, the game would have to point at a
+subdocument.
 
     decks                              deck_versions
       _id                                _id
@@ -19,7 +20,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
 
-from app.db.mongo import get_database, to_object_id  # noqa: F401  (reexportado)
+from app.db.mongo import get_database, to_object_id  # noqa: F401  (re-exported)
 from app.models.card import DeckFormat
 from app.models.deck import DeckCard, DeckUpdate, DeckVersionSummary
 
@@ -36,67 +37,70 @@ def _versions():
 
 
 async def ensure_indexes() -> None:
-    # Buscar las versiones de un mazo es la consulta más frecuente; el orden
-    # descendente sirve para pedir la última sin ordenar en memoria.
+    # Looking up a deck's versions is the most frequent query; descending
+    # order lets the latest one be requested without sorting in memory.
     await _versions().create_index([("deck_id", ASCENDING), ("version", DESCENDING)])
     await _decks().create_index([("updated_at", DESCENDING)])
 
 
 async def update_deck(deck_id: ObjectId, payload: DeckUpdate) -> None:
-    """Aplica los cambios enviados y solo esos.
+    """Applies the changes sent, and only those.
 
-    exclude_unset es la pieza clave de un PATCH: Pydantic distingue entre "el
-    cliente no mandó este campo" y "lo mandó a null". Sin ello, un PATCH que solo
-    cambia el nombre borraría los iconos, porque llegarían como None por defecto.
+    exclude_unset is the key piece of a PATCH: Pydantic distinguishes between
+    "the client didn't send this field" and "sent it as null". Without it, a
+    PATCH that only changes the name would wipe out the icons, because they'd
+    arrive as None by default.
     """
-    cambios = payload.model_dump(exclude_unset=True)
+    changes = payload.model_dump(exclude_unset=True)
 
-    # `name` no admite null, por lo mismo que en las sesiones: DeckSummary.name
-    # es `str`, así que un nombre nulo hace fallar la validación de la respuesta
-    # y GET /api/decks devuelve 500 para todos los mazos, no solo para este.
-    # Los dos Pokémon sí: quitarlos es lo que hace la × del selector.
-    if "name" in cambios and cambios["name"] is None:
-        del cambios["name"]
+    # `name` doesn't accept null, for the same reason as with sessions:
+    # DeckSummary.name is `str`, so a null name fails response validation and
+    # GET /api/decks returns 500 for every deck, not just this one. The two
+    # Pokemon fields do accept it: clearing them is what the selector's ×
+    # does.
+    if "name" in changes and changes["name"] is None:
+        del changes["name"]
 
-    # La carpeta es el caso opuesto al nombre: aquí un null SÍ es una orden
-    # —«saca el mazo de su carpeta»— así que se conserva, y solo hay que
-    # convertirlo a ObjectId cuando trae valor. El texto que llega del cliente no
-    # casaría nunca con el _id guardado.
-    if "folder_id" in cambios:
-        cambios["folder_id"] = (
-            ObjectId(cambios["folder_id"]) if cambios["folder_id"] else None
+    # The folder is the opposite case from the name: here a null IS an
+    # instruction — "take the deck out of its folder" — so it's kept, and only
+    # needs converting to ObjectId when it carries a value. The text that
+    # arrives from the client would never match the stored _id.
+    if "folder_id" in changes:
+        changes["folder_id"] = (
+            ObjectId(changes["folder_id"]) if changes["folder_id"] else None
         )
 
-    # El campo de la API se llama `deck_format`; la clave del documento es
-    # `format` —así lo escribe create_deck y así lo leen los routers—. Sin este
-    # renombrado, el $set crearía un campo `deck_format` que nadie lee: sin
-    # error, sin excepción, y el formato sin cambiar. Es el peor tipo de fallo,
-    # el que no se queja.
-    if "deck_format" in cambios:
-        formato = cambios.pop("deck_format")
-        if formato is None:
-            # Un formato nulo solo puede ser ruido del cliente: un mazo siempre
-            # tiene uno. Mismo criterio que `name`.
+    # The API field is called `deck_format`; the document key is `format` —
+    # that's what create_deck writes and what the routers read. Without this
+    # rename, the $set would create a `deck_format` field that nobody reads: no
+    # error, no exception, and the format left unchanged. It's the worst kind
+    # of failure, the kind that doesn't complain.
+    if "deck_format" in changes:
+        format_ = changes.pop("deck_format")
+        if format_ is None:
+            # A null format can only be client noise: a deck always has one.
+            # Same criterion as `name`.
             pass
         else:
-            cambios["format"] = DeckFormat(formato).value
+            changes["format"] = DeckFormat(format_).value
 
-    if not cambios:
+    if not changes:
         return
 
-    cambios["updated_at"] = datetime.now(timezone.utc)
-    await _decks().update_one({"_id": deck_id}, {"$set": cambios})
+    changes["updated_at"] = datetime.now(timezone.utc)
+    await _decks().update_one({"_id": deck_id}, {"$set": changes})
 
 
 async def create_deck(
     name: str, deck_format: DeckFormat, folder_id: ObjectId | None = None
 ) -> str:
-    """Crea el mazo y su versión 1, vacía. Devuelve el id del mazo.
+    """Creates the deck and its version 1, empty. Returns the deck's id.
 
-    Son dos inserciones y no hay transacción: si la segunda fallara, quedaría un
-    mazo sin versión. Se asume porque MongoDB en modo standalone no soporta
-    transacciones —requieren un replica set— y el caso es recuperable. En
-    producción esto sería un replica set y una transacción.
+    Two inserts and no transaction: if the second one failed, a deck without a
+    version would be left behind. This is accepted because MongoDB in
+    standalone mode doesn't support transactions — they require a replica
+    set — and the case is recoverable. In production this would be a replica
+    set and a transaction.
     """
     now = datetime.now(timezone.utc)
 
@@ -118,7 +122,7 @@ async def create_deck(
             {
                 "deck_id": deck_id,
                 "version": 1,
-                "message": "Lista inicial",
+                "message": "Initial list",
                 "cards": [],
                 "created_at": now,
             }
@@ -133,7 +137,7 @@ async def create_deck(
 
 
 async def sessions_using(deck_id: ObjectId) -> int:
-    """Cuántas sesiones se jugaron con alguna versión de este mazo."""
+    """How many sessions were played with any version of this deck."""
     version_ids = [v["_id"] async for v in _versions().find({"deck_id": deck_id}, {"_id": 1})]
     if not version_ids:
         return 0
@@ -143,15 +147,17 @@ async def sessions_using(deck_id: ObjectId) -> int:
 
 
 async def delete_deck(deck_id: ObjectId) -> None:
-    """Borra el mazo y todas sus versiones.
+    """Deletes the deck and all of its versions.
 
-    NO comprueba nada: quien decide si se puede borrar es el router, porque la
-    respuesta es un 409 con un mensaje, no un dato. Aquí solo se ejecuta.
+    Checks NOTHING: whoever decides whether the deletion is allowed is the
+    router, because the response is a 409 with a message, not data. Here it
+    just executes.
 
-    Las versiones se borran primero. Al revés quedaría una ventana en la que
-    existen versiones cuyo deck_id no apunta a nada, y si el proceso muere en
-    medio se quedan así para siempre. Borrar de la hoja hacia la raíz deja como
-    peor caso un mazo vacío, que sí se puede volver a borrar.
+    The versions are deleted first. The other way around would leave a window
+    in which versions exist whose deck_id points at nothing, and if the
+    process dies in the middle they stay like that forever. Deleting from the
+    leaf toward the root leaves, worst case, an empty deck, which can still be
+    deleted again.
     """
     await _versions().delete_many({"deck_id": deck_id})
     await _decks().delete_one({"_id": deck_id})
@@ -166,10 +172,10 @@ async def get_version(version_id: ObjectId) -> dict | None:
 
 
 async def list_decks() -> list[dict]:
-    """Mazos con la lista de su versión actual, en una sola pasada.
+    """Decks with their current version's list, in a single pass.
 
-    Un $lookup es el equivalente en MongoDB a un JOIN. Se usa aquí para no caer
-    en el N+1 evidente: pedir los mazos y luego una versión por mazo.
+    A $lookup is MongoDB's equivalent of a JOIN. Used here to avoid the
+    obvious N+1: fetching the decks and then one version per deck.
     """
     pipeline = [
         {"$sort": {"updated_at": DESCENDING}},
@@ -181,25 +187,26 @@ async def list_decks() -> list[dict]:
                 "as": "current",
             }
         },
-        # $lookup siempre devuelve un array; como la referencia es a un único
-        # documento, se desenvuelve.
+        # $lookup always returns an array; since the reference is to a single
+        # document, it's unwrapped.
         {"$unwind": {"path": "$current", "preserveNullAndEmptyArrays": True}},
     ]
 
-    # OJO con la asimetría del driver asíncrono, que no perdona:
+    # WATCH OUT for the async driver's asymmetry, which doesn't forgive:
     #
-    #   find(...)          devuelve el cursor directamente, SIN await
-    #   await aggregate()  devuelve una corrutina; hay que esperarla para
-    #                      obtener el cursor
+    #   find(...)          returns the cursor directly, WITHOUT await
+    #   await aggregate()  returns a coroutine; it must be awaited to get the
+    #                      cursor
     #
-    # Tratarlas igual da "TypeError: 'async for' requires an object with
-    # __aiter__ method, got coroutine", que llega al cliente como un 500.
+    # Treating them the same gives "TypeError: 'async for' requires an object
+    # with __aiter__ method, got coroutine", which reaches the client as a
+    # 500.
     cursor = await _decks().aggregate(pipeline)
     return [doc async for doc in cursor]
 
 
 async def replace_cards(version_id: ObjectId, cards: list[DeckCard]) -> None:
-    """Reemplaza la lista de una versión y marca el mazo como modificado."""
+    """Replaces a version's list and marks the deck as modified."""
     version = await _versions().find_one_and_update(
         {"_id": version_id},
         {"$set": {"cards": [c.model_dump() for c in cards]}},
@@ -212,17 +219,17 @@ async def replace_cards(version_id: ObjectId, cards: list[DeckCard]) -> None:
 
 
 async def create_version(deck: dict, message: str) -> str:
-    """Crea una versión nueva copiando la lista de la actual.
+    """Creates a new version, copying the current one's list.
 
-    Copiar es el punto entero del ejercicio: a partir de aquí, la versión
-    anterior queda congelada y las partidas ya atribuidas a ella siguen
-    describiendo la lista con la que se jugaron de verdad.
+    Copying is the entire point of the exercise: from here on, the previous
+    version stays frozen and games already attributed to it keep describing
+    the list they were actually played with.
     """
     current = await _versions().find_one({"_id": deck["current_version_id"]})
     cards = current["cards"] if current else []
 
-    # El número se calcula desde la versión más alta existente, no desde un
-    # contador guardado en el mazo: un contador puede desincronizarse, esto no.
+    # The number is computed from the highest existing version, not from a
+    # counter stored on the deck: a counter can drift out of sync, this can't.
     last = await _versions().find_one(
         {"deck_id": deck["_id"]}, sort=[("version", DESCENDING)]
     )
@@ -250,7 +257,7 @@ async def create_version(deck: dict, message: str) -> str:
 
 
 async def list_versions(deck_id: ObjectId) -> list[DeckVersionSummary]:
-    """Historial, de la más reciente a la más antigua."""
+    """History, from most recent to oldest."""
     cursor = _versions().find({"deck_id": deck_id}).sort("version", DESCENDING)
     return [
         DeckVersionSummary(

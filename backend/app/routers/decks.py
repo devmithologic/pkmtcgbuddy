@@ -1,8 +1,7 @@
-"""Endpoints del recurso /api/decks.
+"""Endpoints for the /api/decks resource.
 
-Los mazos son datos nuestros —a diferencia de las cartas, que son de TCGdex— así
-que aquí sí hay escritura. La validación se calcula en cada lectura y nunca se
-guarda.
+Decks are our own data —unlike cards, which belong to TCGdex— so this is where
+writes happen. Validation is computed on every read and never stored.
 """
 
 from datetime import date
@@ -36,9 +35,9 @@ router = APIRouter(prefix="/decks", tags=["decks"])
 
 
 async def _resolve(cards_raw: list[dict], deck_format: DeckFormat):
-    """Convierte la lista almacenada en su forma resuelta y la valida.
+    """Converts the stored decklist into its resolved form and validates it.
 
-    Una sola consulta al catálogo sirve para las dos cosas.
+    A single query to the catalogue serves both purposes.
     """
     cards = [DeckCard(**c) for c in cards_raw]
     catalogue = await card_repository.get_cards_by_ids([c.card_id for c in cards])
@@ -60,28 +59,28 @@ async def _resolve(cards_raw: list[dict], deck_format: DeckFormat):
 
 
 async def _load_deck(deck_id: str) -> dict:
-    """Busca un mazo o lanza 404. Centralizado porque lo necesitan casi todas."""
+    """Looks up a deck or raises 404. Centralized because almost every endpoint needs it."""
     oid = deck_repository.to_object_id(deck_id)
     deck = await deck_repository.get_deck(oid) if oid else None
 
     if deck is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"No existe el mazo {deck_id}"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Deck {deck_id} does not exist"
         )
     return deck
 
 
 @router.post("", response_model=DeckOut, status_code=status.HTTP_201_CREATED)
 async def create_deck(payload: DeckCreate) -> DeckOut:
-    """Crea un mazo con su versión 1, vacía."""
+    """Creates a deck with its version 1, empty."""
     deck_id = await deck_repository.create_deck(
         payload.name,
         payload.deck_format,
         deck_repository.to_object_id(payload.folder_id) if payload.folder_id else None,
     )
 
-    # Los iconos son opcionales al crear; si vinieron, se aplican en el mismo
-    # paso reutilizando el PATCH en lugar de duplicar la escritura.
+    # Icons are optional at creation; if they came in, they're applied in the
+    # same step by reusing the PATCH instead of duplicating the write.
     if payload.primary_pokemon or payload.secondary_pokemon:
         await deck_repository.update_deck(
             deck_repository.to_object_id(deck_id),
@@ -96,34 +95,36 @@ async def create_deck(payload: DeckCreate) -> DeckOut:
 
 @router.get("", response_model=list[DeckSummary])
 async def list_decks() -> list[DeckSummary]:
-    """Listado con el estado de validez de cada mazo.
+    """List with the validity state of every deck.
 
-    El catálogo de TODOS los mazos se resuelve en UNA consulta antes del bucle.
-    La primera versión llamaba a `_resolve` dentro del bucle, y `_resolve` hace
-    su propio get_cards_by_ids: 20 mazos eran 21 viajes. El repositorio se había
-    molestado en usar un $lookup para evitar el N+1 y el router lo reintroducía
-    una capa más arriba — evitarlo en un sitio no sirve si se recrea en el otro.
+    The catalogue for ALL decks is resolved in ONE query before the loop.
+    The first version called `_resolve` inside the loop, and `_resolve` does
+    its own get_cards_by_ids: 20 decks were 21 round trips. The repository had
+    gone to the trouble of using a $lookup to avoid the N+1, and the router was
+    reintroducing it one layer up — avoiding it in one place is worthless if it
+    gets recreated in the other.
     """
     docs = await deck_repository.list_decks()
 
-    todos_los_ids = [
+    all_ids = [
         c["card_id"]
         for doc in docs
         for c in (doc.get("current") or {}).get("cards", [])
     ]
-    catalogo = await card_repository.get_cards_by_ids(todos_los_ids)
+    catalogue = await card_repository.get_cards_by_ids(all_ids)
 
     summaries = []
     for doc in docs:
         current = doc.get("current") or {}
         deck_format = DeckFormat(doc["format"])
         cards = [DeckCard(**c) for c in current.get("cards", [])]
-        validation = validate_deck(cards, catalogo, deck_format)
+        validation = validate_deck(cards, catalogue, deck_format)
 
-        # Un mazo sin versión no debería existir —create_deck no es
-        # transaccional y un fallo entre las dos inserciones lo dejaría así—
-        # pero si existe, str(None) daría la cadena "None" y al empezar una
-        # sesión con él saldría un 422 desconcertante. Se omite del listado.
+        # A deck with no version shouldn't exist —create_deck isn't
+        # transactional and a failure between the two inserts would leave it
+        # this way— but if it does exist, str(None) would give the string
+        # "None" and starting a session with it would produce a confusing
+        # 422. It's left out of the listing.
         if doc.get("current_version_id") is None:
             continue
 
@@ -148,60 +149,62 @@ async def list_decks() -> list[DeckSummary]:
 
 @router.post("/import", response_model=DeckImportResult, status_code=status.HTTP_201_CREATED)
 async def import_deck(payload: DeckImport) -> DeckImportResult:
-    """Crea un mazo a partir de una lista en el formato de texto de PTCG Live.
+    """Creates a deck from a decklist in the PTCG Live text format.
 
-    Va declarada ANTES que `/{deck_id}` — FastAPI resuelve por orden, y con la
-    otra primero «import» se leería como un id de mazo. Es la misma trampa que
-    ya documenta `/sessions/tags`.
+    Declared BEFORE `/{deck_id}` — FastAPI resolves by declaration order, and
+    with the other one first, "import" would be read as a deck id. It's the
+    same trap `/sessions/tags` already documents.
 
-    Importa lo que reconoce y devuelve lo que no, en vez de rechazar la lista
-    entera por una línea. Una lista ajena puede traer una carta de un set que no
-    hemos sincronizado, y quedarse sin nada por eso es peor que quedarse con 57
-    de 60 sabiendo cuáles faltan.
+    Imports what it recognizes and returns what it doesn't, instead of
+    rejecting the whole list over one line. Someone else's list may bring a
+    card from a set we haven't synced, and ending up with nothing because of
+    that is worse than ending up with 57 of 60 while knowing which ones are
+    missing.
     """
-    lineas, sueltas = deck_text.parse(payload.text)
-    if not lineas:
+    lines, unmatched = deck_text.parse(payload.text)
+    if not lines:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "No se reconoció ninguna carta. El formato es «3 Riolu PRE 50», una por línea.",
+            'No card was recognized. The format is "3 Riolu PRE 50", one per line.',
         )
 
-    abreviaturas = await set_repository.abbreviation_map()
+    abbreviations = await set_repository.abbreviation_map()
 
-    # Una sola consulta para toda la lista: se acumulan los ids candidatos de
-    # cada línea y se piden juntos. Resolver línea a línea serían 23 viajes.
-    candidatos: list[str] = []
-    por_linea: list[tuple[deck_text.ParsedLine, list[str]]] = []
-    for linea in lineas:
-        set_id = abreviaturas.get(linea.set_code)
-        ids = deck_text.candidate_ids(set_id, linea.number) if set_id else []
-        candidatos.extend(ids)
-        por_linea.append((linea, ids))
+    # A single query for the whole list: the candidate ids from each line are
+    # accumulated and requested together. Resolving line by line would be 23
+    # round trips.
+    candidate_ids: list[str] = []
+    by_line: list[tuple[deck_text.ParsedLine, list[str]]] = []
+    for line in lines:
+        set_id = abbreviations.get(line.set_code)
+        ids = deck_text.candidate_ids(set_id, line.number) if set_id else []
+        candidate_ids.extend(ids)
+        by_line.append((line, ids))
 
-    catalogo = await card_repository.get_cards_by_ids(candidatos)
+    catalogue = await card_repository.get_cards_by_ids(candidate_ids)
 
     cards: list[DeckCard] = []
-    no_resueltas: list[str] = list(sueltas)
-    for linea, ids in por_linea:
-        encontrado = next((i for i in ids if i in catalogo), None)
-        if encontrado:
-            cards.append(DeckCard(card_id=encontrado, quantity=linea.quantity))
+    unresolved: list[str] = list(unmatched)
+    for line, ids in by_line:
+        found = next((i for i in ids if i in catalogue), None)
+        if found:
+            cards.append(DeckCard(card_id=found, quantity=line.quantity))
         else:
-            no_resueltas.append(linea.raw)
+            unresolved.append(line.raw)
 
     if not cards:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Ninguna carta de la lista está en el catálogo. "
-            "¿Has sincronizado los sets con `python -m app.services.set_sync`?",
+            "No card in the list is in the catalogue. "
+            "Have you synced the sets with `python -m app.services.set_sync`?",
         )
 
-    # El formato de texto no dice el formato de torneo ni el nombre del mazo:
-    # ninguno de los dos viaja en la lista. El nombre lo pone quien importa, y
-    # el formato se deja en Standard, que es lo que se juega y se cambia en la
-    # cabecera del constructor con un clic.
+    # The text format says nothing about the tournament format or the deck's
+    # name: neither one travels in the list. The name is set by whoever
+    # imports it, and the format is left at Standard, which is what's played
+    # and gets changed in the builder's header with one click.
     deck_id = await deck_repository.create_deck(
-        payload.name or "Mazo importado",
+        payload.name or "Imported deck",
         DeckFormat.STANDARD,
         deck_repository.to_object_id(payload.folder_id) if payload.folder_id else None,
     )
@@ -211,55 +214,56 @@ async def import_deck(payload: DeckImport) -> DeckImportResult:
     return DeckImportResult(
         deck=await get_deck(deck_id),
         imported_cards=sum(c.quantity for c in cards),
-        unresolved=no_resueltas,
+        unresolved=unresolved,
     )
 
 
 @router.get("/{deck_id}/export", response_class=PlainTextResponse)
 async def export_deck(deck_id: str) -> str:
-    """La lista actual del mazo en el formato de texto, lista para pegar.
+    """The deck's current decklist in the text format, ready to paste.
 
-    Se devuelve como text/plain y no dentro de un JSON: es un documento, no un
-    dato, y así `curl` o el navegador ya dan algo que se copia tal cual.
+    Returned as text/plain and not inside a JSON: it's a document, not data,
+    so `curl` or the browser already give back something that can be copied
+    as-is.
     """
     deck = await _load_deck(deck_id)
     version = await deck_repository.get_version(deck["current_version_id"])
-    entradas = [DeckCard(**c) for c in (version or {}).get("cards", [])]
+    entries = [DeckCard(**c) for c in (version or {}).get("cards", [])]
 
-    catalogo = await card_repository.get_cards_by_ids([e.card_id for e in entradas])
-    codigos = await set_repository.id_map()
+    catalogue = await card_repository.get_cards_by_ids([e.card_id for e in entries])
+    codes = await set_repository.id_map()
 
-    salida = []
-    for entrada in entradas:
-        carta = catalogo.get(entrada.card_id)
-        if not carta:
+    output = []
+    for entry in entries:
+        card = catalogue.get(entry.card_id)
+        if not card:
             continue
-        set_id, _, numero = entrada.card_id.rpartition("-")
-        salida.append(
+        set_id, _, number = entry.card_id.rpartition("-")
+        output.append(
             {
-                "quantity": entrada.quantity,
-                "name": carta.name,
-                "category": carta.category.value,
-                "set_code": codigos.get(set_id),
-                # Sin ceros a la izquierda: es como lo escriben las demás
-                # herramientas, y como se imprime en la carta.
-                "number": deck_text.normalize_number(numero),
+                "quantity": entry.quantity,
+                "name": card.name,
+                "category": card.category.value,
+                "set_code": codes.get(set_id),
+                # No leading zeros: it's how the other tools write it, and how
+                # it's printed on the card.
+                "number": deck_text.normalize_number(number),
             }
         )
 
-    return deck_text.render(salida)
+    return deck_text.render(output)
 
 
 @router.get("/{deck_id}", response_model=DeckOut)
 async def get_deck(deck_id: str) -> DeckOut:
-    """Mazo, lista de la versión actual y validación."""
+    """Deck, current version's decklist, and validation."""
     deck = await _load_deck(deck_id)
     version = await deck_repository.get_version(deck["current_version_id"])
 
     if version is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="El mazo apunta a una versión que no existe",
+            detail="The deck points at a version that does not exist",
         )
 
     deck_format = DeckFormat(deck["format"])
@@ -288,30 +292,33 @@ async def get_deck(deck_id: str) -> DeckOut:
 
 @router.delete("/{deck_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_deck(deck_id: str) -> None:
-    """Borra un mazo y su historial de versiones.
+    """Deletes a deck and its version history.
 
-    **Se niega si alguna sesión se jugó con él**, y devuelve 409 diciendo
-    cuántas. No es prudencia genérica: la idea central de esta aplicación es que
-    cada partida se atribuye a la VERSIÓN con la que se jugó, así que borrar el
-    mazo dejaría esas sesiones apuntando a un documento inexistente. El récord
-    seguiría existiendo, pero ya no se sabría de qué lista era: exactamente el
-    dato que la aplicación existe para conservar.
+    **Refused if any session was played with it**, returning a 409 that says
+    how many. This isn't generic caution: the central idea of this application
+    is that every game is attributed to the VERSION it was played with, so
+    deleting the deck would leave those sessions pointing at a document that
+    no longer exists. The record would still exist, but it would no longer be
+    known which decklist it was: exactly the data this application exists to
+    preserve.
 
-    409 Conflict y no 400: la petición está bien formada, lo que pasa es que
-    choca con el estado actual del recurso. Y no 403, que hablaría de permisos.
+    409 Conflict and not 400: the request is well-formed, what happens is that
+    it conflicts with the resource's current state. And not 403, which would
+    speak of permissions.
 
-    Deja al usuario la salida: borrar antes esas sesiones, o quedarse el mazo.
-    Borrarlas en cascada sería decidir por él lo más destructivo.
+    Leaves the way out to the user: delete those sessions first, or keep the
+    deck. Cascading the delete would be deciding the most destructive option
+    for them.
     """
     deck = await _load_deck(deck_id)
 
-    en_uso = await deck_repository.sessions_using(deck["_id"])
-    if en_uso:
+    in_use = await deck_repository.sessions_using(deck["_id"])
+    if in_use:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"No se puede borrar: {en_uso} "
-            f"{'sesión se jugó' if en_uso == 1 else 'sesiones se jugaron'} con este mazo. "
-            "Bórralas primero si de verdad quieres eliminarlo.",
+            f"Cannot delete: {in_use} "
+            f"{'session was played' if in_use == 1 else 'sessions were played'} with this deck. "
+            "Delete them first if you really want to remove it.",
         )
 
     await deck_repository.delete_deck(deck["_id"])
@@ -319,11 +326,12 @@ async def delete_deck(deck_id: str) -> None:
 
 @router.patch("/{deck_id}", response_model=DeckOut)
 async def update_deck(deck_id: str, payload: DeckUpdate) -> DeckOut:
-    """Cambia el nombre o los iconos de un mazo ya creado.
+    """Changes the name or icons of a deck that already exists.
 
-    PATCH y no PUT porque se manda un cambio parcial, no el recurso entero. Es la
-    diferencia semántica entre los dos verbos, y aquí importa: un PUT obligaría a
-    reenviar el mazo completo solo para cambiar un icono.
+    PATCH and not PUT because a partial change is sent, not the whole
+    resource. That's the semantic difference between the two verbs, and it
+    matters here: a PUT would force resending the entire deck just to change
+    one icon.
     """
     deck = await _load_deck(deck_id)
     await deck_repository.update_deck(deck["_id"], payload)
@@ -332,14 +340,15 @@ async def update_deck(deck_id: str, payload: DeckUpdate) -> DeckOut:
 
 @router.put("/{deck_id}/cards", response_model=DeckOut)
 async def replace_cards(deck_id: str, payload: DeckCardsUpdate) -> DeckOut:
-    """Reemplaza la lista de la versión ACTUAL.
+    """Replaces the CURRENT version's decklist.
 
-    Se guarda cualquier estado, legal o no: construir un mazo es iterativo, y
-    negarse a guardar 30 cartas porque no son 60 haría la aplicación inservible.
-    La respuesta incluye la validación, así que el cliente sabe qué le falta.
+    Any state is saved, legal or not: building a deck is iterative, and
+    refusing to save 30 cards because they aren't 60 would make the
+    application useless. The response includes the validation, so the client
+    knows what's missing.
 
-    Solo la versión actual es editable. Las anteriores están congeladas — es lo
-    que hace que las estadísticas atribuidas a ellas sigan siendo ciertas.
+    Only the current version is editable. Earlier ones are frozen — that's
+    what keeps the statistics attributed to them true.
     """
     deck = await _load_deck(deck_id)
     await deck_repository.replace_cards(deck["current_version_id"], payload.cards)
@@ -350,9 +359,9 @@ async def replace_cards(deck_id: str, payload: DeckCardsUpdate) -> DeckOut:
     "/{deck_id}/versions", response_model=DeckOut, status_code=status.HTTP_201_CREATED
 )
 async def create_version(deck_id: str, payload: NewVersionRequest) -> DeckOut:
-    """Crea una versión nueva copiando la lista de la actual.
+    """Creates a new version by copying the current one's decklist.
 
-    A partir de aquí, la anterior queda congelada y los cambios van a la nueva.
+    From here on, the previous one is frozen and changes go to the new one.
     """
     deck = await _load_deck(deck_id)
     await deck_repository.create_version(deck, payload.message)
@@ -361,25 +370,25 @@ async def create_version(deck_id: str, payload: NewVersionRequest) -> DeckOut:
 
 @router.get("/{deck_id}/versions", response_model=list[DeckVersionSummary])
 async def list_versions(deck_id: str) -> list[DeckVersionSummary]:
-    """Historial del mazo, de la versión más reciente a la más antigua."""
+    """The deck's history, from the most recent version to the oldest."""
     deck = await _load_deck(deck_id)
     return await deck_repository.list_versions(deck["_id"])
 
 
 @router.get("/{deck_id}/versions/{version_id}", response_model=DeckVersionOut)
 async def get_version(deck_id: str, version_id: str) -> DeckVersionOut:
-    """Una versión concreta con su lista. Sirve para mirar el pasado."""
+    """A specific version with its decklist. Useful for looking at the past."""
     deck = await _load_deck(deck_id)
     oid = deck_repository.to_object_id(version_id)
     version = await deck_repository.get_version(oid) if oid else None
 
-    # Se comprueba que la versión pertenece a ESTE mazo. Sin ello,
-    # /decks/{otro}/versions/{id} devolvería datos ajenos: un fallo de control de
-    # acceso por referencia directa a objeto.
+    # It's checked that the version belongs to THIS deck. Without that,
+    # /decks/{other}/versions/{id} would return someone else's data: an
+    # insecure direct object reference access-control flaw.
     if version is None or version["deck_id"] != deck["_id"]:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"El mazo {deck_id} no tiene la versión {version_id}",
+            detail=f"Deck {deck_id} has no version {version_id}",
         )
 
     resolved, validation = await _resolve(version["cards"], DeckFormat(deck["format"]))
@@ -397,27 +406,27 @@ async def get_version(deck_id: str, version_id: str) -> DeckVersionOut:
 @router.get("/{deck_id}/stats", response_model=DeckStats)
 async def deck_stats(
     deck_id: str,
-    date_from: date | None = Query(default=None, description="Desde, inclusive"),
-    date_to: date | None = Query(default=None, description="Hasta, inclusive"),
+    date_from: date | None = Query(default=None, description="From, inclusive"),
+    date_to: date | None = Query(default=None, description="To, inclusive"),
     session_type: SessionType | None = Query(default=None),
-    tag: str | None = Query(default=None, description="Filtra por etiqueta de sesión"),
+    tag: str | None = Query(default=None, description="Filter by session tag"),
 ) -> DeckStats:
-    """Estadísticas del mazo, agregadas sobre las sesiones jugadas con él.
+    """Deck statistics, aggregated over the sessions played with it.
 
-    El desglose por versión es la razón de ser de todo esto: saber si la v2 juega
-    mejor que la v1 es la pregunta que ningún tracker comercial responde.
+    The breakdown by version is the whole reason this exists: knowing whether
+    v2 plays better than v1 is the question no commercial tracker answers.
 
-    Los filtros de periodo y tipo de evento no son adorno. Un win rate que mezcla
-    testing con torneo no describe ninguna de las dos cosas: contra tu amigo
-    pruebas líneas raras y aceptas perder.
+    The period and event-type filters aren't decoration. A win rate that mixes
+    testing with tournament describes neither: against a friend you try out
+    weird lines and accept losing.
     """
     deck = await _load_deck(deck_id)
 
-    # Una sesión referencia una VERSIÓN, así que para las estadísticas del mazo
-    # entero hay que reunir todas sus versiones primero.
+    # A session references a VERSION, so the statistics for the whole deck
+    # require gathering all its versions first.
     versions = await deck_repository.list_versions(deck["_id"])
     version_ids = [deck_repository.to_object_id(v.id) for v in versions]
-    por_id = {v.id: v for v in versions}
+    by_id = {v.id: v for v in versions}
 
     raw = await stats_repository.deck_stats(
         version_ids,
@@ -427,24 +436,24 @@ async def deck_stats(
         tag=tag,
     )
 
-    def linea(row: dict, label: str) -> StatLine:
+    def line(row: dict, label: str) -> StatLine:
         return StatLine(
             label=label, wins=row["wins"], losses=row["losses"], ties=row["ties"]
         )
 
     overall = (
-        linea(raw["overall"][0], deck["name"])
+        line(raw["overall"][0], deck["name"])
         if raw["overall"]
         else StatLine(label=deck["name"], wins=0, losses=0, ties=0)
     )
 
     by_version = []
     for row in raw["by_version"]:
-        version = por_id.get(str(row["_id"]))
+        version = by_id.get(str(row["_id"]))
         if version is None:
-            # Una sesión apunta a una versión que ya no existe. No debería pasar
-            # —no hay forma de borrar versiones— pero si pasara, se omite en vez
-            # de reventar la pantalla entera.
+            # A session points at a version that no longer exists. Shouldn't
+            # happen —there's no way to delete versions— but if it did, it's
+            # skipped instead of blowing up the whole screen.
             continue
         by_version.append(
             VersionStatLine(
@@ -468,6 +477,6 @@ async def deck_stats(
         sessions_counted=raw["sessions"],
         overall=overall,
         by_version=by_version,
-        by_archetype=[linea(r, r["_id"]) for r in raw["by_archetype"]],
-        by_session_type=[linea(r, r["_id"]) for r in raw["by_session_type"]],
+        by_archetype=[line(r, r["_id"]) for r in raw["by_archetype"]],
+        by_session_type=[line(r, r["_id"]) for r in raw["by_session_type"]],
     )
