@@ -4,11 +4,11 @@ import { listTags } from '../api/sessions'
 import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
 
 /**
- * A partir de cuántas partidas un porcentaje empieza a significar algo.
+ * How many games it takes before a percentage starts to mean something.
  *
- * No es una regla estadística, es una advertencia visual: 100% de 1 partida y
- * 62% de 26 se leen igual si solo miras el número. Los renglones por debajo de
- * este umbral se marcan para que no se confundan con una tendencia.
+ * It's not a statistical rule, it's a visual warning: 100% of 1 game and
+ * 62% of 26 read the same if you only look at the number. Rows below this
+ * threshold are flagged so they aren't mistaken for a trend.
  */
 const MUESTRA_MINIMA = 5
 
@@ -18,7 +18,7 @@ function pct(rate) {
   return `${Math.round(rate * 100)}%`
 }
 
-/** Un renglón: etiqueta, barra proporcional al win rate, récord y porcentaje. */
+/** A row: label, bar proportional to the win rate, record and percentage. */
 function Row({ label, line, sub }) {
   const escasa = line.played < MUESTRA_MINIMA
 
@@ -29,8 +29,8 @@ function Row({ label, line, sub }) {
         {sub && <span className="stat-sub">{sub}</span>}
       </span>
 
-      {/* La barra es refuerzo visual del porcentaje que ya está escrito al
-          lado, así que se oculta a lectores de pantalla. */}
+      {/* The bar is a visual reinforcement of the percentage already
+          written next to it, so it's hidden from screen readers. */}
       <span className="stat-bar" aria-hidden="true">
         <span className="stat-bar-fill" style={{ width: pct(line.win_rate) }} />
       </span>
@@ -44,11 +44,12 @@ function Row({ label, line, sub }) {
 }
 
 /**
- * Estadísticas de un mazo.
+ * A deck's statistics.
  *
- * Nada se calcula aquí: el servidor agrega y devuelve los números hechos. Es la
- * misma regla que la validación del mazo y el récord de la sesión — una sola
- * implementación del cálculo, imposible que dos discrepen.
+ * Nothing is computed here: the server aggregates and returns the numbers
+ * already made. It's the same rule as deck validation and the session's
+ * record — one single implementation of the calculation, impossible for
+ * two to disagree.
  */
 export default function DeckStats({ deckId }) {
   const [stats, setStats] = useState(null)
@@ -60,10 +61,10 @@ export default function DeckStats({ deckId }) {
   useEffect(() => {
     const controller = new AbortController()
     setLoading(true)
-    // Limpiar el error al reintentar. Sin esto, un fallo pasajero —reiniciar el
-    // backend— dejaba el panel clavado en el mensaje de error: el componente
-    // hace `if (error) return`, así que aunque la siguiente consulta fuera bien
-    // no había forma de volver salvo desmontando.
+    // Clear the error on retry. Without this, a transient failure —
+    // restarting the backend — left the panel stuck on the error message:
+    // the component does `if (error) return`, so even if the next query
+    // succeeded there was no way back short of unmounting.
     setError(null)
 
     getDeckStats(deckId, filters, controller.signal)
@@ -75,12 +76,12 @@ export default function DeckStats({ deckId }) {
         if (!controller.signal.aborted) setLoading(false)
       })
 
-    // Cambiar un filtro cancela la consulta anterior: las respuestas pueden
-    // llegar desordenadas. Ver log_mentor/09.
+    // Changing a filter cancels the previous query: responses can arrive
+    // out of order. See log_mentor/09.
     return () => controller.abort()
   }, [deckId, filters])
 
-  // Las etiquetas se cargan una vez: no dependen del mazo ni de los filtros.
+  // Tags are loaded once: they don't depend on the deck or the filters.
   useEffect(() => {
     let active = true
     listTags()
@@ -163,8 +164,8 @@ export default function DeckStats({ deckId }) {
             </span>
           </div>
 
-          {/* Por versión va primero a propósito: es la pregunta que ningún otro
-              tracker responde, y la razón de que exista el versionado. */}
+          {/* By version comes first on purpose: it's the question no other
+              tracker answers, and the reason versioning exists. */}
           <h3>Por versión</h3>
           <ul className="stat-list">
             {byVersion.map((v) => (

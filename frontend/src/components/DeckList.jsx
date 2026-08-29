@@ -18,17 +18,17 @@ function vistaGuardada() {
 }
 
 /**
- * Mazos y carpetas, navegando como en un explorador de archivos.
+ * Decks and folders, navigated like a file explorer.
  *
- * El cambio respecto a la versión anterior no es estético. Antes se pintaba el
- * árbol ENTERO desplegado y el formulario de creación vivía siempre a un lado;
- * ahora se ve una sola carpeta cada vez y se entra en ella. Dos consecuencias
- * que valen la pena:
+ * The change from the previous version isn't cosmetic. Before, the WHOLE
+ * tree was rendered expanded and the creation form always lived off to the
+ * side; now only one folder is shown at a time and you navigate into it.
+ * Two consequences worth having:
  *
- * - Lo que se crea, se crea DONDE ESTÁS. Un selector de carpeta en el
- *   formulario era pedir dos veces el mismo dato: la navegación ya lo dice.
- * - Desaparece el grupo «Sin carpeta». Nunca fue una carpeta, era el resto; con
- *   navegación, la raíz ya ES ese sitio.
+ * - What you create is created WHERE YOU ARE. A folder selector in the
+ *   form was asking for the same data twice: the navigation already says it.
+ * - The "No folder" group disappears. It was never a folder, it was the
+ *   rest; with navigation, the root already IS that place.
  */
 export default function DeckList({ onOpen, currentId, setCurrentId }) {
   const [decks, setDecks] = useState([])
@@ -37,15 +37,16 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   const [error, setError] = useState(null)
   const [view, setView] = useState(vistaGuardada)
 
-  // `currentId` —dónde estás, null es la raíz— vive en App y no aquí. Al abrir
-  // un mazo, App desmonta este componente para pintar el constructor, así que un
-  // estado local se perdía: volvías siempre a la raíz en vez de a la carpeta de
-  // la que saliste. Es el precio de no tener router; subir el estado un nivel lo
-  // paga sin añadir una dependencia.
+  // `currentId` — where you are, null is the root — lives in App and not
+  // here. When a deck opens, App unmounts this component to render the
+  // builder, so local state was getting lost: you'd always land back on the
+  // root instead of the folder you came from. That's the price of not
+  // having a router; lifting the state one level up pays it without adding
+  // a dependency.
 
-  // Renombrado en el sitio: {kind: 'folder'|'deck', id, name}.
-  // Pantalla de importar: null cuando no está abierta. Guarda el texto pegado y
-  // el informe de lo que no se pudo resolver.
+  // In-place rename: {kind: 'folder'|'deck', id, name}.
+  // Import screen: null when it's not open. Holds the pasted text and the
+  // report of what couldn't be resolved.
   const [importing, setImporting] = useState(null)
   const [renaming, setRenaming] = useState(null)
   const [confirming, setConfirming] = useState(null)
@@ -76,7 +77,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   const porId = new Map(folders.map((f) => [f.id, f]))
   const planas = flattenTree(buildTree(folders))
 
-  /** Camino desde la raíz hasta la carpeta actual, para la miga de pan. */
+  /** Path from the root to the current folder, for the breadcrumb. */
   function ruta(id) {
     const camino = []
     let actual = id ? porId.get(id) : null
@@ -116,11 +117,12 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   }
 
   /**
-   * Crea el mazo y entra directo al constructor.
+   * Creates the deck and goes straight into the builder.
    *
-   * Sin formulario previo: el nombre y el formato se editan dentro, igual que
-   * una carpeta se renombra en su fila. La carpeta sale de dónde estás, no de
-   * un desplegable — preguntarlo sería pedir dos veces el mismo dato.
+   * No form beforehand: the name and format are edited inside, the same way
+   * a folder is renamed in its row. The folder comes from where you are,
+   * not from a dropdown — asking for it would be requesting the same data
+   * twice.
    */
   async function creaMazo() {
     setError(null)
@@ -130,8 +132,8 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
         deck_format: 'standard',
         folder_id: currentId,
       })
-      // El segundo argumento le dice al constructor que es recién creado, para
-      // que enfoque el nombre con el texto seleccionado.
+      // The second argument tells the builder it was just created, so it
+      // focuses the name with the text selected.
       onOpen(deck.id, true)
     } catch (err) {
       setError(err.message)
@@ -148,9 +150,10 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
         name: importing.name.trim() || null,
         folder_id: currentId,
       })
-      // Si TODO entró, no hay nada que contar: se abre el mazo y ya. Si algo se
-      // quedó fuera, se enseña el informe antes de continuar — que es el punto
-      // de haber elegido «importar lo que resuelva y decir qué no».
+      // If EVERYTHING came in, there's nothing to report: the deck just
+      // opens. If something got left out, the report is shown before
+      // continuing — which is the whole point of having chosen "import what
+      // resolves and say what didn't".
       if (r.unresolved.length === 0) {
         setImporting(null)
         onOpen(r.deck.id)
@@ -164,11 +167,12 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   }
 
   /**
-   * Crea la carpeta y la deja lista para renombrar, como un escritorio.
+   * Creates the folder and leaves it ready to rename, like a desktop.
    *
-   * Se crea primero con un nombre provisional y se edita después, en vez de
-   * pedir el nombre antes: así la carpeta existe desde el primer momento —se ve
-   * dónde ha caído— y cancelar el renombrado deja algo, no nada.
+   * It's created first with a placeholder name and edited afterward,
+   * instead of asking for the name up front: this way the folder exists
+   * from the first moment — you can see where it landed — and canceling
+   * the rename leaves something, not nothing.
    */
   async function creaCarpeta() {
     setError(null)
@@ -183,8 +187,9 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
 
   async function guardaNombre(event) {
     event.preventDefault()
-    // Se llama desde onSubmit y desde onBlur. Escape cancela poniendo `renaming`
-    // a null, así que un blur que llegue después encontraría nada que guardar.
+    // Called from both onSubmit and onBlur. Escape cancels by setting
+    // `renaming` to null, so a blur that arrives afterward would find
+    // nothing to save.
     if (!renaming) return
     const { kind, id, name } = renaming
     const limpio = name.trim()
@@ -234,7 +239,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
 
   const editando = (item, kind) => renaming?.kind === kind && renaming.id === item.id
 
-  /** El nombre de una fila, o el campo para cambiarlo si se está renombrando. */
+  /** A row's name, or the field to change it if it's being renamed. */
   function nombreEditable(item, kind, className) {
     if (!editando(item, kind)) return <span className={className}>{item.name}</span>
 
@@ -247,8 +252,9 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
           onBlur={guardaNombre}
           aria-label="Nuevo nombre"
-          /* eslint-disable-next-line jsx-a11y/no-autofocus -- el campo aparece
-             por una acción explícita y es lo único con lo que interactuar. */
+          /* eslint-disable-next-line jsx-a11y/no-autofocus -- the field
+             appears from an explicit action and is the only thing to
+             interact with. */
           autoFocus
           required
         />
@@ -257,19 +263,20 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   }
 
   /**
-   * El cuerpo de una fila: un <button> normalmente, un <div> mientras se
-   * renombra.
+   * A row's body: a <button> normally, a <div> while renaming.
    *
-   * No es un capricho de marcado, arregla un fallo concreto: el campo de texto
-   * vivía DENTRO del botón de la fila, y el modelo de contenido de <button>
-   * prohíbe meter elementos interactivos dentro. El navegador no da error, hace
-   * algo peor: activa el botón al pulsar la BARRA ESPACIADORA, sin importar que
-   * el foco estuviera en el campo. Escribir «Testing For Puebla» era imposible
-   * porque el primer espacio entraba en la carpeta.
+   * It's not a whim of markup, it fixes a concrete bug: the text field used
+   * to live INSIDE the row's button, and a <button>'s content model
+   * forbids nesting interactive elements inside it. The browser doesn't
+   * throw an error, it does something worse: it activates the button when
+   * you press the SPACE BAR, no matter that focus was in the field. Typing
+   * "Testing For Puebla" was impossible because the first space entered the
+   * folder.
    *
-   * Space y Enter activan un botón por definición —así se usa sin ratón— así
-   * que no había nada que interceptar: mientras el input estuviera dentro, el
-   * conflicto era estructural. La solución es no anidarlos.
+   * Space and Enter activate a button by definition — that's how it's used
+   * without a mouse — so there was nothing to intercept: as long as the
+   * input was nested inside, the conflict was structural. The fix is not to
+   * nest them.
    */
   function CuerpoFila({ activo, onOpen: abrir, children }) {
     if (!activo) return <div className="row-main">{children}</div>
@@ -352,9 +359,9 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
     return (
       <li key={`d-${deck.id}`} className="deck-row">
         <CuerpoFila activo={!editando(deck, 'deck')} onOpen={() => onOpen(deck.id)}>
-          {/* El hueco existe siempre, tenga iconos el mazo o no: sin él, los
-              mazos sin Pokémon empiezan su nombre 130 px antes y la lista queda
-              con el borde izquierdo dentado. */}
+          {/* The slot always exists, whether the deck has icons or not:
+              without it, decks with no Pokémon start their name 130 px
+              earlier and the list ends up with a jagged left edge. */}
           <span className="pkm-slot">
             <PokemonPair
               primary={deck.primary_pokemon}
@@ -416,8 +423,9 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   return (
     <section className="decks-screen">
       <div className="deck-toolbar">
-        {/* Miga de pan. Cada tramo es un botón: subir dos niveles es un clic, no
-            dos. En la vista plana no hay dónde estar, así que no se pinta. */}
+        {/* Breadcrumb. Each segment is a button: going up two levels is one
+            click, not two. In the flat view there's nowhere to be, so it's
+            not rendered. */}
         {view === 'folders' ? (
           <nav className="breadcrumb" aria-label="Ruta">
             <button
@@ -511,16 +519,16 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
               rows={16}
               spellCheck={false}
               placeholder={'Pokémon: 17\n3 Riolu PRE 50\n3 Mega Lucario ex MEG 77\n…'}
-              /* eslint-disable-next-line jsx-a11y/no-autofocus -- la pantalla
-                 existe solo para pegar aquí. */
+              /* eslint-disable-next-line jsx-a11y/no-autofocus -- the
+                 screen exists only to paste here. */
               autoFocus
               required
             />
           </label>
 
-          {/* El informe solo aparece cuando algo se quedó fuera. Sale ANTES de
-              abrir el mazo, para que la decisión de continuar sea del usuario y
-              no un aviso que se pierde. */}
+          {/* The report only appears when something got left out. It shows
+              up BEFORE opening the deck, so the decision to continue is the
+              user's, not a warning that gets lost. */}
           {importing.report && (
             <div className="import-report">
               <p>

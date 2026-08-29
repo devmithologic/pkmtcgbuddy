@@ -17,49 +17,50 @@ import PokemonPair from './PokemonPair'
 import PokemonPicker from './PokemonPicker'
 
 /**
- * Pantalla de armado de un mazo.
+ * Deck-building screen.
  *
- * Estado local mientras editas, guardado explícito con botón. Se eligió así
- * frente al autoguardado porque es más simple de razonar en esta primera pasada:
- * lo que ves es lo que hay, y «guardado» significa una sola cosa.
+ * Local state while you edit, explicit save with a button. Chosen over
+ * autosave because it's simpler to reason about in this first pass: what you
+ * see is what there is, and "saved" means one single thing.
  *
- * El servidor es la autoridad sobre la validación. Cada guardado devuelve el mazo
- * ya validado, así que nunca calculamos reglas aquí — duplicarlas en el cliente
- * daría dos fuentes de verdad que acabarían discrepando.
+ * The server is the authority on validation. Every save returns the deck
+ * already validated, so we never compute the rules here — duplicating them
+ * on the client would give two sources of truth that would eventually
+ * disagree.
  */
 export default function DeckBuilder({ deckId, isNew = false, onBack }) {
   const [deck, setDeck] = useState(null)
-  // El nombre se edita en el sitio, así que necesita su propio estado: el del
-  // servidor solo se actualiza al salir del campo, no en cada tecla.
+  // The name is edited in place, so it needs its own state: the server's
+  // copy only updates on blur, not on every keystroke.
   const [name, setName] = useState('')
   const [cards, setCards] = useState([])
   const [versions, setVersions] = useState([])
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  // 'grid' o 'list'. La rejilla es el modo por defecto porque una lista de 60
-  // cartas se reconoce antes por las ilustraciones que por los nombres.
+  // 'grid' or 'list'. Grid is the default mode because a 60-card list is
+  // recognized faster by the artwork than by the names.
   const [view, setView] = useState('grid')
-  // Tamaño de carta elegido por el usuario. Por defecto 'm', que deja mandar a
-  // las container queries: la rejilla ya se adapta sola al ancho de su columna.
-  // Este control existe para cuando quieres verlas más grandes de lo que el
-  // hueco sugiere, o meter las 60 en pantalla de golpe.
+  // Card size chosen by the user. Defaults to 'm', which lets the container
+  // queries drive it: the grid already adapts on its own to its column's
+  // width. This control exists for when you want to see them bigger than
+  // the space suggests, or fit all 60 on screen at once.
   const [gridSize, setGridSize] = useState('m')
-  // Versión antigua que se está consultando, si hay alguna. Se muestra al lado
-  // de la actual para poder comparar mientras editas, que es justo lo que falta
-  // cuando cambias cartas: ver de dónde vienes.
+  // Old version being viewed, if any. Shown alongside the current one so
+  // you can compare while editing, which is exactly what's missing when
+  // you change cards: seeing where you came from.
   const [comparing, setComparing] = useState(null)
-  // Que el foco automático ocurra UNA vez. El ref de un input se ejecuta en cada
-  // render, así que sin esta marca cada tecla volvería a seleccionar el texto y
-  // escribir sería imposible.
+  // Makes the auto-focus happen ONCE. An input's ref callback runs on
+  // every render, so without this flag every keystroke would reselect the
+  // text and typing would be impossible.
   const enfocado = useRef(false)
-  // Texto exportado, o null. Se pide al servidor en vez de componerlo aquí: el
-  // formato lo define `deck_text.py`, y tener una segunda implementación en el
-  // cliente garantiza que en algún momento discrepen.
+  // Exported text, or null. Requested from the server instead of assembled
+  // here: the format is defined by `deck_text.py`, and having a second
+  // implementation on the client guarantees they'll eventually disagree.
   const [exported, setExported] = useState(null)
 
-  // Carga inicial. Las dos peticiones van juntas porque ninguna depende de la
-  // otra: en serie tardarían el doble sin motivo.
+  // Initial load. The two requests go together because neither depends on
+  // the other: in series they'd take twice as long for no reason.
   useEffect(() => {
     let active = true
 
@@ -79,12 +80,13 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
   }, [deckId])
 
   /**
-   * Añade una carta desde el buscador.
+   * Adds a card from the search box.
    *
-   * El buscador solo devuelve id, nombre e imagen — no categoría ni legalidad,
-   * porque el listado de cartas no las incluye. Se piden con getCard: una
-   * petición por carta elegida, que a ~1ms contra Mongo es gratis, y evita
-   * pintar la lista con datos incompletos hasta el siguiente guardado.
+   * The search box only returns id, name and image — no category or
+   * legality, because the card listing doesn't include them. Those are
+   * requested with getCard: one request per card picked, which at ~1ms
+   * against Mongo is free, and avoids rendering the list with incomplete
+   * data until the next save.
    */
   async function handlePick(summary) {
     const existing = cards.find((c) => c.card.id === summary.id)
@@ -97,11 +99,11 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
     try {
       const full = await getCard(summary.id)
       setCards((previous) => {
-        // La comprobación va DENTRO del actualizador, no contra el `cards` del
-        // cierre. Entre el clic y la respuesta de getCard pasan milisegundos, y
-        // dos clics rápidos en la misma carta veían ambos una lista sin ella:
-        // se añadía dos veces, con la misma key de React y dos entradas del
-        // mismo card_id al guardar.
+        // The check goes INSIDE the updater, not against the closure's
+        // `cards`. Milliseconds pass between the click and getCard's
+        // response, and two quick clicks on the same card would both see a
+        // list without it: it got added twice, with the same React key and
+        // two entries for the same card_id on save.
         if (previous.some((c) => c.card.id === full.id)) {
           return previous.map((c) =>
             c.card.id === full.id ? { ...c, quantity: c.quantity + 1 } : c,
@@ -127,20 +129,21 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
   }
 
   /**
-   * Cambia uno de los dos iconos del mazo.
+   * Changes one of the deck's two icons.
    *
-   * Se guarda al instante, sin pasar por «Guardar cambios». Es deliberado: ese
-   * botón guarda la LISTA de cartas, y mezclar dos cosas distintas bajo el mismo
-   * botón obligaría a explicar cuál guarda qué.
+   * Saved instantly, without going through "Save changes". This is
+   * deliberate: that button saves the card LIST, and mixing two different
+   * things under the same button would force explaining which one saves
+   * what.
    */
   /**
-   * Guarda un cambio de la CABECERA: nombre, formato o iconos.
+   * Saves a change to the HEADER: name, format or icons.
    *
-   * Va aparte del guardado de la lista de cartas y es deliberado. La lista se
-   * acumula en local y se manda con un botón, porque añadir una carta es un
-   * paso de un trabajo largo; la cabecera son datos sueltos que se aplican al
-   * momento, como el renombrado de una fila del listado. Por eso este PATCH no
-   * toca `dirty`.
+   * Kept apart from saving the card list, deliberately. The list
+   * accumulates locally and is sent with a button, because adding a card is
+   * one step of a long task; the header is loose data that applies
+   * immediately, like renaming a row in the list. That's why this PATCH
+   * doesn't touch `dirty`.
    */
   async function patchDeck(cambios) {
     try {
@@ -161,7 +164,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
     }
   }
 
-  /** Guarda el nombre al salir del campo o con Enter. Vacío no se guarda. */
+  /** Saves the name on blur or Enter. Empty is not saved. */
   async function guardaNombre() {
     const limpio = name.trim()
     if (!limpio || limpio === deck.name) {
@@ -182,7 +185,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
     setDirty(true)
   }
 
-  /** Carga una versión antigua para consultarla, o la cierra si ya está abierta. */
+  /** Loads an old version to view it, or closes it if already open. */
   async function toggleCompare(version) {
     if (comparing?.id === version.id) {
       setComparing(null)
@@ -205,8 +208,8 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
     setError(null)
 
     try {
-      // Al servidor solo le interesa id y cantidad; el resto son datos que él
-      // mismo resolverá al responder.
+      // The server only cares about id and quantity; the rest is data it
+      // will resolve itself when it responds.
       const payload = cards.map((c) => ({ card_id: c.card.id, quantity: c.quantity }))
       const updated = await saveDeckCards(deckId, payload)
       setDeck(updated)
@@ -220,10 +223,11 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
   }
 
   /**
-   * Crea una versión nueva copiando la actual.
+   * Creates a new version by copying the current one.
    *
-   * Guarda antes si hay cambios pendientes: de lo contrario, la versión nueva
-   * nacería con la lista vieja y los cambios se perderían sin aviso.
+   * Saves first if there are pending changes: otherwise, the new version
+   * would be born with the old list and the changes would be lost without
+   * warning.
    */
   async function handleNewVersion() {
     const message = window.prompt('¿Qué cambia en esta versión?')
@@ -256,11 +260,10 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
 
   return (
     <div className="deck-builder">
-      {/* Todo lo que identifica al mazo, y las acciones de guardar, en la misma
-          fila. Antes el nombre era un <h2> fijo y guardar vivía dentro de la
-          columna izquierda, por debajo del panel de validación: con una lista de
-          60 cartas quedaba fuera de pantalla justo cuando había cambios sin
-          guardar. */}
+      {/* Everything that identifies the deck, plus the save actions, in the
+          same row. The name used to be a fixed <h2> and save lived inside
+          the left column, below the validation panel: with a 60-card list
+          it fell off-screen exactly when there were unsaved changes. */}
       <div className="builder-head">
         <button type="button" className="back" onClick={onBack}>
           ← Mazos
@@ -286,8 +289,9 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
                 if (e.key === 'Escape') setName(deck.name)
               }}
               aria-label="Nombre del mazo"
-              /* Un mazo recién creado se llama «Mazo nuevo»: enfocar y
-                 seleccionar deja escribir encima sin borrar a mano. */
+              /* A newly created deck is called "Mazo nuevo": focusing and
+                 selecting lets you type over it without deleting it by
+                 hand. */
               ref={(el) => {
                 if (el && isNew && !enfocado.current) {
                   enfocado.current = true
@@ -362,9 +366,9 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
 
       <div className="builder-cols">
         <div className="builder-deck">
-          {/* Mientras haya cambios sin guardar se pasa el total contado en
-              local, para que el panel no siga afirmando que un mazo de 62
-              cartas es legal. */}
+          {/* While there are unsaved changes, the locally counted total is
+              passed in, so the panel doesn't keep claiming a 62-card deck
+              is legal. */}
           <DeckValidation
             validation={deck.validation}
             pendingTotal={dirty ? cards.reduce((sum, c) => sum + c.quantity, 0) : null}
@@ -387,10 +391,11 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
             >
               Lista
             </button>
-            {/* El mazo entero de golpe, sin cabeceras de categoría cortando la
-                retícula: es cómo se mira una lista publicada. Va en solo
-                lectura a propósito — para editar están las otras dos, y ofrecer
-                los controles aquí sería repetirlas con otro nombre. */}
+            {/* The whole deck at once, with no category headers breaking up
+                the grid: it's how a published list is viewed. Read-only on
+                purpose — the other two views are for editing, and offering
+                those controls here would just repeat them under another
+                name. */}
             <button
               type="button"
               className={view === 'preview' ? 'active' : ''}
@@ -446,8 +451,8 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
               <p className="hint">
                 Solo lectura: las versiones anteriores están congeladas.
               </p>
-              {/* readOnly quita los controles: ofrecer un botón que no puede
-                  hacer nada confunde más que ayudar. */}
+              {/* readOnly removes the controls: offering a button that
+                  can't do anything confuses more than it helps. */}
               <DeckGrid cards={comparing.cards} readOnly size={gridSize} />
             </section>
           )}
@@ -478,8 +483,8 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
         </div>
 
         <div className="builder-search">
-          {/* El mismo CardSearch de la pestaña Cartas. Con onPick presente,
-              hacer clic añade al mazo en vez de abrir el detalle. */}
+          {/* The same CardSearch from the Cards tab. With onPick present,
+              clicking adds to the deck instead of opening the detail view. */}
           <CardSearch onPick={handlePick} defaultFormat={deck.deck_format} />
         </div>
       </div>
