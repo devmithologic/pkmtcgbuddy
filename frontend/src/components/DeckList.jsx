@@ -537,8 +537,8 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
                 {importing.report.unresolved.length === 1 ? 'línea' : 'líneas'}:
               </p>
               <ul>
-                {importing.report.unresolved.map((linea) => (
-                  <li key={linea}>{linea}</li>
+                {importing.report.unresolved.map((line) => (
+                  <li key={line}>{line}</li>
                 ))}
               </ul>
               <p className="hint">
