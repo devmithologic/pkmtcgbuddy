@@ -62,7 +62,7 @@ async def _list_all_ids(deck_format: DeckFormat) -> list[str]:
             deck_format=deck_format, page=page, page_size=100
         )
         ids.extend(card.id for card in result.cards)
-        print(f"  listadas {len(ids)} cartas…", end="\r", flush=True)
+        print(f"  listed {len(ids)} cards…", end="\r", flush=True)
 
         if not result.has_more:
             break
@@ -98,13 +98,13 @@ async def _fetch_details(ids: list[str]) -> list[dict]:
             finally:
                 done += 1
                 if done % 25 == 0:
-                    print(f"  detalles {done}/{len(ids)}…", end="\r", flush=True)
+                    print(f"  details {done}/{len(ids)}…", end="\r", flush=True)
 
     await asyncio.gather(*(fetch(card_id) for card_id in ids))
-    print(f"  detalles {done}/{len(ids)}   ")
+    print(f"  details {done}/{len(ids)}   ")
 
     if failed:
-        print(f"  {len(failed)} cartas fallaron; primeras: {failed[:3]}")
+        print(f"  {len(failed)} cards failed; first ones: {failed[:3]}")
 
     return documents
 
@@ -227,7 +227,7 @@ async def _write(documents: list[dict]) -> tuple[int, int]:
         )
         inserted += result.upserted_count
         updated += result.modified_count
-        print(f"  escritas {min(start + BATCH_SIZE, len(documents))}/{len(documents)}…",
+        print(f"  written {min(start + BATCH_SIZE, len(documents))}/{len(documents)}…",
               end="\r", flush=True)
 
     print()
@@ -275,9 +275,9 @@ async def resort() -> None:
         await card_repository.ensure_indexes()
 
         dates = await set_repository.release_dates()
-        print(f"{len(dates)} sets con fecha")
+        print(f"{len(dates)} sets with a date")
         if not dates:
-            print("La colección `sets` está vacía. Ejecuta antes:")
+            print("The `sets` collection is empty. Run this first:")
             print("  python -m app.services.set_sync")
             return
 
@@ -298,8 +298,8 @@ async def resort() -> None:
 
         elapsed = time.perf_counter() - started
         print(
-            f"Listo en {elapsed:.1f}s · {written} cartas · {without_date} sin fecha de set"
-            f" · {promoted} impresiones promovidas a legal"
+            f"Done in {elapsed:.1f}s · {written} cards · {without_date} without a set date"
+            f" · {promoted} printings promoted to legal"
         )
     finally:
         await close_mongo_connection()
@@ -314,17 +314,17 @@ async def sync(deck_format: DeckFormat) -> None:
     try:
         await card_repository.ensure_indexes()
 
-        print(f"Sincronizando cartas legales en {deck_format.value}…")
+        print(f"Syncing cards legal in {deck_format.value}…")
         ids = await _list_all_ids(deck_format)
 
         if not ids:
-            print("TCGdex no devolvió cartas. ¿Está disponible?")
+            print("TCGdex did not return any cards. Is it available?")
             return
 
         documents = await _fetch_details(ids)
 
         promoted = _apply_reprint_rule(documents)
-        print(f"  regla de reimpresión: {promoted} impresiones promovidas a legal")
+        print(f"  reprint rule: {promoted} printings promoted to legal")
 
         # The set's date is stamped here and not in card_to_document because
         # it doesn't come from the card: it has to be looked up in another
@@ -333,7 +333,7 @@ async def sync(deck_format: DeckFormat) -> None:
         without_date = _stamp_set_dates(documents, await set_repository.release_dates())
         if without_date:
             print(
-                f"  {without_date} cartas sin fecha de set. Si son muchas, falta:"
+                f"  {without_date} cards without a set date. If there are many, run:"
                 " python -m app.services.set_sync"
             )
 
@@ -347,8 +347,8 @@ async def sync(deck_format: DeckFormat) -> None:
             doc["is_energy_duplicate"] = doc["_id"] in duplicates
         basic_count = sum(1 for d in documents if d.get("is_basic_energy"))
         print(
-            f"  energías básicas: {basic_count} impresiones,"
-            f" {basic_count - len(duplicates)} ofrecidas en el buscador"
+            f"  basic energies: {basic_count} printings,"
+            f" {basic_count - len(duplicates)} offered in the search"
         )
 
         inserted, updated = await _write(documents)
@@ -356,8 +356,8 @@ async def sync(deck_format: DeckFormat) -> None:
         total = await card_repository.count_cards()
         elapsed = time.perf_counter() - started
         print(
-            f"\nListo en {elapsed:.0f}s · {inserted} nuevas · {updated} actualizadas"
-            f" · {total} cartas en la base"
+            f"\nDone in {elapsed:.0f}s · {inserted} new · {updated} updated"
+            f" · {total} cards in the database"
         )
     finally:
         # finally, not at the end of the try: if TCGdex fails partway
@@ -367,22 +367,22 @@ async def sync(deck_format: DeckFormat) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sincroniza cartas de TCGdex a MongoDB")
+    parser = argparse.ArgumentParser(description="Syncs cards from TCGdex to MongoDB")
     parser.add_argument(
         "--format",
         choices=[f.value for f in DeckFormat],
         default=DeckFormat.EXPANDED.value,
         help=(
-            "Formato a sincronizar. Expanded por defecto porque incluye a Standard:"
-            " sincronizar Standard dejaría fuera cartas que un mazo Expanded necesita."
+            "Format to sync. Defaults to Expanded because it includes Standard:"
+            " syncing Standard would leave out cards an Expanded deck needs."
         ),
     )
     parser.add_argument(
         "--resort",
         action="store_true",
         help=(
-            "No descarga nada: recalcula los campos de orden de las cartas ya"
-            " guardadas. Ejecutar después de set_sync la primera vez."
+            "Downloads nothing: recomputes the sort fields of cards already"
+            " saved. Run after set_sync the first time."
         ),
     )
     args = parser.parse_args()
@@ -393,10 +393,10 @@ def main() -> int:
         else:
             asyncio.run(sync(DeckFormat(args.format)))
     except KeyboardInterrupt:
-        print("\nInterrumpido. Lo ya escrito se conserva; volver a ejecutar continúa.")
+        print("\nInterrupted. What was already written is kept; running again continues.")
         return 130
     except Exception as exc:
-        print(f"\nFalló la sincronización: {type(exc).__name__}: {exc}")
+        print(f"\nSync failed: {type(exc).__name__}: {exc}")
         return 1
 
     return 0

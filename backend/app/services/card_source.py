@@ -111,7 +111,7 @@ async def close_card_source() -> None:
 
 def _require_client() -> httpx.AsyncClient:
     if _client is None:
-        raise RuntimeError("El cliente de TCGdex no está abierto: ¿corrió el lifespan?")
+        raise RuntimeError("The TCGdex client is not open: did the lifespan run?")
     return _client
 
 
@@ -137,10 +137,10 @@ def _parse_list(response: httpx.Response) -> list[dict]:
     try:
         payload = response.json()
     except ValueError as exc:  # incluye json.JSONDecodeError
-        raise CardSourceError("TCGdex devolvió algo que no es JSON") from exc
+        raise CardSourceError("TCGdex returned something that is not JSON") from exc
 
     if not isinstance(payload, list):
-        raise CardSourceError(f"Se esperaba una lista, llegó {type(payload).__name__}")
+        raise CardSourceError(f"Expected a list, got {type(payload).__name__}")
 
     return payload
 
@@ -153,7 +153,7 @@ def _to_summary(payload: dict) -> CardSummary:
             image_url=_image_url(payload.get("image")),
         )
     except (KeyError, TypeError) as exc:
-        raise CardSourceError(f"Carta sin los campos mínimos: {exc}") from exc
+        raise CardSourceError(f"Card missing required fields: {exc}") from exc
 
 
 # Fields that determine WHICH card this is, as opposed to which set it was
@@ -237,7 +237,7 @@ def _to_card(payload: dict) -> Card:
             identity=_identity(payload),
         )
     except (KeyError, ValueError, TypeError) as exc:
-        raise CardSourceError(f"No se pudo interpretar la carta: {exc}") from exc
+        raise CardSourceError(f"Could not parse the card: {exc}") from exc
 
 
 async def search_cards(
@@ -315,7 +315,7 @@ async def get_card(card_id: str) -> Card | None:
     try:
         payload = response.json()
     except ValueError as exc:
-        raise CardSourceError("TCGdex devolvió algo que no es JSON") from exc
+        raise CardSourceError("TCGdex returned something that is not JSON") from exc
 
     return _to_card(payload)
 
@@ -350,7 +350,7 @@ async def fetch_sets() -> list[dict]:
     try:
         summaries = listing.json()
     except ValueError as exc:
-        raise CardSourceError("TCGdex devolvió algo que no es JSON") from exc
+        raise CardSourceError("TCGdex returned something that is not JSON") from exc
 
     semaphore = asyncio.Semaphore(CONCURRENCY)
     sets: list[dict] = []

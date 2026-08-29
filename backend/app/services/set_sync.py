@@ -30,18 +30,18 @@ async def sync() -> None:
     try:
         await set_repository.ensure_indexes()
 
-        print("Descargando los sets, sus abreviaturas oficiales y sus fechas…")
+        print("Downloading the sets, their official abbreviations and their dates…")
         sets = await fetch_sets()
         with_abbreviation = sum(1 for s in sets if s["abbreviation"])
         with_date = sum(1 for s in sets if s["release_date"])
-        print(f"  {len(sets)} sets · {with_abbreviation} con abreviatura · {with_date} con fecha")
+        print(f"  {len(sets)} sets · {with_abbreviation} with abbreviation · {with_date} with date")
 
         written = await set_repository.replace_all(sets)
         total = await set_repository.count()
 
         print(
-            f"Listo en {time.perf_counter() - started:.1f}s · "
-            f"{written} escritos · {total} en la base"
+            f"Done in {time.perf_counter() - started:.1f}s · "
+            f"{written} written · {total} in the database"
         )
     finally:
         await close_card_source()
@@ -52,7 +52,7 @@ def main() -> int:
     try:
         asyncio.run(sync())
     except Exception as exc:
-        print(f"Falló la sincronización: {type(exc).__name__}: {exc}")
+        print(f"Sync failed: {type(exc).__name__}: {exc}")
         return 1
     return 0
 

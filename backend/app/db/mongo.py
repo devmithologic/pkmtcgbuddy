@@ -37,7 +37,7 @@ def get_database() -> AsyncDatabase:
     points at the database. The I/O happens when a collection is queried.
     """
     if _client is None:
-        raise RuntimeError("MongoDB no está conectado: ¿arrancó el lifespan de la app?")
+        raise RuntimeError("MongoDB is not connected: did the app's lifespan run?")
     return _client[settings.db_name]
 
 

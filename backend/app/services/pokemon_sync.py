@@ -25,7 +25,7 @@ async def sync() -> None:
     try:
         await pokemon_repository.ensure_indexes()
 
-        print("Descargando el Pokédex completo, con megas y formas…")
+        print("Downloading the full Pokédex, with megas and forms…")
         # fetch_all returns plain dicts; the model is built here. This module
         # is the one that bridges the adapter and the model, so neither one
         # has to import the other — see fetch_all's docstring.
@@ -36,8 +36,8 @@ async def sync() -> None:
         total = await pokemon_repository.count()
 
         print(
-            f"Listo en {time.perf_counter() - started:.1f}s · "
-            f"{written} escritos · {total} en la base"
+            f"Done in {time.perf_counter() - started:.1f}s · "
+            f"{written} written · {total} in the database"
         )
     finally:
         await close_mongo_connection()
@@ -47,7 +47,7 @@ def main() -> int:
     try:
         asyncio.run(sync())
     except Exception as exc:
-        print(f"Falló la sincronización: {type(exc).__name__}: {exc}")
+        print(f"Sync failed: {type(exc).__name__}: {exc}")
         return 1
     return 0
 

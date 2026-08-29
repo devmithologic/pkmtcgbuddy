@@ -127,7 +127,7 @@ async def fetch_all() -> list[dict]:
             payload = response.json()
             results = payload["results"]
         except (ValueError, KeyError, TypeError) as exc:
-            raise PokemonSourceError(f"Respuesta inesperada de PokeAPI: {exc}") from exc
+            raise PokemonSourceError(f"Unexpected response from PokeAPI: {exc}") from exc
 
     references = []
     for entry in results:
