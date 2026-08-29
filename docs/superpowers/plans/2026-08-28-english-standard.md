@@ -953,7 +953,7 @@ the diff impossible to skim.
 
 - [ ] **Step 3: Translate the CSS comments**
 
-`App.css` has 95 accented lines and `index.css` 25. Class names are already English and must not change — only comments. `App.css` documents the `--shell` and `--measure` width decision; keep it precise, it is a row in the decision table.
+`App.css` has 95 accented lines and `index.css` 25. Class names are already English and must not change — only comments. The `--shell` / `--measure` width decision is defined in **`index.css`** (the `:root` measures block), not `App.css` — `docs/domain.md` says so too. `App.css` restates it at the point of use. Keep both precise; it is a row in the decision table.
 
 - [ ] **Step 4: Confirm no class name moved**
 
