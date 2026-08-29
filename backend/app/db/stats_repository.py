@@ -55,26 +55,26 @@ async def deck_stats(
     if not version_ids:
         return {"overall": [], "by_version": [], "by_archetype": [], "by_session_type": [], "sessions": 0}
 
-    filtro: dict = {"deck_version_id": {"$in": version_ids}}
+    filter_: dict = {"deck_version_id": {"$in": version_ids}}
 
     if date_from or date_to:
-        rango = {}
+        range_ = {}
         if date_from:
-            rango["$gte"] = date_to_bson(date_from)
+            range_["$gte"] = date_to_bson(date_from)
         if date_to:
             # $lte and not $lt: date_to is inclusive, and dates are stored at
             # midnight, so the entire day is included.
-            rango["$lte"] = date_to_bson(date_to)
-        filtro["played_at"] = rango
+            range_["$lte"] = date_to_bson(date_to)
+        filter_["played_at"] = range_
 
     if session_type:
-        filtro["session_type"] = session_type.value
+        filter_["session_type"] = session_type.value
 
     # Equality against an array: matches if the session contains that tag.
     if tag:
-        filtro["tags"] = tag
+        filter_["tags"] = tag
 
-    coleccion = get_database()["sessions"]
+    collection = get_database()["sessions"]
 
     # Sessions are counted in a separate query, not inside the pipeline.
     #
@@ -92,10 +92,10 @@ async def deck_stats(
     # anyway, so counting them here would give "3 sessions" next to totals
     # drawn from just one — and with zero rounds, "0-0-0 across 3 sessions",
     # which reads like a bug.
-    total_sesiones = await coleccion.count_documents({**filtro, "matches": {"$ne": []}})
+    total_sessions = await collection.count_documents({**filter_, "matches": {"$ne": []}})
 
     pipeline = [
-        {"$match": filtro},
+        {"$match": filter_},
         # Turns a session with 5 rounds into 5 documents, one per round. This
         # is what allows grouping games while they're embedded.
         {"$unwind": "$matches"},
@@ -118,14 +118,14 @@ async def deck_stats(
         },
     ]
 
-    cursor = await coleccion.aggregate(pipeline)
-    resultado = [doc async for doc in cursor]
-    ramas = resultado[0] if resultado else {}
+    cursor = await collection.aggregate(pipeline)
+    result = [doc async for doc in cursor]
+    branches = result[0] if result else {}
 
     return {
-        "sessions": total_sesiones,
-        "overall": ramas.get("overall", []),
-        "by_version": ramas.get("by_version", []),
-        "by_archetype": ramas.get("by_archetype", []),
-        "by_session_type": ramas.get("by_session_type", []),
+        "sessions": total_sessions,
+        "overall": branches.get("overall", []),
+        "by_version": branches.get("by_version", []),
+        "by_archetype": branches.get("by_archetype", []),
+        "by_session_type": branches.get("by_session_type", []),
     }

@@ -106,19 +106,19 @@ async def list_decks() -> list[DeckSummary]:
     """
     docs = await deck_repository.list_decks()
 
-    todos_los_ids = [
+    all_ids = [
         c["card_id"]
         for doc in docs
         for c in (doc.get("current") or {}).get("cards", [])
     ]
-    catalogo = await card_repository.get_cards_by_ids(todos_los_ids)
+    catalogue = await card_repository.get_cards_by_ids(all_ids)
 
     summaries = []
     for doc in docs:
         current = doc.get("current") or {}
         deck_format = DeckFormat(doc["format"])
         cards = [DeckCard(**c) for c in current.get("cards", [])]
-        validation = validate_deck(cards, catalogo, deck_format)
+        validation = validate_deck(cards, catalogue, deck_format)
 
         # A deck with no version shouldn't exist —create_deck isn't
         # transactional and a failure between the two inserts would leave it
@@ -161,36 +161,36 @@ async def import_deck(payload: DeckImport) -> DeckImportResult:
     that is worse than ending up with 57 of 60 while knowing which ones are
     missing.
     """
-    lineas, sueltas = deck_text.parse(payload.text)
-    if not lineas:
+    lines, unmatched = deck_text.parse(payload.text)
+    if not lines:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             "No se reconoció ninguna carta. El formato es «3 Riolu PRE 50», una por línea.",
         )
 
-    abreviaturas = await set_repository.abbreviation_map()
+    abbreviations = await set_repository.abbreviation_map()
 
     # A single query for the whole list: the candidate ids from each line are
     # accumulated and requested together. Resolving line by line would be 23
     # round trips.
-    candidatos: list[str] = []
-    por_linea: list[tuple[deck_text.ParsedLine, list[str]]] = []
-    for linea in lineas:
-        set_id = abreviaturas.get(linea.set_code)
-        ids = deck_text.candidate_ids(set_id, linea.number) if set_id else []
-        candidatos.extend(ids)
-        por_linea.append((linea, ids))
+    candidate_ids: list[str] = []
+    by_line: list[tuple[deck_text.ParsedLine, list[str]]] = []
+    for line in lines:
+        set_id = abbreviations.get(line.set_code)
+        ids = deck_text.candidate_ids(set_id, line.number) if set_id else []
+        candidate_ids.extend(ids)
+        by_line.append((line, ids))
 
-    catalogo = await card_repository.get_cards_by_ids(candidatos)
+    catalogue = await card_repository.get_cards_by_ids(candidate_ids)
 
     cards: list[DeckCard] = []
-    no_resueltas: list[str] = list(sueltas)
-    for linea, ids in por_linea:
-        encontrado = next((i for i in ids if i in catalogo), None)
-        if encontrado:
-            cards.append(DeckCard(card_id=encontrado, quantity=linea.quantity))
+    unresolved: list[str] = list(unmatched)
+    for line, ids in by_line:
+        found = next((i for i in ids if i in catalogue), None)
+        if found:
+            cards.append(DeckCard(card_id=found, quantity=line.quantity))
         else:
-            no_resueltas.append(linea.raw)
+            unresolved.append(line.raw)
 
     if not cards:
         raise HTTPException(
@@ -214,7 +214,7 @@ async def import_deck(payload: DeckImport) -> DeckImportResult:
     return DeckImportResult(
         deck=await get_deck(deck_id),
         imported_cards=sum(c.quantity for c in cards),
-        unresolved=no_resueltas,
+        unresolved=unresolved,
     )
 
 
@@ -228,30 +228,30 @@ async def export_deck(deck_id: str) -> str:
     """
     deck = await _load_deck(deck_id)
     version = await deck_repository.get_version(deck["current_version_id"])
-    entradas = [DeckCard(**c) for c in (version or {}).get("cards", [])]
+    entries = [DeckCard(**c) for c in (version or {}).get("cards", [])]
 
-    catalogo = await card_repository.get_cards_by_ids([e.card_id for e in entradas])
-    codigos = await set_repository.id_map()
+    catalogue = await card_repository.get_cards_by_ids([e.card_id for e in entries])
+    codes = await set_repository.id_map()
 
-    salida = []
-    for entrada in entradas:
-        carta = catalogo.get(entrada.card_id)
-        if not carta:
+    output = []
+    for entry in entries:
+        card = catalogue.get(entry.card_id)
+        if not card:
             continue
-        set_id, _, numero = entrada.card_id.rpartition("-")
-        salida.append(
+        set_id, _, number = entry.card_id.rpartition("-")
+        output.append(
             {
-                "quantity": entrada.quantity,
-                "name": carta.name,
-                "category": carta.category.value,
-                "set_code": codigos.get(set_id),
+                "quantity": entry.quantity,
+                "name": card.name,
+                "category": card.category.value,
+                "set_code": codes.get(set_id),
                 # No leading zeros: it's how the other tools write it, and how
                 # it's printed on the card.
-                "number": deck_text.normalize_number(numero),
+                "number": deck_text.normalize_number(number),
             }
         )
 
-    return deck_text.render(salida)
+    return deck_text.render(output)
 
 
 @router.get("/{deck_id}", response_model=DeckOut)
@@ -312,12 +312,12 @@ async def delete_deck(deck_id: str) -> None:
     """
     deck = await _load_deck(deck_id)
 
-    en_uso = await deck_repository.sessions_using(deck["_id"])
-    if en_uso:
+    in_use = await deck_repository.sessions_using(deck["_id"])
+    if in_use:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"No se puede borrar: {en_uso} "
-            f"{'sesión se jugó' if en_uso == 1 else 'sesiones se jugaron'} con este mazo. "
+            f"No se puede borrar: {in_use} "
+            f"{'sesión se jugó' if in_use == 1 else 'sesiones se jugaron'} con este mazo. "
             "Bórralas primero si de verdad quieres eliminarlo.",
         )
 
@@ -426,7 +426,7 @@ async def deck_stats(
     # require gathering all its versions first.
     versions = await deck_repository.list_versions(deck["_id"])
     version_ids = [deck_repository.to_object_id(v.id) for v in versions]
-    por_id = {v.id: v for v in versions}
+    by_id = {v.id: v for v in versions}
 
     raw = await stats_repository.deck_stats(
         version_ids,
@@ -436,20 +436,20 @@ async def deck_stats(
         tag=tag,
     )
 
-    def linea(row: dict, label: str) -> StatLine:
+    def line(row: dict, label: str) -> StatLine:
         return StatLine(
             label=label, wins=row["wins"], losses=row["losses"], ties=row["ties"]
         )
 
     overall = (
-        linea(raw["overall"][0], deck["name"])
+        line(raw["overall"][0], deck["name"])
         if raw["overall"]
         else StatLine(label=deck["name"], wins=0, losses=0, ties=0)
     )
 
     by_version = []
     for row in raw["by_version"]:
-        version = por_id.get(str(row["_id"]))
+        version = by_id.get(str(row["_id"]))
         if version is None:
             # A session points at a version that no longer exists. Shouldn't
             # happen —there's no way to delete versions— but if it did, it's
@@ -477,6 +477,6 @@ async def deck_stats(
         sessions_counted=raw["sessions"],
         overall=overall,
         by_version=by_version,
-        by_archetype=[linea(r, r["_id"]) for r in raw["by_archetype"]],
-        by_session_type=[linea(r, r["_id"]) for r in raw["by_session_type"]],
+        by_archetype=[line(r, r["_id"]) for r in raw["by_archetype"]],
+        by_session_type=[line(r, r["_id"]) for r in raw["by_session_type"]],
     )

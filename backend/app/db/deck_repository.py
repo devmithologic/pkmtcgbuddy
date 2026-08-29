@@ -51,23 +51,23 @@ async def update_deck(deck_id: ObjectId, payload: DeckUpdate) -> None:
     PATCH that only changes the name would wipe out the icons, because they'd
     arrive as None by default.
     """
-    cambios = payload.model_dump(exclude_unset=True)
+    changes = payload.model_dump(exclude_unset=True)
 
     # `name` doesn't accept null, for the same reason as with sessions:
     # DeckSummary.name is `str`, so a null name fails response validation and
     # GET /api/decks returns 500 for every deck, not just this one. The two
     # Pokemon fields do accept it: clearing them is what the selector's ×
     # does.
-    if "name" in cambios and cambios["name"] is None:
-        del cambios["name"]
+    if "name" in changes and changes["name"] is None:
+        del changes["name"]
 
     # The folder is the opposite case from the name: here a null IS an
     # instruction — "take the deck out of its folder" — so it's kept, and only
     # needs converting to ObjectId when it carries a value. The text that
     # arrives from the client would never match the stored _id.
-    if "folder_id" in cambios:
-        cambios["folder_id"] = (
-            ObjectId(cambios["folder_id"]) if cambios["folder_id"] else None
+    if "folder_id" in changes:
+        changes["folder_id"] = (
+            ObjectId(changes["folder_id"]) if changes["folder_id"] else None
         )
 
     # The API field is called `deck_format`; the document key is `format` —
@@ -75,20 +75,20 @@ async def update_deck(deck_id: ObjectId, payload: DeckUpdate) -> None:
     # rename, the $set would create a `deck_format` field that nobody reads: no
     # error, no exception, and the format left unchanged. It's the worst kind
     # of failure, the kind that doesn't complain.
-    if "deck_format" in cambios:
-        formato = cambios.pop("deck_format")
-        if formato is None:
+    if "deck_format" in changes:
+        format_ = changes.pop("deck_format")
+        if format_ is None:
             # A null format can only be client noise: a deck always has one.
             # Same criterion as `name`.
             pass
         else:
-            cambios["format"] = DeckFormat(formato).value
+            changes["format"] = DeckFormat(format_).value
 
-    if not cambios:
+    if not changes:
         return
 
-    cambios["updated_at"] = datetime.now(timezone.utc)
-    await _decks().update_one({"_id": deck_id}, {"$set": cambios})
+    changes["updated_at"] = datetime.now(timezone.utc)
+    await _decks().update_one({"_id": deck_id}, {"$set": changes})
 
 
 async def create_deck(

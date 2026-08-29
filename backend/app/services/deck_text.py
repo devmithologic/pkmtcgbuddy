@@ -33,13 +33,13 @@ from dataclasses import dataclass
 # code is `WHT`, but also promos like `SVP` — and the number may not be digits
 # only: `TG01` and `SV001` exist. Anchoring to the end of the line is what lets
 # the name contain spaces without ambiguity.
-LINEA = re.compile(
+LINE = re.compile(
     r"^\s*(\d+)\s+(.+?)\s+([A-Za-z][A-Za-z0-9]{1,5})\s+([A-Za-z]*\d+[A-Za-z]*)\s*$"
 )
 
 # `Pokémon: 17`, `Trainer: 33`, `Energy: 10`, and their variants in other
 # languages or without the total.
-CABECERA = re.compile(r"^\s*[A-Za-zÀ-ÿ\s]+:\s*\d*\s*$")
+HEADER = re.compile(r"^\s*[A-Za-zÀ-ÿ\s]+:\s*\d*\s*$")
 
 
 @dataclass(frozen=True)
@@ -67,8 +67,8 @@ def normalize_number(number: str) -> str:
     m = re.match(r"^(.*?)(\d+)$", number)
     if not m:
         return number.upper()
-    prefijo, digitos = m.groups()
-    return f"{prefijo.upper()}{int(digitos)}"
+    prefix, digits = m.groups()
+    return f"{prefix.upper()}{int(digits)}"
 
 
 def candidate_ids(set_id: str, number: str) -> list[str]:
@@ -82,13 +82,13 @@ def candidate_ids(set_id: str, number: str) -> list[str]:
     if not m:
         return [f"{set_id}-{number}"]
 
-    prefijo, digitos = m.groups()
-    n = int(digitos)
+    prefix, digits = m.groups()
+    n = int(digits)
     # dict.fromkeys, not set: it drops duplicates — a two-digit number gives the
     # same result with padding 1 and 2 — while keeping order, which makes the
     # $in readable when debugging.
     return list(
-        dict.fromkeys(f"{set_id}-{prefijo}{n:0{ancho}d}" for ancho in (1, 2, 3, 4))
+        dict.fromkeys(f"{set_id}-{prefix}{n:0{width}d}" for width in (1, 2, 3, 4))
     )
 
 
@@ -100,37 +100,37 @@ def parse(text: str) -> tuple[list[ParsedLine], list[str]]:
     unrecognized is what looked like a card and did not fit, so it can be
     shown to the user exactly as they wrote it.
     """
-    lineas: list[ParsedLine] = []
-    sueltas: list[str] = []
+    lines: list[ParsedLine] = []
+    unmatched: list[str] = []
 
-    for bruta in text.splitlines():
-        if not bruta.strip() or CABECERA.match(bruta):
+    for raw_line in text.splitlines():
+        if not raw_line.strip() or HEADER.match(raw_line):
             continue
 
-        m = LINEA.match(bruta)
+        m = LINE.match(raw_line)
         if not m:
-            sueltas.append(bruta.strip())
+            unmatched.append(raw_line.strip())
             continue
 
-        cantidad, nombre, codigo, numero = m.groups()
-        lineas.append(
+        quantity, name, code, number = m.groups()
+        lines.append(
             ParsedLine(
-                quantity=int(cantidad),
-                name=nombre.strip(),
-                set_code=codigo.upper(),
-                number=numero,
-                raw=bruta.strip(),
+                quantity=int(quantity),
+                name=name.strip(),
+                set_code=code.upper(),
+                number=number,
+                raw=raw_line.strip(),
             )
         )
 
-    return lineas, sueltas
+    return lines, unmatched
 
 
 # Order and labels of the sections when exporting. The format expects them in
 # this order and with these English names, which is what the other tools
 # read: translating them would break the interoperability that is the whole
 # point.
-SECCIONES = [("Pokemon", "Pokémon"), ("Trainer", "Trainer"), ("Energy", "Energy")]
+SECTIONS = [("Pokemon", "Pokémon"), ("Trainer", "Trainer"), ("Energy", "Energy")]
 
 
 def render(entries: list[dict]) -> str:
@@ -142,20 +142,20 @@ def render(entries: list[dict]) -> str:
     as-is in another tool, but dropping the card on export would be worse than
     giving a line the user can fix.
     """
-    bloques = []
+    blocks = []
 
-    for clave, etiqueta in SECCIONES:
-        grupo = [e for e in entries if e["category"] == clave]
-        if not grupo:
+    for key, label in SECTIONS:
+        group = [e for e in entries if e["category"] == key]
+        if not group:
             continue
 
-        total = sum(e["quantity"] for e in grupo)
-        lineas = [f"{etiqueta}: {total}"]
-        for e in grupo:
-            codigo = e.get("set_code")
-            numero = e.get("number")
-            sufijo = f" {codigo} {numero}" if codigo and numero else ""
-            lineas.append(f"{e['quantity']} {e['name']}{sufijo}")
-        bloques.append("\n".join(lineas))
+        total = sum(e["quantity"] for e in group)
+        lines = [f"{label}: {total}"]
+        for e in group:
+            code = e.get("set_code")
+            number = e.get("number")
+            suffix = f" {code} {number}" if code and number else ""
+            lines.append(f"{e['quantity']} {e['name']}{suffix}")
+        blocks.append("\n".join(lines))
 
-    return "\n\n".join(bloques) + "\n" if bloques else ""
+    return "\n\n".join(blocks) + "\n" if blocks else ""

@@ -32,16 +32,16 @@ async def sync() -> None:
 
         print("Descargando los sets, sus abreviaturas oficiales y sus fechas…")
         sets = await fetch_sets()
-        con_abreviatura = sum(1 for s in sets if s["abbreviation"])
-        con_fecha = sum(1 for s in sets if s["release_date"])
-        print(f"  {len(sets)} sets · {con_abreviatura} con abreviatura · {con_fecha} con fecha")
+        with_abbreviation = sum(1 for s in sets if s["abbreviation"])
+        with_date = sum(1 for s in sets if s["release_date"])
+        print(f"  {len(sets)} sets · {with_abbreviation} con abreviatura · {with_date} con fecha")
 
-        escritos = await set_repository.replace_all(sets)
+        written = await set_repository.replace_all(sets)
         total = await set_repository.count()
 
         print(
             f"Listo en {time.perf_counter() - started:.1f}s · "
-            f"{escritos} escritos · {total} en la base"
+            f"{written} escritos · {total} en la base"
         )
     finally:
         await close_card_source()

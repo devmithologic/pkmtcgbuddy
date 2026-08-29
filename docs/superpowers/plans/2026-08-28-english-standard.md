@@ -87,9 +87,110 @@ Exhaustive. If execution finds one not listed, add it to this table before renam
 | `carta` / `cartas` | `card` / `cards` | backend locals |
 | `clave` | `key` | backend locals |
 | `detalle` | `detail` | backend locals |
-| `fecha` / `fecha_a` / `fecha_c` | `date` / `date_a` / `date_c` | backend locals — check what `_a`/`_c` mean before renaming |
+| `fecha` | `date` | backend locals |
+| `fecha_a` / `fecha_c` | `date_current` / `date_candidate` | `backend/app/db/card_repository.py` — `_a`/`_c` are abbreviations of `actual`/`candidata`, the two parameters of `_es_mejor_impresion`, not arbitrary letters. `date_a`/`date_c` would just re-encode the same Spanish words in disguise, so they're spelled out instead. |
 | `filtro` | `filter_` | backend locals; trailing underscore avoids shadowing the builtin |
 | `en_uso` | `in_use` | `backend/app/routers/decks.py` — the 409 guard on deck deletion |
+
+Task 7 execution found many more Spanish identifiers than this table originally listed — the three greps in its Step 1 only catch a fraction of the actual surface (they miss tuple-unpacking assignments, SCREAMING_CASE constants, and nested nested-function definitions). Rows added during execution, grouped by file:
+
+| Current | New | File |
+| --- | --- | --- |
+| `actual` / `candidata` | `current` / `candidate` | `backend/app/db/card_repository.py`, `backend/app/db/folder_repository.py` |
+| `rank_a` / `rank_c` | `rank_current` / `rank_candidate` | `backend/app/db/card_repository.py` — same `_a`/`_c` convention as `fecha_a`/`fecha_c` |
+| `_es_mejor_impresion` | `_is_better_printing` | `backend/app/db/card_repository.py` |
+| `sin_fecha` | `without_date` | `backend/app/db/card_repository.py`, `backend/app/services/card_sync.py` |
+| `campos` | `fields` | `backend/app/db/card_repository.py`, `backend/app/routers/folders.py` |
+| `identidades` | `identities` | `backend/app/db/card_repository.py` |
+| `mejor` / `mejores` | `best` | `backend/app/db/card_repository.py` |
+| `basicas` (list) | `basics` | `backend/app/db/card_repository.py` |
+| `basicas` (count) | `basic_count` | `backend/app/services/card_sync.py` — same Spanish word, different shape (list vs. count) in a different file, so a different English name |
+| `basica` | `basic` | `backend/app/db/card_repository.py` |
+| `ganadores` | `winners` | `backend/app/db/card_repository.py` |
+| `pagina` | `page_items` | `backend/app/db/card_repository.py` — not `page`, which is already the page-number parameter in the same function |
+| `prestadas` | `borrowed` | `backend/app/db/card_repository.py` |
+| `escritas` / `escritos` | `written` | `backend/app/db/card_repository.py`, `backend/app/services/card_sync.py`, `backend/app/services/set_sync.py`, `backend/app/services/pokemon_sync.py` |
+| `operaciones` | `operations` | `backend/app/db/card_repository.py` |
+| `lote` | `batch` | `backend/app/db/card_repository.py` |
+| `padres` | `parents` | `backend/app/db/folder_repository.py` |
+| `_mapa_de_padres` | `_parent_map` | `backend/app/db/folder_repository.py` |
+| `abuelo` | `grandparent` | `backend/app/db/folder_repository.py` |
+| `nuevo_padre` | `new_parent` | `backend/app/db/folder_repository.py` (parameter of `crearia_ciclo`, and its docstring reference in backticks) |
+| `recuentos` | `counts` | `backend/app/db/folder_repository.py` |
+| `nuevo` (local var) | `new_parent_id` | `backend/app/routers/folders.py` — distinct from the `nuevo` (param) row above, which is scoped to `frontend/src/App.jsx` |
+| `_existe_o_404` | `_exists_or_404` | `backend/app/routers/folders.py` |
+| `valor` | `value` | `backend/app/models/folder.py` |
+| `normaliza` | `normalize` | `backend/app/models/folder.py` |
+| `_normalizar` | `_normalize` | `backend/app/models/session.py` |
+| `bruto` | `raw_tag` | `backend/app/models/session.py` |
+| `limpia` | `cleaned` | `backend/app/models/session.py` |
+| `vistas` | `seen` | `backend/app/models/session.py` |
+| `cambios` | `changes` | `backend/app/db/session_repository.py`, `backend/app/db/folder_repository.py`, `backend/app/db/deck_repository.py` — the PATCH `exclude_unset` diff dict |
+| `cambio` | `changed` | `backend/app/services/card_sync.py` — a boolean flag, distinct from the `changes` dict above |
+| `cambiadas` | `changed_docs` | `backend/app/services/card_sync.py` |
+| `obligatorio` | `mandatory` | `backend/app/db/session_repository.py` |
+| `restantes` | `remaining` | `backend/app/db/session_repository.py` |
+| `indice` | `index` | `backend/app/db/session_repository.py` |
+| `formato` | `format_` | `backend/app/db/deck_repository.py` — trailing underscore avoids shadowing the `format()` builtin |
+| `resultado` | `result` | `backend/app/db/stats_repository.py` |
+| `ramas` | `branches` | `backend/app/db/stats_repository.py` |
+| `rango` | `range_` | `backend/app/db/stats_repository.py` — trailing underscore avoids shadowing the `range()` builtin |
+| `coleccion` | `collection` | `backend/app/db/stats_repository.py` |
+| `total_sesiones` | `total_sessions` | `backend/app/db/stats_repository.py` |
+| `faltan` | `missing` | `backend/app/services/deck_rules.py` |
+| `por_nombre` | `by_name` | `backend/app/services/deck_rules.py` |
+| `ids_por_nombre` | `ids_by_name` | `backend/app/services/deck_rules.py` |
+| `excedidas` | `exceeded` | `backend/app/services/deck_rules.py` |
+| `nombre` (loop var) | `name` | `backend/app/services/deck_rules.py`, `backend/app/services/deck_text.py` |
+| `ilegales` | `illegal_ids` | `backend/app/services/deck_rules.py` |
+| `nombres` | `names` | `backend/app/services/deck_rules.py` |
+| `muestra` | `sample` | `backend/app/services/deck_rules.py` — distinct from `MUESTRA_MINIMA`, which is the frontend row above |
+| `todos_los_ids` | `all_ids` | `backend/app/routers/decks.py` |
+| `catalogo` | `catalogue` | `backend/app/routers/decks.py` |
+| `abreviaturas` | `abbreviations` | `backend/app/routers/decks.py` |
+| `candidatos` | `candidate_ids` | `backend/app/routers/decks.py` |
+| `por_linea` | `by_line` | `backend/app/routers/decks.py` |
+| `linea` | `line` | `backend/app/routers/decks.py` — applies uniformly to both the loop variable in `import_deck` and the nested `linea(row, label)` helper in `deck_stats`; a second name for the same word was considered and dropped in favor of one literal translation |
+| `lineas` / `sueltas` | `lines` / `unmatched` | `backend/app/routers/decks.py`, `backend/app/services/deck_text.py` |
+| `encontrado` | `found` | `backend/app/routers/decks.py` |
+| `no_resueltas` | `unresolved` | `backend/app/routers/decks.py` |
+| `entradas` | `entries` | `backend/app/routers/decks.py` |
+| `codigos` | `codes` | `backend/app/routers/decks.py` |
+| `salida` | `output` | `backend/app/routers/decks.py` |
+| `entrada` (loop var) | `entry` | `backend/app/routers/decks.py`, `backend/app/services/pokemon_source.py`, `backend/app/services/pokemon_sync.py` |
+| `numero` | `number` | `backend/app/routers/decks.py`, `backend/app/services/deck_text.py` |
+| `por_id` | `by_id` | `backend/app/routers/decks.py` |
+| `partes` | `parts` | `backend/app/services/card_source.py` |
+| `canonico` | `canonical` | `backend/app/services/card_source.py` |
+| `listado` | `listing` | `backend/app/services/card_source.py` |
+| `resumenes` | `summaries` | `backend/app/services/card_source.py` |
+| `detalle` (nested function) | `detail` | `backend/app/services/card_source.py` — same target as the `detalle` row above |
+| `_CATEGORIAS_POR_NOMBRE` | `_CATEGORIES_BY_NAME` | `backend/app/services/card_sync.py` |
+| `_SUFIJO_DE_ARTE` | `_ART_SUFFIX` | `backend/app/services/card_sync.py` |
+| `legales_std` / `legales_exp` | `legal_standard_keys` / `legal_expanded_keys` | `backend/app/services/card_sync.py` |
+| `promovidas` | `promoted` | `backend/app/services/card_sync.py` |
+| `instantanea` | `snapshot` | `backend/app/services/card_sync.py` |
+| `antes` | `before` | `backend/app/services/card_sync.py` |
+| `duplicadas` | `duplicates` | `backend/app/services/card_sync.py`, `backend/app/db/card_repository.py` |
+| `bajo` | `lower_name` | `backend/app/db/card_repository.py` — the lower-cased name in `sort_name()`, found on a second pass through the file |
+| `con_abreviatura` | `with_abbreviation` | `backend/app/services/set_sync.py` |
+| `con_fecha` | `with_date` | `backend/app/services/set_sync.py` |
+| `resultados` | `results` | `backend/app/services/pokemon_source.py` |
+| `referencias` | `references` | `backend/app/services/pokemon_source.py` |
+| `LINEA` | `LINE` | `backend/app/services/deck_text.py` |
+| `CABECERA` | `HEADER` | `backend/app/services/deck_text.py` |
+| `SECCIONES` | `SECTIONS` | `backend/app/services/deck_text.py` |
+| `prefijo` | `prefix` | `backend/app/services/deck_text.py` |
+| `digitos` | `digits` | `backend/app/services/deck_text.py` |
+| `ancho` | `width` | `backend/app/services/deck_text.py` |
+| `cantidad` | `quantity` | `backend/app/services/deck_text.py` |
+| `codigo` | `code` | `backend/app/services/deck_text.py` |
+| `bloques` | `blocks` | `backend/app/services/deck_text.py` |
+| `grupo` | `group` | `backend/app/services/deck_text.py` |
+| `sufijo` | `suffix` | `backend/app/services/deck_text.py` |
+| `etiqueta` | `label` | `backend/app/services/deck_text.py` |
+
+Not renamed, despite looking like candidates: `version`, `version_id`, `version_ids`, `deck_version`, `deck_version_id`, `legal`, `legal_standard`, `legal_expanded`, `legal_in_format`, `is_legal`, `is_legal_in`, `total`, `total_cards`, `ace_total` — all already English (Spanish and English share the word, or the heuristic search matched a substring of an English word).
 
 ---
 

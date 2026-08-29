@@ -63,10 +63,10 @@ def sort_name(name: str, is_basic_energy: bool) -> str:
     `Research Note`, and trimming its prefix would send it to the wrong place
     in the list.
     """
-    bajo = name.lower()
-    if is_basic_energy and bajo.startswith("basic "):
-        return bajo.removeprefix("basic ")
-    return bajo
+    lower_name = name.lower()
+    if is_basic_energy and lower_name.startswith("basic "):
+        return lower_name.removeprefix("basic ")
+    return lower_name
 
 
 def search_name(name: str, is_basic_energy: bool) -> str:
@@ -266,33 +266,33 @@ async def _borrowed_images(documents: list[dict]) -> dict[str, str]:
     Costs ONE query per page, not one per card: the missing identities are
     gathered and requested together.
     """
-    identidades = {
+    identities = {
         doc["identity"]
         for doc in documents
         if not doc.get("image_url") and doc.get("identity")
     }
-    if not identidades:
+    if not identities:
         return {}
 
     cursor = _collection().find(
-        {"identity": {"$in": list(identidades)}, "image_url": {"$ne": None}},
+        {"identity": {"$in": list(identities)}, "image_url": {"$ne": None}},
         {"identity": 1, "image_url": 1, "printing_rank": 1, "set_release_date": 1},
     )
 
-    mejor: dict[str, dict] = {}
-    async for candidata in cursor:
-        actual = mejor.get(candidata["identity"])
-        if actual is None or _es_mejor_impresion(candidata, actual):
-            mejor[candidata["identity"]] = candidata
+    best: dict[str, dict] = {}
+    async for candidate in cursor:
+        current = best.get(candidate["identity"])
+        if current is None or _is_better_printing(candidate, current):
+            best[candidate["identity"]] = candidate
 
     return {
-        doc["_id"]: mejor[doc["identity"]]["image_url"]
+        doc["_id"]: best[doc["identity"]]["image_url"]
         for doc in documents
-        if not doc.get("image_url") and doc.get("identity") in mejor
+        if not doc.get("image_url") and doc.get("identity") in best
     }
 
 
-def _es_mejor_impresion(candidata: dict, actual: dict) -> bool:
+def _is_better_printing(candidate: dict, current: dict) -> bool:
     """Is the candidate "more the card" than the current one?
 
     Three criteria, the same ones and in the same order the search uses:
@@ -304,21 +304,21 @@ def _es_mejor_impresion(candidata: dict, actual: dict) -> bool:
     which reprint to copy a missing image from, and which of Metal Energy's
     27 printings is the one the search offers.
     """
-    rank_c = candidata.get("printing_rank", 0)
-    rank_a = actual.get("printing_rank", 0)
-    if rank_c != rank_a:
-        return rank_c < rank_a
+    rank_candidate = candidate.get("printing_rank", 0)
+    rank_current = current.get("printing_rank", 0)
+    if rank_candidate != rank_current:
+        return rank_candidate < rank_current
 
     # No date loses: an undated card can't be "the newest".
-    fecha_c = candidata.get("set_release_date") or ""
-    fecha_a = actual.get("set_release_date") or ""
-    if fecha_c != fecha_a:
-        return fecha_c > fecha_a
+    date_candidate = candidate.get("set_release_date") or ""
+    date_current = current.get("set_release_date") or ""
+    if date_candidate != date_current:
+        return date_candidate > date_current
 
     # The id tiebreak isn't cosmetic: without it, which one wins depends on
     # the order Mongo happens to return documents in, and two runs could pick
     # different printings.
-    return candidata["_id"] < actual["_id"]
+    return candidate["_id"] < current["_id"]
 
 
 def energy_duplicates(documents: list[dict]) -> set[str]:
@@ -340,19 +340,19 @@ def energy_duplicates(documents: list[dict]) -> set[str]:
     only be known by looking at the whole set. That is why this calculation
     cannot live in `card_to_document`, which sees one card at a time.
     """
-    mejores: dict[str, dict] = {}
-    basicas: list[dict] = []
+    best: dict[str, dict] = {}
+    basics: list[dict] = []
 
     for doc in documents:
         if not doc.get("is_basic_energy"):
             continue
-        basicas.append(doc)
-        actual = mejores.get(doc["sort_name"])
-        if actual is None or _es_mejor_impresion(doc, actual):
-            mejores[doc["sort_name"]] = doc
+        basics.append(doc)
+        current = best.get(doc["sort_name"])
+        if current is None or _is_better_printing(doc, current):
+            best[doc["sort_name"]] = doc
 
-    ganadores = {doc["_id"] for doc in mejores.values()}
-    return {doc["_id"] for doc in basicas if doc["_id"] not in ganadores}
+    winners = {doc["_id"] for doc in best.values()}
+    return {doc["_id"] for doc in basics if doc["_id"] not in winners}
 
 
 async def search_cards(
@@ -416,17 +416,17 @@ async def search_cards(
     documents = [doc async for doc in cursor]
     has_more = len(documents) > page_size
 
-    pagina = documents[:page_size]
-    prestadas = await _borrowed_images(pagina)
+    page_items = documents[:page_size]
+    borrowed = await _borrowed_images(page_items)
 
     return CardSearchResult(
         cards=[
             CardSummary(
                 id=doc["_id"],
                 name=doc["name"],
-                image_url=doc.get("image_url") or prestadas.get(doc["_id"]),
+                image_url=doc.get("image_url") or borrowed.get(doc["_id"]),
             )
-            for doc in pagina
+            for doc in page_items
         ],
         page=page,
         page_size=page_size,
@@ -443,12 +443,12 @@ async def get_card(card_id: str) -> Card | None:
     if not document:
         return None
 
-    carta = card_from_document(document)
-    if not carta.image_url:
+    card = card_from_document(document)
+    if not card.image_url:
         # A card's detail page is where a missing image is most noticeable,
         # and here the extra query only happens when it's actually missing.
-        carta.image_url = (await _borrowed_images([document])).get(card_id)
-    return carta
+        card.image_url = (await _borrowed_images([document])).get(card_id)
+    return card
 
 
 async def get_cards_by_ids(card_ids: list[str]) -> dict[str, Card]:
@@ -479,15 +479,15 @@ async def get_cards_by_ids(card_ids: list[str]) -> dict[str, Card]:
     # is the query that paints the deck grid, so without it an already-saved
     # energy would keep showing up without an image even though the search
     # shows one for it.
-    prestadas = await _borrowed_images(documents)
+    borrowed = await _borrowed_images(documents)
 
-    cartas = {}
+    cards = {}
     for doc in documents:
-        carta = card_from_document(doc)
-        if not carta.image_url:
-            carta.image_url = prestadas.get(doc["_id"])
-        cartas[doc["_id"]] = carta
-    return cartas
+        card = card_from_document(doc)
+        if not card.image_url:
+            card.image_url = borrowed.get(doc["_id"])
+        cards[doc["_id"]] = card
+    return cards
 
 
 def _derived(document: dict, dates: dict[str, str]) -> dict:
@@ -499,13 +499,13 @@ def _derived(document: dict, dates: dict[str, str]) -> dict:
     them. Duplicating the calculation in both places is how you end up with
     two rules that drift apart.
     """
-    basica = document.get("is_basic_energy", False)
+    basic = document.get("is_basic_energy", False)
     return {
         "_id": document["_id"],
-        "is_basic_energy": basica,
-        "sort_name": sort_name(document["name"], basica),
-        "search_name": search_name(document["name"], basica),
-        "printing_rank": printing_rank(basica, document.get("rarity")),
+        "is_basic_energy": basic,
+        "sort_name": sort_name(document["name"], basic),
+        "search_name": search_name(document["name"], basic),
+        "printing_rank": printing_rank(basic, document.get("rarity")),
         "set_release_date": dates.get(set_id_of(document["_id"])),
     }
 
@@ -533,35 +533,35 @@ async def restamp_sort_fields(
     """
     collection = _collection()
 
-    basicas = [
+    basics = [
         _derived(doc, dates)
         async for doc in collection.find(
             {"is_basic_energy": True}, {"name": 1, "rarity": 1, "is_basic_energy": 1}
         )
     ]
-    duplicadas = energy_duplicates(basicas)
+    duplicates = energy_duplicates(basics)
 
     cursor = collection.find({}, {"name": 1, "rarity": 1, "is_basic_energy": 1})
 
-    operaciones: list[UpdateOne] = []
-    escritas = 0
-    sin_fecha = 0
+    operations: list[UpdateOne] = []
+    written = 0
+    without_date = 0
 
     async for doc in cursor:
-        campos = _derived(doc, dates)
-        if not campos["set_release_date"]:
-            sin_fecha += 1
+        fields = _derived(doc, dates)
+        if not fields["set_release_date"]:
+            without_date += 1
 
-        operaciones.append(
+        operations.append(
             UpdateOne(
                 {"_id": doc["_id"]},
                 {
                     "$set": {
-                        "sort_name": campos["sort_name"],
-                        "search_name": campos["search_name"],
-                        "printing_rank": campos["printing_rank"],
-                        "set_release_date": campos["set_release_date"],
-                        "is_energy_duplicate": doc["_id"] in duplicadas,
+                        "sort_name": fields["sort_name"],
+                        "search_name": fields["search_name"],
+                        "printing_rank": fields["printing_rank"],
+                        "set_release_date": fields["set_release_date"],
+                        "is_energy_duplicate": doc["_id"] in duplicates,
                     }
                 },
             )
@@ -571,16 +571,16 @@ async def restamp_sort_fields(
         # would be 15021 network round trips, and buffering everything to
         # write at the end would mean losing it all if something fails
         # halfway through.
-        if len(operaciones) >= batch_size:
-            await collection.bulk_write(operaciones, ordered=False)
-            escritas += len(operaciones)
-            operaciones = []
+        if len(operations) >= batch_size:
+            await collection.bulk_write(operations, ordered=False)
+            written += len(operations)
+            operations = []
 
-    if operaciones:
-        await collection.bulk_write(operaciones, ordered=False)
-        escritas += len(operaciones)
+    if operations:
+        await collection.bulk_write(operations, ordered=False)
+        written += len(operations)
 
-    return escritas, sin_fecha
+    return written, without_date
 
 
 async def legality_snapshot() -> list[dict]:
@@ -615,9 +615,9 @@ async def save_legality(documents: list[dict], batch_size: int) -> int:
         return 0
 
     collection = _collection()
-    escritas = 0
+    written = 0
     for start in range(0, len(documents), batch_size):
-        lote = documents[start : start + batch_size]
+        batch = documents[start : start + batch_size]
         await collection.bulk_write(
             [
                 UpdateOne(
@@ -629,12 +629,12 @@ async def save_legality(documents: list[dict], batch_size: int) -> int:
                         }
                     },
                 )
-                for doc in lote
+                for doc in batch
             ],
             ordered=False,
         )
-        escritas += len(lote)
-    return escritas
+        written += len(batch)
+    return written
 
 
 async def count_cards() -> int:

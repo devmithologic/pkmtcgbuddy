@@ -125,16 +125,16 @@ async def fetch_all() -> list[dict]:
 
         try:
             payload = response.json()
-            resultados = payload["results"]
+            results = payload["results"]
         except (ValueError, KeyError, TypeError) as exc:
             raise PokemonSourceError(f"Respuesta inesperada de PokeAPI: {exc}") from exc
 
-    referencias = []
-    for entrada in resultados:
+    references = []
+    for entry in results:
         try:
-            ident = _id_from_url(entrada["url"])
+            ident = _id_from_url(entry["url"])
         except (KeyError, ValueError):
             # An entry with an odd URL must not bring down the whole sync.
             continue
-        referencias.append({"dex_id": ident, "name": entrada["name"]})
-    return referencias
+        references.append({"dex_id": ident, "name": entry["name"]})
+    return references

@@ -104,12 +104,12 @@ def normalize_tags(tags: list[str] | None) -> list[str]:
     if not tags:
         return []
 
-    vistas: list[str] = []
-    for bruto in tags:
-        limpia = " ".join(bruto.strip().lower().split())
-        if limpia and limpia not in vistas:
-            vistas.append(limpia)
-    return vistas
+    seen: list[str] = []
+    for raw_tag in tags:
+        cleaned = " ".join(raw_tag.strip().lower().split())
+        if cleaned and cleaned not in seen:
+            seen.append(cleaned)
+    return seen
 
 
 class SessionCreate(BaseModel):
@@ -126,7 +126,7 @@ class SessionCreate(BaseModel):
 
     @field_validator("tags")
     @classmethod
-    def _normalizar(cls, v: list[str]) -> list[str]:
+    def _normalize(cls, v: list[str]) -> list[str]:
         # The validator lives on the model, not the router: that way it
         # applies no matter where the request comes from, PATCH included.
         return normalize_tags(v)
@@ -153,7 +153,7 @@ class SessionUpdate(BaseModel):
 
     @field_validator("tags")
     @classmethod
-    def _normalizar(cls, v: list[str] | None) -> list[str] | None:
+    def _normalize(cls, v: list[str] | None) -> list[str] | None:
         return normalize_tags(v) if v is not None else None
 
 

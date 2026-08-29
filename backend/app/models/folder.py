@@ -28,11 +28,11 @@ maintain in order to speed up something that is already instant.
 from pydantic import BaseModel, Field, field_validator
 
 
-def _limpia_nombre(valor: str) -> str:
+def _clean_name(value: str) -> str:
     """Trims and collapses whitespace. Does not lowercase, unlike tags: a
     folder is a title the user types and wants to see as-is, not a key it
     is grouped by."""
-    return " ".join(valor.split())
+    return " ".join(value.split())
 
 
 class FolderCreate(BaseModel):
@@ -41,8 +41,8 @@ class FolderCreate(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def normaliza(cls, v: str) -> str:
-        return _limpia_nombre(v)
+    def normalize(cls, v: str) -> str:
+        return _clean_name(v)
 
 
 class FolderUpdate(BaseModel):
@@ -63,8 +63,8 @@ class FolderUpdate(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def normaliza(cls, v: str | None) -> str | None:
-        return _limpia_nombre(v) if v is not None else None
+    def normalize(cls, v: str | None) -> str | None:
+        return _clean_name(v) if v is not None else None
 
 
 class FolderOut(BaseModel):

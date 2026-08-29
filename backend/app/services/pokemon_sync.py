@@ -29,15 +29,15 @@ async def sync() -> None:
         # fetch_all returns plain dicts; the model is built here. This module
         # is the one that bridges the adapter and the model, so neither one
         # has to import the other — see fetch_all's docstring.
-        pokemon = [PokemonRef(**entrada) for entrada in await fetch_all()]
+        pokemon = [PokemonRef(**entry) for entry in await fetch_all()]
         print(f"  {len(pokemon)} Pokémon")
 
-        escritos = await pokemon_repository.replace_all(pokemon)
+        written = await pokemon_repository.replace_all(pokemon)
         total = await pokemon_repository.count()
 
         print(
             f"Listo en {time.perf_counter() - started:.1f}s · "
-            f"{escritos} escritos · {total} en la base"
+            f"{written} escritos · {total} en la base"
         )
     finally:
         await close_mongo_connection()

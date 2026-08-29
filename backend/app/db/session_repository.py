@@ -58,9 +58,9 @@ async def list_sessions(tag: str | None = None) -> list[dict]:
     # {"tags": "x"} against an array matches if ANY element equals it. No need
     # for $elemMatch or $in: MongoDB treats equality against an array as
     # "contains". It's the shortcut that makes the filter cheap.
-    filtro = {"tags": tag} if tag else {}
+    filter_ = {"tags": tag} if tag else {}
     cursor = (
-        _collection().find(filtro).sort([("played_at", DESCENDING), ("_id", DESCENDING)])
+        _collection().find(filter_).sort([("played_at", DESCENDING), ("_id", DESCENDING)])
     )
     return [doc async for doc in cursor]
 
@@ -102,7 +102,7 @@ async def update_session(session_id: ObjectId, payload: SessionUpdate) -> None:
       played_at        date -> datetime  (BSON has no date without a time)
       deck_version_id  str  -> ObjectId  (so the $lookup keeps working)
     """
-    cambios = payload.model_dump(exclude_unset=True)
+    changes = payload.model_dump(exclude_unset=True)
 
     # These three don't accept null. SessionUpdate's `T | None` type only
     # exists to express "don't send this"; it's not that the session can be
@@ -115,22 +115,22 @@ async def update_session(session_id: ObjectId, payload: SessionUpdate) -> None:
     #
     # name, notes and tags DO accept null: clearing them is a legitimate
     # operation.
-    for obligatorio in ("played_at", "session_type", "deck_version_id"):
-        if obligatorio in cambios and cambios[obligatorio] is None:
-            del cambios[obligatorio]
+    for mandatory in ("played_at", "session_type", "deck_version_id"):
+        if mandatory in changes and changes[mandatory] is None:
+            del changes[mandatory]
 
-    if not cambios:
+    if not changes:
         return
 
-    if "played_at" in cambios and cambios["played_at"] is not None:
-        cambios["played_at"] = date_to_bson(payload.played_at)
-    if "session_type" in cambios and cambios["session_type"] is not None:
-        cambios["session_type"] = payload.session_type.value
-    if "deck_version_id" in cambios and cambios["deck_version_id"] is not None:
-        cambios["deck_version_id"] = ObjectId(payload.deck_version_id)
+    if "played_at" in changes and changes["played_at"] is not None:
+        changes["played_at"] = date_to_bson(payload.played_at)
+    if "session_type" in changes and changes["session_type"] is not None:
+        changes["session_type"] = payload.session_type.value
+    if "deck_version_id" in changes and changes["deck_version_id"] is not None:
+        changes["deck_version_id"] = ObjectId(payload.deck_version_id)
 
-    cambios["updated_at"] = datetime.now(timezone.utc)
-    await _collection().update_one({"_id": session_id}, {"$set": cambios})
+    changes["updated_at"] = datetime.now(timezone.utc)
+    await _collection().update_one({"_id": session_id}, {"$set": changes})
 
 
 async def add_match(session_id: ObjectId, match: MatchCreate) -> None:
@@ -211,16 +211,16 @@ async def delete_match(session_id: ObjectId, round_no: int) -> bool:
     if session is None:
         return False
 
-    restantes = [m for m in session["matches"] if m["round"] != round_no]
-    if len(restantes) == len(session["matches"]):
+    remaining = [m for m in session["matches"] if m["round"] != round_no]
+    if len(remaining) == len(session["matches"]):
         return False
 
-    for indice, m in enumerate(restantes, start=1):
-        m["round"] = indice
+    for index, m in enumerate(remaining, start=1):
+        m["round"] = index
 
     await _collection().update_one(
         {"_id": session_id},
-        {"$set": {"matches": restantes, "updated_at": datetime.now(timezone.utc)}},
+        {"$set": {"matches": remaining, "updated_at": datetime.now(timezone.utc)}},
     )
     return True
 

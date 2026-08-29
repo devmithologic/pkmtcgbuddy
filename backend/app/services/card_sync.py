@@ -110,11 +110,11 @@ async def _fetch_details(ids: list[str]) -> list[dict]:
 
 
 # Categories whose card IS its name. See _reprint_key.
-_CATEGORIAS_POR_NOMBRE = {"Trainer", "Energy"}
+_CATEGORIES_BY_NAME = {"Trainer", "Energy"}
 
 # The parenthetical TCGdex uses to distinguish the character from the artwork:
 # "Boss's Orders (Giovanni)". It isn't printed on the card's name.
-_SUFIJO_DE_ARTE = re.compile(r"\s*\([^)]*\)\s*$")
+_ART_SUFFIX = re.compile(r"\s*\([^)]*\)\s*$")
 
 
 def _reprint_key(document: dict) -> str | None:
@@ -150,8 +150,8 @@ def _reprint_key(document: dict) -> str | None:
     The art suffix is stripped because "Boss's Orders (Giovanni)" is Boss's
     Orders: the parenthetical is TCGdex's doing, not the card's.
     """
-    if document.get("category") in _CATEGORIAS_POR_NOMBRE:
-        return "name:" + _SUFIJO_DE_ARTE.sub("", document["name"]).strip().lower()
+    if document.get("category") in _CATEGORIES_BY_NAME:
+        return "name:" + _ART_SUFFIX.sub("", document["name"]).strip().lower()
     return document.get("identity")
 
 
@@ -175,32 +175,32 @@ def _apply_reprint_rule(documents: list[dict]) -> int:
     This rule needs to see the whole set, and the sync already has it in
     memory before writing.
     """
-    legales_std: set[str] = set()
-    legales_exp: set[str] = set()
+    legal_standard_keys: set[str] = set()
+    legal_expanded_keys: set[str] = set()
 
     for doc in documents:
-        clave = _reprint_key(doc)
-        if clave:
+        key = _reprint_key(doc)
+        if key:
             if doc["legal_standard"]:
-                legales_std.add(clave)
+                legal_standard_keys.add(key)
             if doc["legal_expanded"]:
-                legales_exp.add(clave)
+                legal_expanded_keys.add(key)
 
-    promovidas = 0
+    promoted = 0
     for doc in documents:
-        clave = _reprint_key(doc)
-        if not clave:
+        key = _reprint_key(doc)
+        if not key:
             continue
-        cambio = False
-        if not doc["legal_standard"] and clave in legales_std:
+        changed = False
+        if not doc["legal_standard"] and key in legal_standard_keys:
             doc["legal_standard"] = True
-            cambio = True
-        if not doc["legal_expanded"] and clave in legales_exp:
+            changed = True
+        if not doc["legal_expanded"] and key in legal_expanded_keys:
             doc["legal_expanded"] = True
-            cambio = True
-        promovidas += cambio
+            changed = True
+        promoted += changed
 
-    return promovidas
+    return promoted
 
 
 async def _write(documents: list[dict]) -> tuple[int, int]:
@@ -246,13 +246,13 @@ def _stamp_set_dates(documents: list[dict], dates: dict[str, str]) -> int:
     these copies would go stale. It can't happen here: a set's release date is
     the past, and the past doesn't get edited.
     """
-    sin_fecha = 0
+    without_date = 0
     for doc in documents:
-        fecha = dates.get(card_repository.set_id_of(doc["_id"]))
-        doc["set_release_date"] = fecha
-        if not fecha:
-            sin_fecha += 1
-    return sin_fecha
+        date = dates.get(card_repository.set_id_of(doc["_id"]))
+        doc["set_release_date"] = date
+        if not date:
+            without_date += 1
+    return without_date
 
 
 async def resort() -> None:
@@ -281,25 +281,25 @@ async def resort() -> None:
             print("  python -m app.services.set_sync")
             return
 
-        escritas, sin_fecha = await card_repository.restamp_sort_fields(dates, BATCH_SIZE)
+        written, without_date = await card_repository.restamp_sort_fields(dates, BATCH_SIZE)
 
         # And while we're at it, the reprint rule is reapplied too, since it
         # can also be recomputed from what's already on hand. It only ever
         # adds legality, never removes it, so running it again is harmless.
-        instantanea = await card_repository.legality_snapshot()
-        antes = {d["_id"]: (d["legal_standard"], d["legal_expanded"]) for d in instantanea}
-        promovidas = _apply_reprint_rule(instantanea)
-        cambiadas = [
+        snapshot = await card_repository.legality_snapshot()
+        before = {d["_id"]: (d["legal_standard"], d["legal_expanded"]) for d in snapshot}
+        promoted = _apply_reprint_rule(snapshot)
+        changed_docs = [
             d
-            for d in instantanea
-            if antes[d["_id"]] != (d["legal_standard"], d["legal_expanded"])
+            for d in snapshot
+            if before[d["_id"]] != (d["legal_standard"], d["legal_expanded"])
         ]
-        await card_repository.save_legality(cambiadas, BATCH_SIZE)
+        await card_repository.save_legality(changed_docs, BATCH_SIZE)
 
         elapsed = time.perf_counter() - started
         print(
-            f"Listo en {elapsed:.1f}s · {escritas} cartas · {sin_fecha} sin fecha de set"
-            f" · {promovidas} impresiones promovidas a legal"
+            f"Listo en {elapsed:.1f}s · {written} cartas · {without_date} sin fecha de set"
+            f" · {promoted} impresiones promovidas a legal"
         )
     finally:
         await close_mongo_connection()
@@ -323,17 +323,17 @@ async def sync(deck_format: DeckFormat) -> None:
 
         documents = await _fetch_details(ids)
 
-        promovidas = _apply_reprint_rule(documents)
-        print(f"  regla de reimpresión: {promovidas} impresiones promovidas a legal")
+        promoted = _apply_reprint_rule(documents)
+        print(f"  regla de reimpresión: {promoted} impresiones promovidas a legal")
 
         # The set's date is stamped here and not in card_to_document because
         # it doesn't come from the card: it has to be looked up in another
         # collection, and that's a query that shouldn't sneak into a
         # translation function.
-        sin_fecha = _stamp_set_dates(documents, await set_repository.release_dates())
-        if sin_fecha:
+        without_date = _stamp_set_dates(documents, await set_repository.release_dates())
+        if without_date:
             print(
-                f"  {sin_fecha} cartas sin fecha de set. Si son muchas, falta:"
+                f"  {without_date} cartas sin fecha de set. Si son muchas, falta:"
                 " python -m app.services.set_sync"
             )
 
@@ -342,13 +342,13 @@ async def sync(deck_format: DeckFormat) -> None:
         # recent. It goes here and not in card_to_document because it's a
         # decision about the WHOLE SET, and that function only ever sees one
         # card at a time.
-        duplicadas = card_repository.energy_duplicates(documents)
+        duplicates = card_repository.energy_duplicates(documents)
         for doc in documents:
-            doc["is_energy_duplicate"] = doc["_id"] in duplicadas
-        basicas = sum(1 for d in documents if d.get("is_basic_energy"))
+            doc["is_energy_duplicate"] = doc["_id"] in duplicates
+        basic_count = sum(1 for d in documents if d.get("is_basic_energy"))
         print(
-            f"  energías básicas: {basicas} impresiones,"
-            f" {basicas - len(duplicadas)} ofrecidas en el buscador"
+            f"  energías básicas: {basic_count} impresiones,"
+            f" {basic_count - len(duplicates)} ofrecidas en el buscador"
         )
 
         inserted, updated = await _write(documents)

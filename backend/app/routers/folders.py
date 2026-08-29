@@ -19,7 +19,7 @@ def _to_out(doc: dict) -> FolderOut:
     )
 
 
-async def _existe_o_404(folder_id: ObjectId) -> dict:
+async def _exists_or_404(folder_id: ObjectId) -> dict:
     doc = await folder_repository.get_folder(folder_id)
     if not doc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa carpeta no existe")
@@ -43,7 +43,7 @@ async def create_folder(payload: FolderCreate) -> FolderOut:
     parent = None
     if payload.parent_id:
         parent = to_object_id(payload.parent_id)
-        await _existe_o_404(parent)
+        await _exists_or_404(parent)
 
     folder_id = await folder_repository.create_folder(payload.name, parent)
     doc = await folder_repository.get_folder(to_object_id(folder_id))
@@ -53,16 +53,16 @@ async def create_folder(payload: FolderCreate) -> FolderOut:
 @router.patch("/{folder_id}", response_model=FolderOut)
 async def update_folder(folder_id: str, payload: FolderUpdate) -> FolderOut:
     oid = to_object_id(folder_id)
-    await _existe_o_404(oid)
+    await _exists_or_404(oid)
 
     # Moving: the cycle must be checked BEFORE writing. If it writes first and
     # checks after, the tree is already broken and has to be undone.
-    campos = payload.model_dump(exclude_unset=True)
-    if "parent_id" in campos:
-        nuevo = to_object_id(campos["parent_id"]) if campos["parent_id"] else None
-        if nuevo is not None:
-            await _existe_o_404(nuevo)
-        if await folder_repository.crearia_ciclo(oid, nuevo):
+    fields = payload.model_dump(exclude_unset=True)
+    if "parent_id" in fields:
+        new_parent_id = to_object_id(fields["parent_id"]) if fields["parent_id"] else None
+        if new_parent_id is not None:
+            await _exists_or_404(new_parent_id)
+        if await folder_repository.would_create_cycle(oid, new_parent_id):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 "Una carpeta no puede moverse dentro de sí misma ni de una de sus subcarpetas",

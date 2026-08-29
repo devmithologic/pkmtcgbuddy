@@ -188,23 +188,23 @@ def _identity(payload: dict) -> str:
     reprints of each other. That's why attacks and abilities are included
     too.
     """
-    partes = {k: payload.get(k) for k in _IDENTITY_FIELDS}
+    parts = {k: payload.get(k) for k in _IDENTITY_FIELDS}
 
     # Attacks and abilities, without the formatting noise.
-    partes["attacks"] = [
+    parts["attacks"] = [
         {"name": a.get("name"), "cost": a.get("cost"),
          "damage": a.get("damage"), "effect": a.get("effect")}
         for a in (payload.get("attacks") or [])
     ]
-    partes["abilities"] = [
+    parts["abilities"] = [
         {"name": a.get("name"), "effect": a.get("effect"), "type": a.get("type")}
         for a in (payload.get("abilities") or [])
     ]
 
     # sort_keys so key order doesn't change the fingerprint; hashed so the
     # full text of every card isn't stored in every document.
-    canonico = json.dumps(partes, sort_keys=True, ensure_ascii=False, default=str)
-    return hashlib.sha1(canonico.encode()).hexdigest()[:16]
+    canonical = json.dumps(parts, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha1(canonical.encode()).hexdigest()[:16]
 
 
 def _to_card(payload: dict) -> Card:
@@ -344,18 +344,18 @@ async def fetch_sets() -> list[dict]:
     nowhere to put it. They go in with `abbreviation` set to None, which is
     the truth: they don't have one.
     """
-    listado = await _require_client().get("/sets")
-    listado.raise_for_status()
+    listing = await _require_client().get("/sets")
+    listing.raise_for_status()
 
     try:
-        resumenes = listado.json()
+        summaries = listing.json()
     except ValueError as exc:
         raise CardSourceError("TCGdex devolvió algo que no es JSON") from exc
 
     semaphore = asyncio.Semaphore(CONCURRENCY)
     sets: list[dict] = []
 
-    async def detalle(set_id: str) -> None:
+    async def detail(set_id: str) -> None:
         async with semaphore:
             try:
                 r = await _require_client().get(f"/sets/{set_id}")
@@ -384,5 +384,5 @@ async def fetch_sets() -> list[dict]:
             }
         )
 
-    await asyncio.gather(*(detalle(s["id"]) for s in resumenes if s.get("id")))
+    await asyncio.gather(*(detail(s["id"]) for s in summaries if s.get("id")))
     return sets

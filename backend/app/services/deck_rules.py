@@ -66,12 +66,12 @@ def validate_deck(
     # --- size ------------------------------------------------------------
     total = sum(entry.quantity for entry in cards)
     if total != DECK_SIZE:
-        faltan = DECK_SIZE - total
-        detalle = f"faltan {faltan}" if faltan > 0 else f"sobran {-faltan}"
+        missing = DECK_SIZE - total
+        detail = f"faltan {missing}" if missing > 0 else f"sobran {-missing}"
         violations.append(
             Violation(
                 code=ViolationCode.WRONG_SIZE,
-                message=f"Un mazo son {DECK_SIZE} cartas: hay {total}, {detalle}",
+                message=f"Un mazo son {DECK_SIZE} cartas: hay {total}, {detail}",
             )
         )
 
@@ -80,25 +80,25 @@ def validate_deck(
     # another are the same card as far as the rulebook is concerned. That is why
     # the names have to be resolved, and why the catalogue arrives as a
     # parameter.
-    por_nombre: dict[str, int] = defaultdict(int)
-    ids_por_nombre: dict[str, list[str]] = defaultdict(list)
+    by_name: dict[str, int] = defaultdict(int)
+    ids_by_name: dict[str, list[str]] = defaultdict(list)
 
     for entry in known:
         card = catalogue[entry.card_id]
         if card.is_basic_energy:
             continue  # exempt
-        por_nombre[card.name] += entry.quantity
-        ids_por_nombre[card.name].append(entry.card_id)
+        by_name[card.name] += entry.quantity
+        ids_by_name[card.name].append(entry.card_id)
 
-    excedidas = {
-        nombre: n for nombre, n in por_nombre.items() if n > MAX_COPIES_PER_NAME
+    exceeded = {
+        name: n for name, n in by_name.items() if n > MAX_COPIES_PER_NAME
     }
-    for nombre, n in sorted(excedidas.items()):
+    for name, n in sorted(exceeded.items()):
         violations.append(
             Violation(
                 code=ViolationCode.TOO_MANY_COPIES,
-                message=f"«{nombre}»: {n} copias, el máximo son {MAX_COPIES_PER_NAME}",
-                card_ids=ids_por_nombre[nombre],
+                message=f"«{name}»: {n} copias, el máximo son {MAX_COPIES_PER_NAME}",
+                card_ids=ids_by_name[name],
             )
         )
 
@@ -118,22 +118,22 @@ def validate_deck(
         )
 
     # --- legality in the format -------------------------------------------
-    ilegales = [
+    illegal_ids = [
         entry.card_id
         for entry in known
         if not catalogue[entry.card_id].is_legal_in(deck_format)
     ]
-    if ilegales:
-        nombres = sorted({catalogue[cid].name for cid in ilegales})
-        muestra = ", ".join(nombres[:3]) + ("…" if len(nombres) > 3 else "")
+    if illegal_ids:
+        names = sorted({catalogue[cid].name for cid in illegal_ids})
+        sample = ", ".join(names[:3]) + ("…" if len(names) > 3 else "")
         violations.append(
             Violation(
                 code=ViolationCode.ILLEGAL_IN_FORMAT,
                 message=(
-                    f"{len(ilegales)} carta(s) no son legales en "
-                    f"{deck_format.value}: {muestra}"
+                    f"{len(illegal_ids)} carta(s) no son legales en "
+                    f"{deck_format.value}: {sample}"
                 ),
-                card_ids=ilegales,
+                card_ids=illegal_ids,
             )
         )
 
