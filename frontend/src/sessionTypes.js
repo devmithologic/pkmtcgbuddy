@@ -1,11 +1,11 @@
 /**
- * Tipos de sesión, en un módulo aparte y no dentro de un componente.
+ * Session types, in a separate module rather than inside a component.
  *
- * El motivo es concreto, no estilístico: Vite recarga en caliente un fichero
- * solo si exporta únicamente componentes. Al exportar también constantes, cada
- * cambio fuerza una recarga completa de la página y se pierde el estado.
+ * The reason is concrete, not stylistic: Vite hot-reloads a file only if it
+ * exports components exclusively. Exporting constants too means every change
+ * forces a full page reload and the state is lost.
  *
- * Los valores tienen que coincidir con SessionType en backend/app/models/session.py.
+ * The values have to match SessionType in backend/app/models/session.py.
  */
 
 export const SESSION_TYPES = [

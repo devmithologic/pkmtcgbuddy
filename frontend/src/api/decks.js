@@ -1,33 +1,34 @@
 /**
- * Acceso a /api/decks.
+ * Access to /api/decks.
  *
- * A diferencia de las cartas, los mazos son datos nuestros: aquí sí hay
- * escrituras.
+ * Unlike cards, decks are our own data: here writes do happen.
  */
 
 import { queryString, request } from './client'
 
-/** GET /api/decks — todos los mazos con su estado de validez. */
+/** GET /api/decks — all decks with their validity state. */
 export function listDecks() {
   return request('/api/decks')
 }
 
-/** GET /api/decks/{id} — mazo, lista de la versión actual y validación. */
+/** GET /api/decks/{id} — deck, current version's decklist, and validation. */
 export function getDeck(deckId) {
   return request(`/api/decks/${deckId}`)
 }
 
 /**
- * POST /api/decks — crea un mazo con su versión 1, vacía.
+ * POST /api/decks — creates a deck with its version 1, empty.
  *
- * Recibe el objeto entero y lo manda entero. La primera versión desestructuraba
- * `{ name, deck_format }`, y cuando el formulario ganó los dos iconos de Pokémon
- * se quedaron por el camino: el mazo se creaba sin ellos y nadie avisaba.
+ * Receives the whole object and sends it whole. The first version
+ * destructured `{ name, deck_format }`, and when the form gained the two
+ * Pokémon icons they were left behind: the deck was created without them and
+ * nobody noticed.
  *
- * Es el mismo fallo que tuvo add_match en el repositorio de sesiones. Enumerar
- * campos —al desestructurar aquí, al construir un documento allí— crea un filtro
- * silencioso que hay que recordar actualizar cada vez que el modelo crece. Quien
- * valida qué campos son válidos es el backend, que para eso tiene el modelo.
+ * It's the same bug add_match had in the session repository. Enumerating
+ * fields —destructuring here, building a document there— creates a silent
+ * filter that has to be remembered and updated every time the model grows.
+ * The backend is what decides which fields are valid, since that's what the
+ * model is for.
  */
 export function createDeck(deck) {
   return request('/api/decks', {
@@ -38,11 +39,12 @@ export function createDeck(deck) {
 }
 
 /**
- * PUT /api/decks/{id}/cards — reemplaza la lista de la versión actual.
+ * PUT /api/decks/{id}/cards — replaces the current version's decklist.
  *
- * Se manda la lista entera, no «suma una Iono». Eso hace la operación
- * idempotente: repetirla no duplica nada, y no hace falta coordinar contadores.
- * Devuelve el mazo ya validado, así que el cliente no tiene que recalcular nada.
+ * The whole decklist is sent, not "add one Iono". That makes the operation
+ * idempotent: repeating it duplicates nothing, and no counters need
+ * coordinating. Returns the deck already validated, so the client doesn't
+ * have to recompute anything.
  */
 export function saveDeckCards(deckId, cards) {
   return request(`/api/decks/${deckId}/cards`, {
@@ -52,7 +54,7 @@ export function saveDeckCards(deckId, cards) {
   })
 }
 
-/** POST /api/decks/{id}/versions — nueva versión copiando la actual. */
+/** POST /api/decks/{id}/versions — new version copying the current one. */
 export function createVersion(deckId, message) {
   return request(`/api/decks/${deckId}/versions`, {
     method: 'POST',
@@ -61,31 +63,31 @@ export function createVersion(deckId, message) {
   })
 }
 
-/** GET /api/decks/{id}/versions — historial. */
+/** GET /api/decks/{id}/versions — history. */
 export function listVersions(deckId) {
   return request(`/api/decks/${deckId}/versions`)
 }
 
-/** GET /api/decks/{id}/versions/{vid} — una versión concreta con su lista. */
+/** GET /api/decks/{id}/versions/{vid} — one specific version with its decklist. */
 export function getVersion(deckId, versionId) {
   return request(`/api/decks/${deckId}/versions/${versionId}`)
 }
 
 /**
- * GET /api/decks/{id}/stats — estadísticas agregadas del mazo.
+ * GET /api/decks/{id}/stats — the deck's aggregated statistics.
  *
- * Acepta AbortSignal porque los filtros disparan una consulta nueva y las
- * respuestas pueden llegar desordenadas.
+ * Accepts AbortSignal because filters trigger a new query and responses can
+ * arrive out of order.
  */
 export function getDeckStats(deckId, filters = {}, signal) {
   return request(`/api/decks/${deckId}/stats${queryString(filters)}`, { signal })
 }
 
 /**
- * PATCH /api/decks/{id} — cambia nombre o iconos de un mazo existente.
+ * PATCH /api/decks/{id} — changes an existing deck's name or icons.
  *
- * PATCH y no PUT porque se manda solo lo que cambia. El backend usa
- * exclude_unset, así que enviar {name} no borra los iconos.
+ * PATCH and not PUT because only what changes is sent. The backend uses
+ * exclude_unset, so sending {name} doesn't erase the icons.
  */
 export function updateDeck(deckId, changes) {
   return request(`/api/decks/${deckId}`, {
@@ -96,23 +98,23 @@ export function updateDeck(deckId, changes) {
 }
 
 /**
- * DELETE /api/decks/{id} — borra el mazo y su historial de versiones.
+ * DELETE /api/decks/{id} — deletes the deck and its version history.
  *
- * Puede fallar con 409 si alguna sesión se jugó con él. No es un error del
- * cliente que haya que evitar preguntando antes: es la respuesta correcta, y el
- * mensaje que trae dice cuántas sesiones lo usan. `request` ya lo convierte en
- * una excepción con ese texto.
+ * Can fail with 409 if some session was played with it. That's not a client
+ * error to be avoided by asking first: it's the correct response, and the
+ * message it carries says how many sessions use it. `request` already turns
+ * it into an exception with that text.
  */
 export function deleteDeck(deckId) {
   return request(`/api/decks/${deckId}`, { method: 'DELETE' })
 }
 
 /**
- * POST /api/decks/import — crea un mazo desde una lista en texto.
+ * POST /api/decks/import — creates a deck from a text decklist.
  *
- * Devuelve `{deck, imported_cards, unresolved}`. `unresolved` llega siempre,
- * aunque venga vacío: quien pega 60 cartas tiene derecho a saber si entraron 60
- * o 57, y cuáles no, escritas tal como las mandó.
+ * Returns `{deck, imported_cards, unresolved}`. `unresolved` always arrives,
+ * even if empty: someone who pastes 60 cards has the right to know whether 60
+ * or 57 got in, and which ones didn't, written exactly as they sent them.
  */
 export function importDeck(payload) {
   return request('/api/decks/import', {
@@ -123,10 +125,10 @@ export function importDeck(payload) {
 }
 
 /**
- * GET /api/decks/{id}/export — la lista en texto, lista para pegar.
+ * GET /api/decks/{id}/export — the decklist as text, ready to paste.
  *
- * No pasa por `request`: ese envoltorio hace response.json(), y esto es
- * text/plain. Un documento, no un dato.
+ * Doesn't go through `request`: that wrapper does response.json(), and this
+ * is text/plain. A document, not a piece of data.
  */
 export async function exportDeck(deckId) {
   const response = await fetch(`${import.meta.env.VITE_API_URL}/api/decks/${deckId}/export`)

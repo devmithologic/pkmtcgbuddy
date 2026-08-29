@@ -1,26 +1,27 @@
 /**
- * Acceso a /api/folders.
+ * Access to /api/folders.
  *
- * El servidor devuelve las carpetas PLANAS, cada una con su `parent_id`. El
- * árbol se arma en el cliente con `buildTree`. Es la contrapartida de haber
- * elegido el modelo de «referencia al padre» en Mongo: barato de escribir,
- * y bajar por el árbol lo hace quien ya las tiene todas en memoria.
+ * The server returns folders FLAT, each with its `parent_id`. The tree is
+ * built on the client with `buildTree`. That's the trade-off of having chosen
+ * the "parent reference" model in Mongo: cheap to write, and walking down the
+ * tree is done by whoever already has them all in memory.
  */
 
 import { request } from './client'
 
-/** GET /api/folders — todas, planas, con el recuento de mazos directos. */
+/** GET /api/folders — all of them, flat, with the count of direct decks. */
 export function listFolders() {
   return request('/api/folders')
 }
 
 /**
- * El cuerpo va SERIALIZADO y con su cabecera.
+ * The body goes SERIALIZED and with its header.
  *
- * `request` pasa las opciones tal cual a `fetch`, y fetch no serializa objetos:
- * los convierte a texto con String(), así que un objeto llega literalmente como
- * "[object Object]". El síntoma es un 422 de FastAPI diciendo «body: Input
- * should be a valid dictionary», que no suena a lo que es.
+ * `request` passes options straight through to `fetch`, and fetch doesn't
+ * serialize objects: it converts them to text with String(), so an object
+ * arrives literally as "[object Object]". The symptom is a FastAPI 422
+ * saying "body: Input should be a valid dictionary", which doesn't sound
+ * like what it is.
  */
 function json(method, body) {
   return {
@@ -35,27 +36,28 @@ export function createFolder(folder) {
   return request('/api/folders', json('POST', folder))
 }
 
-/** PATCH /api/folders/{id} — renombrar o mover. */
+/** PATCH /api/folders/{id} — rename or move. */
 export function updateFolder(folderId, changes) {
   return request(`/api/folders/${folderId}`, json('PATCH', changes))
 }
 
-/** DELETE /api/folders/{id} — el contenido sube al padre, no se borra. */
+/** DELETE /api/folders/{id} — its contents move up to the parent, not deleted. */
 export function deleteFolder(folderId) {
   return request(`/api/folders/${folderId}`, { method: 'DELETE' })
 }
 
 /**
- * Convierte la lista plana en un árbol de `{...carpeta, children: []}`.
+ * Converts the flat list into a tree of `{...folder, children: []}`.
  *
- * Dos pasadas y no una búsqueda por cada padre: primero un índice por id, luego
- * se cuelga cada carpeta de su padre. Buscar el padre con `find()` dentro del
- * bucle sería O(n²) — irrelevante con diez carpetas, pero es el mismo reflejo
- * que evita el N+1 en el servidor, y aquí no cuesta nada hacerlo bien.
+ * Two passes rather than a lookup per parent: first an index by id, then
+ * each folder is hung off its parent. Finding the parent with `find()`
+ * inside the loop would be O(n²) — irrelevant with ten folders, but it's the
+ * same reflex that avoids the N+1 on the server, and here it costs nothing
+ * to do it right.
  *
- * Una carpeta cuyo `parent_id` no exista —no debería pasar, pero un borrado a
- * mano en mongosh lo provoca— se trata como raíz en vez de desaparecer. Los
- * datos huérfanos se muestran; esconderlos es cómo se pierden.
+ * A folder whose `parent_id` doesn't exist —shouldn't happen, but a manual
+ * delete in mongosh causes it— is treated as a root instead of disappearing.
+ * Orphaned data is shown; hiding it is how it gets lost.
  */
 export function buildTree(folders) {
   const porId = new Map(folders.map((f) => [f.id, { ...f, children: [] }]))
@@ -70,10 +72,10 @@ export function buildTree(folders) {
 }
 
 /**
- * Aplana el árbol a `[{...carpeta, depth}]`, en el orden en que se pinta.
+ * Flattens the tree to `[{...folder, depth}]`, in the order it's rendered.
  *
- * Sirve para los desplegables de «mover a», donde hace falta una lista lineal
- * pero se quiere seguir viendo la jerarquía mediante la sangría.
+ * Used by the "move to" dropdowns, where a linear list is needed but the
+ * hierarchy still needs to show through indentation.
  */
 export function flattenTree(nodos, depth = 0) {
   return nodos.flatMap((n) => [{ ...n, depth }, ...flattenTree(n.children, depth + 1)])
