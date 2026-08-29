@@ -242,6 +242,7 @@ only surfaced by reading the file). Rows added during execution, grouped by file
 | `lleno` | `full` | `frontend/src/components/TagInput.jsx` |
 | `limpia` | `cleaned` | `frontend/src/components/TagInput.jsx` — same word as the backend and DeckList/DeckBuilder rows, a separate local in a separate file |
 | `celda` | `cell` | `frontend/src/components/DeckGrid.jsx` |
+| `linea` | `line` | `frontend/src/components/DeckList.jsx` — the `.map()` parameter over `importing.report.unresolved`, a separate occurrence from the backend `linea`→`line` row above; found in a fix round because none of the four enumeration passes matches a bare `.map((name) =>` arrow parameter |
 
 Not renamed, despite looking like candidates: `version`, `version_id`, `version_ids`, `deck_version`, `deck_version_id`, `legal`, `legal_standard`, `legal_expanded`, `legal_in_format`, `is_legal`, `is_legal_in`, `total`, `total_cards`, `ace_total` — all already English (Spanish and English share the word, or the heuristic search matched a substring of an English word).
 
