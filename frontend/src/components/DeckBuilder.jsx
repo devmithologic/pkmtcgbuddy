@@ -230,7 +230,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
    * warning.
    */
   async function handleNewVersion() {
-    const message = window.prompt('¿Qué cambia en esta versión?')
+    const message = window.prompt('What changes in this version?')
     if (!message) return
 
     setSaving(true)
@@ -256,7 +256,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
   }
 
   if (error && !deck) return <p className="error">{error}</p>
-  if (!deck) return <p>Cargando…</p>
+  if (!deck) return <p>Loading…</p>
 
   return (
     <div className="deck-builder">
@@ -266,7 +266,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
           it fell off-screen exactly when there were unsaved changes. */}
       <div className="builder-head">
         <button type="button" className="back" onClick={onBack}>
-          ← Mazos
+          ← Decks
         </button>
 
         <PokemonPair
@@ -288,8 +288,8 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
                 if (e.key === 'Enter') e.currentTarget.blur()
                 if (e.key === 'Escape') setName(deck.name)
               }}
-              aria-label="Nombre del mazo"
-              /* A newly created deck is called "Mazo nuevo": focusing and
+              aria-label="Deck name"
+              /* A newly created deck is called "New deck": focusing and
                  selecting lets you type over it without deleting it by
                  hand. */
               ref={(el) => {
@@ -303,7 +303,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
 
             <div className="builder-actions">
               <button type="button" onClick={handleSave} disabled={!dirty || saving}>
-                {saving ? 'Guardando…' : dirty ? 'Guardar cambios' : 'Sin cambios'}
+                {saving ? 'Saving…' : dirty ? 'Save changes' : 'No changes'}
               </button>
               <button
                 type="button"
@@ -311,10 +311,10 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
                 onClick={handleNewVersion}
                 disabled={saving}
               >
-                Nueva versión
+                New version
               </button>
               <button type="button" className="secondary" onClick={handleExport}>
-                Exportar
+                Export
               </button>
             </div>
           </div>
@@ -323,12 +323,12 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
             <select
               value={deck.deck_format}
               onChange={(e) => patchDeck({ deck_format: e.target.value })}
-              aria-label="Formato del mazo"
+              aria-label="Deck format"
             >
               <option value="standard">Standard</option>
               <option value="expanded">Expanded</option>
             </select>
-            · versión {deck.current_version.version} · {deck.current_version.message}
+            · version {deck.current_version.version} · {deck.current_version.message}
           </p>
 
           <div className="deck-pokemon">
@@ -339,7 +339,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
             <PokemonPicker
               value={deck.secondary_pokemon}
               onSelect={(p) => setPokemon('secondary_pokemon', p)}
-              placeholder="secundario"
+              placeholder="secondary"
             />
           </div>
         </div>
@@ -350,15 +350,15 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
       {exported !== null && (
         <div className="deck-export">
           <p className="hint">
-            Lista en el formato de PTCG Live. Cópiala y pégala en cualquier constructor.
+            List in PTCG Live format. Copy and paste it into any builder.
           </p>
           <textarea readOnly rows={12} value={exported} spellCheck={false} />
           <div className="builder-actions">
             <button type="button" onClick={() => navigator.clipboard?.writeText(exported)}>
-              Copiar
+              Copy
             </button>
             <button type="button" className="secondary" onClick={() => setExported(null)}>
-              Cerrar
+              Close
             </button>
           </div>
         </div>
@@ -374,7 +374,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
             pendingTotal={dirty ? cards.reduce((sum, c) => sum + c.quantity, 0) : null}
           />
 
-          {dirty && <p className="hint">Hay cambios sin guardar.</p>}
+          {dirty && <p className="hint">There are unsaved changes.</p>}
 
           <div className="view-toggle">
             <button
@@ -382,14 +382,14 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
               className={view === 'grid' ? 'active' : ''}
               onClick={() => setView('grid')}
             >
-              Cartas
+              Cards
             </button>
             <button
               type="button"
               className={view === 'list' ? 'active' : ''}
               onClick={() => setView('list')}
             >
-              Lista
+              List
             </button>
             {/* The whole deck at once, with no category headers breaking up
                 the grid: it's how a published list is viewed. Read-only on
@@ -407,9 +407,9 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
             {view !== 'list' && (
               <span className="grid-size">
                 {[
-                  ['s', 'Cartas pequeñas'],
-                  ['m', 'Cartas medianas'],
-                  ['l', 'Cartas grandes'],
+                  ['s', 'Small cards'],
+                  ['m', 'Medium cards'],
+                  ['l', 'Large cards'],
                 ].map(([value, title]) => (
                   <button
                     key={value}
@@ -443,13 +443,13 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
           {comparing && (
             <section className="comparing">
               <h4>
-                Consultando v{comparing.version} · {comparing.message}
+                Viewing v{comparing.version} · {comparing.message}
                 <button type="button" onClick={() => setComparing(null)}>
-                  cerrar
+                  close
                 </button>
               </h4>
               <p className="hint">
-                Solo lectura: las versiones anteriores están congeladas.
+                Read-only: earlier versions are frozen.
               </p>
               {/* readOnly removes the controls: offering a button that
                   can't do anything confuses more than it helps. */}
@@ -459,24 +459,24 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
 
           {versions.length > 0 && (
             <section className="history">
-              <h4>Historial</h4>
+              <h4>History</h4>
               <ul>
                 {versions.map((v) => (
                   <li key={v.id} className={v.version === deck.current_version.version ? 'current' : ''}>
                     <span className="vnum">v{v.version}</span>
                     <span className="vmsg">{v.message}</span>
-                    <span className="vcount">{v.total_cards} cartas</span>
+                    <span className="vcount">{v.total_cards} cards</span>
                     {v.version !== deck.current_version.version && (
                       <button type="button" className="peek" onClick={() => toggleCompare(v)}>
-                        {comparing?.id === v.id ? 'ocultar' : 'ver'}
+                        {comparing?.id === v.id ? 'hide' : 'view'}
                       </button>
                     )}
                   </li>
                 ))}
               </ul>
               <p className="hint">
-                Solo la versión actual es editable. Las anteriores quedan congeladas para que las
-                estadísticas atribuidas a ellas sigan siendo ciertas.
+                Only the current version is editable. Earlier ones stay frozen so the statistics
+                attributed to them remain true.
               </p>
             </section>
           )}

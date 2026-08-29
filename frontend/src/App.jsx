@@ -7,9 +7,9 @@ import SessionList from './components/SessionList'
 import './App.css'
 
 const TABS = [
-  { id: 'sessions', label: 'Sesiones' },
-  { id: 'decks', label: 'Mazos' },
-  { id: 'cards', label: 'Cartas' },
+  { id: 'sessions', label: 'Sessions' },
+  { id: 'decks', label: 'Decks' },
+  { id: 'cards', label: 'Cards' },
 ]
 
 export default function App() {

@@ -32,7 +32,7 @@ export default function DeckValidation({ validation, pendingTotal }) {
           <span className="of">/{DECK_SIZE}</span>
         </span>
         <span className="verdict">
-          {stale ? 'Sin comprobar — guarda para validar' : isLegal ? 'Mazo legal' : 'Todavía no es legal'}
+          {stale ? 'Unchecked — save to validate' : isLegal ? 'Legal deck' : 'Not legal yet'}
         </span>
       </div>
 

@@ -55,7 +55,7 @@ export default function TagInput({ value = [], suggestions = [], onChange }) {
         {value.map((t) => (
           <span key={t} className="tag-chip">
             {t}
-            <button type="button" onClick={() => onChange(value.filter((x) => x !== t))} aria-label={`Quitar ${t}`}>
+            <button type="button" onClick={() => onChange(value.filter((x) => x !== t))} aria-label={`Remove ${t}`}>
               ×
             </button>
           </span>
@@ -68,7 +68,7 @@ export default function TagInput({ value = [], suggestions = [], onChange }) {
           onBlur={() => draft && add(draft)}
           disabled={full}
           placeholder={
-            full ? `máximo ${MAX_TAGS}` : value.length ? '' : 'gamesmart, preparación regional…'
+            full ? `max ${MAX_TAGS}` : value.length ? '' : 'gamesmart, regional prep…'
           }
         />
       </span>

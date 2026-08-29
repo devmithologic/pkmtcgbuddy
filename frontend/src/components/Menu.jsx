@@ -28,7 +28,7 @@ import { useEffect, useId, useRef, useState } from 'react'
  */
 export default function Menu({
   actions,
-  label = 'Acciones',
+  label = 'Actions',
   trigger = '⋮',
   className = '',
   align = 'right',

@@ -1,7 +1,7 @@
 const GROUPS = [
   { key: 'Pokemon', label: 'Pokémon' },
-  { key: 'Trainer', label: 'Entrenador' },
-  { key: 'Energy', label: 'Energía' },
+  { key: 'Trainer', label: 'Trainer' },
+  { key: 'Energy', label: 'Energy' },
 ]
 
 /**
@@ -30,7 +30,7 @@ export default function DeckGrid({
   grouped = true,
 }) {
   if (cards.length === 0) {
-    return <p className="empty">Esta lista está vacía.</p>
+    return <p className="empty">This list is empty.</p>
   }
 
   /** One cell: the card, its quantity and, when editable, its controls. */
@@ -62,14 +62,14 @@ export default function DeckGrid({
             <button
               type="button"
               onClick={() => onChangeQuantity(entry.card.id, entry.quantity - 1)}
-              aria-label={`Quitar una copia de ${entry.card.name}`}
+              aria-label={`Remove one copy of ${entry.card.name}`}
             >
               −
             </button>
             <button
               type="button"
               onClick={() => onChangeQuantity(entry.card.id, entry.quantity + 1)}
-              aria-label={`Añadir una copia de ${entry.card.name}`}
+              aria-label={`Add one copy of ${entry.card.name}`}
             >
               +
             </button>
@@ -77,7 +77,7 @@ export default function DeckGrid({
               type="button"
               className="remove"
               onClick={() => onRemove(entry.card.id)}
-              aria-label={`Eliminar ${entry.card.name}`}
+              aria-label={`Remove ${entry.card.name}`}
             >
               ×
             </button>

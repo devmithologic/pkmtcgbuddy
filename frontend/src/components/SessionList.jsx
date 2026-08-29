@@ -122,10 +122,10 @@ export default function SessionList({ onOpen }) {
   return (
     <section className="screen-split">
       <form onSubmit={handleSubmit} className="match-form">
-        <h2>Nueva sesión</h2>
+        <h2>New session</h2>
 
         <label>
-          Fecha
+          Date
           <input
             type="date"
             name="played_at"
@@ -136,7 +136,7 @@ export default function SessionList({ onOpen }) {
         </label>
 
         <label>
-          Tipo
+          Type
           <select name="session_type" value={form.session_type} onChange={handleChange}>
             {SESSION_TYPES.map((t) => (
               <option key={t.value} value={t.value}>
@@ -147,9 +147,9 @@ export default function SessionList({ onOpen }) {
         </label>
 
         <label>
-          Mazo
+          Deck
           <select name="deck_id" value={form.deck_id} onChange={handleChange} required>
-            <option value="">— elige un mazo —</option>
+            <option value="">— choose a deck —</option>
             {decks.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name} (v{d.current_version})
@@ -159,7 +159,7 @@ export default function SessionList({ onOpen }) {
         </label>
 
         <label>
-          Nombre <span className="optional">opcional</span>
+          Name <span className="optional">optional</span>
           <input
             type="text"
             name="name"
@@ -170,7 +170,7 @@ export default function SessionList({ onOpen }) {
         </label>
 
         <label>
-          Etiquetas <span className="optional">opcional: tienda, propósito…</span>
+          Tags <span className="optional">optional: shop, purpose…</span>
           <TagInput
             value={form.tags}
             suggestions={tags}
@@ -179,11 +179,11 @@ export default function SessionList({ onOpen }) {
         </label>
 
         {decks.length === 0 && !loading && (
-          <p className="hint">Necesitas crear un mazo antes de registrar una sesión.</p>
+          <p className="hint">You need to create a deck before logging a session.</p>
         )}
 
         <button type="submit" disabled={creating || !form.deck_id}>
-          {creating ? 'Creando…' : 'Empezar sesión'}
+          {creating ? 'Creating…' : 'Start session'}
         </button>
 
         {error && <p className="error">{error}</p>}
@@ -202,7 +202,7 @@ export default function SessionList({ onOpen }) {
             className={filterTag === null ? 'active' : ''}
             onClick={() => setFilterTag(null)}
           >
-            Todas
+            All
           </button>
           {tags.map((t) => (
             <button
@@ -218,12 +218,12 @@ export default function SessionList({ onOpen }) {
       )}
 
       <h2>
-        Sesiones ({sessions.length})
+        Sessions ({sessions.length})
         {filterTag && <span className="filtered-by"> · {filterTag}</span>}
       </h2>
-      {loading && <p>Cargando…</p>}
+      {loading && <p>Loading…</p>}
       {!loading && sessions.length === 0 && (
-        <p className="empty">Todavía no hay sesiones registradas.</p>
+        <p className="empty">No sessions logged yet.</p>
       )}
 
       <ul className="session-list">
@@ -263,24 +263,24 @@ export default function SessionList({ onOpen }) {
                 five-round tournament is irreversible. */}
             {confirming === s.id ? (
               <span className="confirm-delete">
-                ¿Borrar?
-                <button type="button" onClick={() => handleDelete(s.id)}>Sí</button>
+                Delete?
+                <button type="button" onClick={() => handleDelete(s.id)}>Yes</button>
                 <button type="button" onClick={() => setConfirming(null)}>No</button>
               </span>
             ) : (
               <Menu
-                label={`Acciones de ${s.name || s.played_at}`}
+                label={`Actions for ${s.name || s.played_at}`}
                 actions={[
                   {
                     icon: '✏️',
-                    label: 'Editar',
+                    label: 'Edit',
                     // The second argument opens the session with the header
                     // form already expanded, instead of duplicating it here.
                     onSelect: () => onOpen(s.id, true),
                   },
                   {
                     icon: '✕',
-                    label: 'Borrar',
+                    label: 'Delete',
                     danger: true,
                     onSelect: () => setConfirming(s.id),
                   },

@@ -121,11 +121,11 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
 
   return (
     <section className="card-search">
-      <h2>Buscar cartas</h2>
+      <h2>Search cards</h2>
 
       <div className="filters">
         <label>
-          Nombre
+          Name
           <input
             type="text"
             name="q"
@@ -136,21 +136,21 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
         </label>
 
         <label>
-          Formato
+          Format
           <select name="format" value={filters.format} onChange={handleFilterChange}>
             <option value="standard">Standard</option>
             <option value="expanded">Expanded</option>
-            <option value="">Cualquiera</option>
+            <option value="">Any</option>
           </select>
         </label>
 
         <label>
-          Categoría
+          Category
           <select name="category" value={filters.category} onChange={handleFilterChange}>
-            <option value="">Todas</option>
+            <option value="">All</option>
             <option value="Pokemon">Pokémon</option>
-            <option value="Trainer">Entrenador</option>
-            <option value="Energy">Energía</option>
+            <option value="Trainer">Trainer</option>
+            <option value="Energy">Energy</option>
           </select>
         </label>
 
@@ -161,20 +161,20 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
             checked={filters.ace_spec}
             onChange={handleFilterChange}
           />
-          Solo ACE SPEC
+          ACE SPEC only
         </label>
       </div>
 
       <p className="hint">
-        La búsqueda es por subcadena: <code>rod</code> encuentra <code>Aerodactyl</code>.
+        Search is by substring: <code>rod</code> matches <code>Aerodactyl</code>.
       </p>
 
-      {!canSearch && <p className="empty">Escribe al menos 2 letras, o marca «Solo ACE SPEC».</p>}
-      {loading && <p>Buscando…</p>}
+      {!canSearch && <p className="empty">Type at least 2 letters, or check &quot;ACE SPEC only&quot;.</p>}
+      {loading && <p>Searching…</p>}
       {error && <p className="error">{error}</p>}
 
       {!loading && !error && canSearch && results.length === 0 && (
-        <p className="empty">Ninguna carta coincide.</p>
+        <p className="empty">No card matches.</p>
       )}
 
       <ul className="card-grid">
@@ -188,14 +188,14 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
             <button
               type="button"
               onClick={() => (onPick ? onPick(card) : setSelectedId(card.id))}
-              title={onPick ? `Añadir ${card.name} al mazo` : card.name}
+              title={onPick ? `Add ${card.name} to deck` : card.name}
             >
               {card.image_url ? (
                 // loading="lazy" avoids downloading 24 images at once: the
                 // browser only requests the ones that enter the viewport.
                 <img src={card.image_url} alt={card.name} loading="lazy" />
               ) : (
-                <span className="no-image">sin imagen</span>
+                <span className="no-image">no image</span>
               )}
               <span className="card-name">{card.name}</span>
             </button>
@@ -206,11 +206,11 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
       {canSearch && (page > 1 || hasMore) && (
         <div className="pagination">
           <button type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-            Anterior
+            Previous
           </button>
-          <span>Página {page}</span>
+          <span>Page {page}</span>
           <button type="button" disabled={!hasMore} onClick={() => setPage((p) => p + 1)}>
-            Siguiente
+            Next
           </button>
         </div>
       )}

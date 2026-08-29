@@ -14,9 +14,9 @@ import TagInput from './TagInput'
 import PokemonPicker from './PokemonPicker'
 
 const RESULTS = [
-  { value: 'win', label: 'Victoria' },
-  { value: 'loss', label: 'Derrota' },
-  { value: 'tie', label: 'Empate' },
+  { value: 'win', label: 'Win' },
+  { value: 'loss', label: 'Loss' },
+  { value: 'tie', label: 'Tie' },
 ]
 
 const EMPTY_ROUND = {
@@ -179,7 +179,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
   }
 
   if (error && !session) return <p className="error">{error}</p>
-  if (!session) return <p>Cargando…</p>
+  if (!session) return <p>Loading…</p>
 
   const { record } = session
 
@@ -187,7 +187,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
     <div className="session-detail">
       <div className="builder-head">
         <button type="button" className="back" onClick={onBack}>
-          ← Sesiones
+          ← Sessions
         </button>
         <div className="session-head">
           <h2>{session.name || TYPE_LABEL[session.session_type]}</h2>
@@ -207,7 +207,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           {session.notes && <p className="session-notes">{session.notes}</p>}
           {!editingHeader && (
             <button type="button" className="peek" onClick={startEditHeader}>
-              editar sesión
+              edit session
             </button>
           )}
         </div>
@@ -215,10 +215,10 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
 
       {editingHeader && (
         <form onSubmit={saveHeader} className="match-form session-edit">
-          <h3>Editar sesión</h3>
+          <h3>Edit session</h3>
 
           <label>
-            Fecha
+            Date
             <input
               type="date"
               value={header.played_at}
@@ -228,7 +228,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Tipo
+            Type
             <select
               value={header.session_type}
               onChange={(e) => setHeader({ ...header, session_type: e.target.value })}
@@ -242,7 +242,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Mazo
+            Deck
             <select
               value={header.deck_version_id}
               onChange={(e) => setHeader({ ...header, deck_version_id: e.target.value })}
@@ -252,7 +252,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
                   v3 — so it's offered explicitly so it isn't lost when the
                   dropdown opens. */}
               <option value={session.deck_version_id}>
-                {session.deck_name} (v{session.deck_version}) — actual
+                {session.deck_name} (v{session.deck_version}) — current
               </option>
               {decks
                 .filter((d) => d.current_version_id !== session.deck_version_id)
@@ -265,7 +265,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Nombre <span className="optional">opcional</span>
+            Name <span className="optional">optional</span>
             <input
               type="text"
               value={header.name}
@@ -275,7 +275,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Etiquetas <span className="optional">opcional</span>
+            Tags <span className="optional">optional</span>
             <TagInput
               value={header.tags}
               suggestions={allTags}
@@ -284,21 +284,21 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Notas del evento <span className="optional">opcional</span>
+            Event notes <span className="optional">optional</span>
             <textarea
               value={header.notes}
               onChange={(e) => setHeader({ ...header, notes: e.target.value })}
               rows={2}
-              placeholder="Cómo fue el día, qué probaste…"
+              placeholder="How the day went, what you tried…"
             />
           </label>
 
           <div className="round-form-actions">
             <button type="submit" disabled={busy}>
-              {busy ? 'Guardando…' : 'Guardar sesión'}
+              {busy ? 'Saving…' : 'Save session'}
             </button>
             <button type="button" className="secondary" onClick={() => setEditingHeader(false)}>
-              Cancelar
+              Cancel
             </button>
           </div>
         </form>
@@ -315,8 +315,8 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
         </span>
         <span className="record-label">
           {session.matches.length === 0
-            ? 'sin rondas todavía'
-            : `${session.matches.length} ronda${session.matches.length > 1 ? 's' : ''}`}
+            ? 'no rounds yet'
+            : `${session.matches.length} ${session.matches.length === 1 ? 'round' : 'rounds'}`}
         </span>
       </div>
 
@@ -343,7 +343,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
             </span>
             <span className="round-actions">
               <button type="button" onClick={() => startEdit(m)} disabled={busy}>
-                corregir
+                correct
               </button>
               <button
                 type="button"
@@ -358,7 +358,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
                 }}
                 disabled={busy}
               >
-                borrar
+                delete
               </button>
             </span>
             {m.notes && <p className="round-notes">{m.notes}</p>}
@@ -368,10 +368,10 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
       </div>
 
       <form onSubmit={handleAdd} className="match-form round-form">
-        <h3>{editingRound === null ? `Ronda ${session.matches.length + 1}` : `Corregir ronda ${editingRound}`}</h3>
+        <h3>{editingRound === null ? `Round ${session.matches.length + 1}` : `Correct round ${editingRound}`}</h3>
 
         <label>
-          Mazo del rival
+          Opponent&apos;s deck
           <input
             type="text"
             value={form.opponent_archetype}
@@ -382,7 +382,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
         </label>
 
         <label>
-          Pokémon del rival <span className="optional">opcional</span>
+          Opponent&apos;s Pokémon <span className="optional">optional</span>
           <span className="pkm-two">
             <PokemonPicker
               value={form.opponent_primary}
@@ -392,13 +392,13 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
             <PokemonPicker
               value={form.opponent_secondary}
               onSelect={(p) => setForm({ ...form, opponent_secondary: p })}
-              placeholder="segundo"
+              placeholder="second"
             />
           </span>
         </label>
 
         <label>
-          Resultado
+          Result
           <select
             value={form.result}
             onChange={(e) => setForm({ ...form, result: e.target.value })}
@@ -412,22 +412,22 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
         </label>
 
         <label>
-          Notas <span className="optional">opcional</span>
+          Notes <span className="optional">optional</span>
           <textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={2}
-            placeholder="Qué pasó, qué cambiarías…"
+            placeholder="What happened, what you'd change…"
           />
         </label>
 
         <div className="round-form-actions">
           <button type="submit" disabled={busy}>
-            {editingRound === null ? 'Añadir ronda' : 'Guardar corrección'}
+            {editingRound === null ? 'Add round' : 'Save correction'}
           </button>
           {editingRound !== null && (
             <button type="button" className="secondary" onClick={cancelEdit}>
-              Cancelar
+              Cancel
             </button>
           )}
         </div>

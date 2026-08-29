@@ -58,7 +58,7 @@ export default function PokemonPicker({ value, onSelect, placeholder = 'dragapul
         <span className="pkm-chosen">
           <img src={value.icon_url} alt={value.name} width={32} height={32} />
           <span>{value.name}</span>
-          <button type="button" onClick={() => onSelect(null)} aria-label={`Quitar ${value.name}`}>
+          <button type="button" onClick={() => onSelect(null)} aria-label={`Remove ${value.name}`}>
             ×
           </button>
         </span>

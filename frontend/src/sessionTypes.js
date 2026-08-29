@@ -9,7 +9,7 @@
  */
 
 export const SESSION_TYPES = [
-  { value: 'league', label: 'Liga' },
+  { value: 'league', label: 'League' },
   { value: 'cup', label: 'Cup' },
   { value: 'challenge', label: 'Challenge' },
   { value: 'online', label: 'Online' },

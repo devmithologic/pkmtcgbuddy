@@ -3,8 +3,8 @@ import { getCard } from '../api/cards'
 
 const CATEGORY_LABEL = {
   Pokemon: 'Pokémon',
-  Trainer: 'Entrenador',
-  Energy: 'Energía',
+  Trainer: 'Trainer',
+  Energy: 'Energy',
 }
 
 /**
@@ -41,12 +41,12 @@ export default function CardDetail({ cardId, onClose }) {
 
   return (
     <aside className="card-detail">
-      <button type="button" className="close" onClick={onClose} aria-label="Cerrar">
+      <button type="button" className="close" onClick={onClose} aria-label="Close">
         ×
       </button>
 
       {error && <p className="error">{error}</p>}
-      {!card && !error && <p>Cargando…</p>}
+      {!card && !error && <p>Loading…</p>}
 
       {card && (
         <>
@@ -54,16 +54,16 @@ export default function CardDetail({ cardId, onClose }) {
           <h3>{card.name}</h3>
 
           <dl>
-            <dt>Categoría</dt>
+            <dt>Category</dt>
             <dd>{CATEGORY_LABEL[card.category] ?? card.category}</dd>
 
-            <dt>Rareza</dt>
+            <dt>Rarity</dt>
             <dd>{card.rarity ?? '—'}</dd>
 
-            <dt>Marca de regulación</dt>
+            <dt>Regulation mark</dt>
             <dd>{card.regulation_mark ?? '—'}</dd>
 
-            <dt>Legalidad</dt>
+            <dt>Legality</dt>
             <dd>
               <span className={card.legal_standard ? 'legal' : 'illegal'}>
                 Standard {card.legal_standard ? '✓' : '✗'}
@@ -74,7 +74,7 @@ export default function CardDetail({ cardId, onClose }) {
             </dd>
           </dl>
 
-          {card.is_ace_spec && <p className="ace-spec">ACE SPEC — máximo 1 por mazo</p>}
+          {card.is_ace_spec && <p className="ace-spec">ACE SPEC — max 1 per deck</p>}
         </>
       )}
     </aside>

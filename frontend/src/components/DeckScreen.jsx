@@ -20,14 +20,14 @@ export default function DeckScreen({ deckId, isNew = false, onBack }) {
           className={view === 'build' ? 'active' : ''}
           onClick={() => setView('build')}
         >
-          Lista
+          List
         </button>
         <button
           type="button"
           className={view === 'stats' ? 'active' : ''}
           onClick={() => setView('stats')}
         >
-          Estadísticas
+          Stats
         </button>
       </div>
 
@@ -38,7 +38,7 @@ export default function DeckScreen({ deckId, isNew = false, onBack }) {
       ) : (
         <>
           <button type="button" className="back" onClick={onBack}>
-            ← Mazos
+            ← Decks
           </button>
           <DeckStats deckId={deckId} />
         </>
