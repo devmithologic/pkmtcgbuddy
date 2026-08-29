@@ -199,6 +199,50 @@ Task 7 execution found many more Spanish identifiers than this table originally 
 | `sufijo` | `suffix` | `backend/app/services/deck_text.py` |
 | `etiqueta` | `label` | `backend/app/services/deck_text.py` |
 
+Task 12 execution found more Spanish identifiers in the frontend than this table originally
+listed — same story as Task 7: the four enumeration passes catch declarations and first
+parameters, but not a function's second-and-later positional parameters (`esDescendiente(candidato, ancestro)`
+only surfaced by reading the file). Rows added during execution, grouped by file:
+
+| Current | New | File |
+| --- | --- | --- |
+| `vistaGuardada` | `savedView` | `frontend/src/components/DeckList.jsx` — reads the persisted view choice from `localStorage` |
+| `planas` | `flatFolders` | `frontend/src/components/DeckList.jsx` — the flattened folder list used by the "move to" menu |
+| `ruta` | `getPath` | `frontend/src/components/DeckList.jsx` — the function that builds the breadcrumb; kept distinct from `path` (the renamed `camino`) it returns, to avoid a name colliding with its own return value |
+| `subcarpetas` | `subfolders` | `frontend/src/components/DeckList.jsx` |
+| `esDescendiente` | `isDescendant` | `frontend/src/components/DeckList.jsx` |
+| `candidato` | `candidateId` | `frontend/src/components/DeckList.jsx` — first parameter of `isDescendant` |
+| `ancestro` | `ancestorId` | `frontend/src/components/DeckList.jsx` — second parameter of `isDescendant`, missed by every enumeration pass because none of them catch a function's later positional parameters |
+| `cambiaVista` | `changeView` | `frontend/src/components/DeckList.jsx` |
+| `conError` | `withErrorHandling` | `frontend/src/components/DeckList.jsx` — wraps an action with the shared error-and-reload handling |
+| `accion` | `action` | `frontend/src/components/DeckList.jsx` (parameter of `withErrorHandling`) and `frontend/src/components/Menu.jsx` (the `.map()` callback parameter) — two separate locals, same Spanish word |
+| `creaMazo` | `createNewDeck` | `frontend/src/components/DeckList.jsx` — distinct from the imported `createDeck` API function |
+| `importaLista` | `importList` | `frontend/src/components/DeckList.jsx` |
+| `creaCarpeta` | `createNewFolder` | `frontend/src/components/DeckList.jsx` — distinct from the imported `createFolder` API function |
+| `guardaNombre` | `saveName` | `frontend/src/components/DeckList.jsx` and `frontend/src/components/DeckBuilder.jsx` — two separate locals, same name |
+| `destinos` | `moveTargets` | `frontend/src/components/DeckList.jsx` — the "move to another folder/root" menu entries |
+| `editando` | `isRenaming` | `frontend/src/components/DeckList.jsx` |
+| `CuerpoFila` | `RowBody` | `frontend/src/components/DeckList.jsx` — nested component |
+| `activo` | `active` | `frontend/src/components/DeckList.jsx` — parameter of `RowBody` |
+| `abrir` | `open` | `frontend/src/components/DeckList.jsx` — destructuring rename `onOpen: abrir` inside `RowBody` |
+| `filaCarpeta` | `folderRow` | `frontend/src/components/DeckList.jsx` |
+| `hijas` | `childCount` | `frontend/src/components/DeckList.jsx` |
+| `filaMazo` | `deckRow` | `frontend/src/components/DeckList.jsx` |
+| `limpio` | `cleaned` | `frontend/src/components/DeckList.jsx` and `frontend/src/components/DeckBuilder.jsx` — two separate locals, same word, same shape as the existing `limpia`→`cleaned` backend row |
+| `escasa` | `thin` | `frontend/src/components/DeckStats.jsx` — matches the CSS class it drives, `is-thin` |
+| `sinDatos` | `noData` | `frontend/src/components/DeckStats.jsx` |
+| `enfocado` | `focused` | `frontend/src/components/DeckBuilder.jsx` |
+| `cambios` | `changes` | `frontend/src/components/DeckBuilder.jsx` — parameter of `patchDeck`, distinct from the backend `cambios`→`changes` rows |
+| `exporta` | `handleExport` | `frontend/src/components/DeckBuilder.jsx` — distinct from the imported `exportDeck` API function |
+| `alPulsarFuera` | `handleClickOutside` | `frontend/src/components/Menu.jsx` |
+| `alPulsarTecla` | `handleKeyDown` | `frontend/src/components/Menu.jsx` |
+| `estaba` | `wasOpen` | `frontend/src/components/Menu.jsx` — the `setOpen((estaba) => !estaba)` updater parameter |
+| `normalizada` | `normalized` | `frontend/src/components/TagInput.jsx` |
+| `coincidencias` | `matches` | `frontend/src/components/TagInput.jsx` |
+| `lleno` | `full` | `frontend/src/components/TagInput.jsx` |
+| `limpia` | `cleaned` | `frontend/src/components/TagInput.jsx` — same word as the backend and DeckList/DeckBuilder rows, a separate local in a separate file |
+| `celda` | `cell` | `frontend/src/components/DeckGrid.jsx` |
+
 Not renamed, despite looking like candidates: `version`, `version_id`, `version_ids`, `deck_version`, `deck_version_id`, `legal`, `legal_standard`, `legal_expanded`, `legal_in_format`, `is_legal`, `is_legal_in`, `total`, `total_cards`, `ace_total` — all already English (Spanish and English share the word, or the heuristic search matched a substring of an English word).
 
 ---
