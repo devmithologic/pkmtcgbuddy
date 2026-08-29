@@ -5,21 +5,21 @@ const GROUPS = [
 ]
 
 /**
- * La lista del mazo como rejilla de cartas con la cantidad encima.
+ * The decklist as a grid of cards with the quantity overlaid.
  *
- * Es como se leen las listas en el mundo real —y como las publican Limitless o
- * PTCG Live— porque una lista de 60 cartas se reconoce por las ilustraciones
- * mucho antes que por los nombres. En modo texto tienes que leer veinte líneas
- * para saber si te falta el Poké Ball; aquí lo ves.
+ * This is how lists are read in the real world — and how Limitless or PTCG
+ * Live publish them — because a 60-card list is recognized by its artwork
+ * long before it is by its names. In text mode you have to read twenty lines
+ * to know whether you're missing the Poké Ball; here you see it.
  *
- * Agrupa por categoría porque es la estructura que tiene una lista de mazo, no
- * una decoración. Con `grouped={false}` sale todo en una sola rejilla: es la
- * vista «Preview», para ver el mazo entero de golpe como se ve una lista
- * publicada, sin que las cabeceras corten la retícula.
+ * It groups by category because that's the structure a decklist has, not a
+ * decoration. With `grouped={false}` everything comes out in a single grid:
+ * that's the "Preview" view, for seeing the whole deck at once the way a
+ * published list looks, without the headers cutting up the grid.
  *
- * Modo `readOnly` para mirar versiones antiguas, que están congeladas: se pintan
- * igual pero sin los controles de cantidad, porque ofrecer un botón que no puede
- * hacer nada es peor que no ofrecerlo.
+ * `readOnly` mode is for looking at old versions, which are frozen: they're
+ * rendered the same but without the quantity controls, because offering a
+ * button that can't do anything is worse than not offering it.
  */
 export default function DeckGrid({
   cards,
@@ -33,7 +33,7 @@ export default function DeckGrid({
     return <p className="empty">Esta lista está vacía.</p>
   }
 
-  /** Una celda: la carta, su cantidad y, si se puede editar, sus controles. */
+  /** One cell: the card, its quantity and, when editable, its controls. */
   function celda(entry) {
     return (
       <li
@@ -48,9 +48,9 @@ export default function DeckGrid({
             <span className="no-image">{entry.card.name}</span>
           )}
 
-          {/* La cantidad va SOBRE la carta, como en las listas publicadas: así
-              se lee la proporción del mazo de un vistazo sin recorrer una
-              columna de números. */}
+          {/* The quantity sits OVER the card, like in published lists: that
+              way the deck's proportions read at a glance without scanning a
+              column of numbers. */}
           <span className="qty-badge">{entry.quantity}</span>
 
           {entry.is_ace_spec && <span className="corner ace">ACE</span>}

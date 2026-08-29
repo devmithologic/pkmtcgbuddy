@@ -8,17 +8,17 @@ const CATEGORY_LABEL = {
 }
 
 /**
- * Detalle de una carta.
+ * Detail of a card.
  *
- * Existe como componente aparte por una razón concreta, no por gusto: el listado
- * de TCGdex solo devuelve id, nombre e imagen. Rareza, marca de regulación y
- * legalidad requieren una llamada por carta.
+ * It exists as a separate component for a concrete reason, not by taste: the
+ * TCGdex listing only returns id, name and image. Rarity, regulation mark and
+ * legality each require one call per card.
  *
- * Pedir eso para las 24 cartas de la rejilla sería el problema **N+1**: una
- * consulta para la lista, más una por elemento. Con ~150ms cada una, serían más
- * de tres segundos y 24 peticiones para datos que el usuario quizá no mire. Así
- * que el detalle se pide solo cuando elige una carta: una llamada, cuando hace
- * falta.
+ * Asking for that for the 24 cards in the grid would be the **N+1** problem:
+ * one query for the list, plus one per item. At ~150ms each, that would be
+ * over three seconds and 24 requests for data the user may never look at. So
+ * the detail is only requested when they pick a card: one call, when it's
+ * needed.
  */
 export default function CardDetail({ cardId, onClose }) {
   const [card, setCard] = useState(null)
@@ -36,7 +36,7 @@ export default function CardDetail({ cardId, onClose }) {
       })
 
     return () => controller.abort()
-    // cardId en las dependencias: elegir otra carta vuelve a pedir el detalle.
+    // cardId in the dependencies: picking another card fetches the detail again.
   }, [cardId])
 
   return (

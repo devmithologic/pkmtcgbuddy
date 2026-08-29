@@ -7,23 +7,23 @@ import TagInput from './TagInput'
 import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
 
 /**
- * Hoy, en la zona horaria del usuario.
+ * Today, in the user's time zone.
  *
- * toISOString() da la fecha UTC, y aquí estamos en UTC-6: a las 21:59 del día 12
- * devuelve "2026-08-13". Justo la hora a la que se registra una liga de entre
- * semana, así que la sesión nacía con la fecha de mañana.
+ * toISOString() gives the UTC date, and here we're in UTC-6: at 21:59 on the
+ * 12th it returns "2026-08-13". Exactly the time a weekday league gets logged,
+ * so the session was being born with tomorrow's date.
  *
- * 'en-CA' se usa porque su formato de fecha es exactamente YYYY-MM-DD, que es lo
- * que espera <input type="date">.
+ * 'en-CA' is used because its date format is exactly YYYY-MM-DD, which is
+ * what <input type="date"> expects.
  */
 function today() {
   return new Date().toLocaleDateString('en-CA')
 }
 
 /**
- * Función y no constante: `const EMPTY = {played_at: today()}` se evalúa UNA vez
- * al cargar el módulo, así que una pestaña abierta desde ayer seguiría
- * proponiendo la fecha de ayer.
+ * A function, not a constant: `const EMPTY = {played_at: today()}` would be
+ * evaluated ONCE when the module loads, so a tab left open since yesterday
+ * would keep proposing yesterday's date.
  */
 function emptyForm() {
   return {
@@ -35,7 +35,7 @@ function emptyForm() {
   }
 }
 
-/** Listado de sesiones y formulario para abrir una nueva. */
+/** Session listing and the form to start a new one. */
 export default function SessionList({ onOpen }) {
   const [sessions, setSessions] = useState([])
   const [decks, setDecks] = useState([])
@@ -44,11 +44,11 @@ export default function SessionList({ onOpen }) {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState(null)
   const [tags, setTags] = useState([])
-  // Etiqueta por la que se filtra, o null para verlas todas.
+  // Tag being filtered on, or null to see them all.
   const [filterTag, setFilterTag] = useState(null)
-  // Sesión pendiente de confirmar borrado. La confirmación va EN LA FILA y no
-  // en un window.confirm: un diálogo del navegador bloquea la página y se
-  // descarta por costumbre, y esto es irreversible.
+  // Session pending delete confirmation. The confirmation goes IN THE ROW and
+  // not in a window.confirm: a browser dialog blocks the page and gets
+  // dismissed out of habit, and this is irreversible.
   const [confirming, setConfirming] = useState(null)
 
   async function reload(tag = filterTag) {
@@ -60,7 +60,7 @@ export default function SessionList({ onOpen }) {
   useEffect(() => {
     let active = true
 
-    // Las tres peticiones van juntas: ninguna depende de las otras.
+    // The three requests go together: none depends on the others.
     Promise.all([listSessions(filterTag ?? undefined), listDecks(), listTags()])
       .then(([s, d, t]) => {
         if (!active) return
@@ -87,8 +87,8 @@ export default function SessionList({ onOpen }) {
     }
   }
 
-  // Se elige el MAZO y se guarda su versión actual, igual que antes: juegas con
-  // la lista que tienes hoy.
+  // The DECK is what's chosen, and its current version is what gets saved,
+  // same as before: you play with the list you have today.
   const selectedDeck = decks.find((d) => d.id === form.deck_id)
 
   function handleChange(event) {
@@ -109,8 +109,8 @@ export default function SessionList({ onOpen }) {
         name: form.name.trim() || null,
         tags: form.tags,
       })
-      // Se abre directamente: una sesión recién creada está vacía, y lo único
-      // que tiene sentido a continuación es meterle rondas.
+      // It opens directly: a freshly created session is empty, and the only
+      // thing that makes sense next is adding rounds to it.
       onOpen(created.id)
     } catch (err) {
       setError(err.message)
@@ -189,10 +189,11 @@ export default function SessionList({ onOpen }) {
         {error && <p className="error">{error}</p>}
       </form>
 
-      {/* Todo lo que no es el formulario va junto en una columna. El envoltorio
-          hace falta porque .screen-split es una rejilla y sus hijos DIRECTOS son
-          las celdas: sin él, los filtros, el título y la lista serían tres
-          celdas sueltas y se repartirían por las columnas. */}
+      {/* Everything that isn't the form goes together in one column. The
+          wrapper is needed because .screen-split is a grid and its DIRECT
+          children are the cells: without it, the filters, the title and the
+          list would be three loose cells and would get spread across the
+          columns. */}
       <div className="pane">
       {tags.length > 0 && (
         <div className="tag-filters">
@@ -235,9 +236,9 @@ export default function SessionList({ onOpen }) {
               </span>
               <span className="s-name">{s.name || s.deck_name}</span>
 
-              {/* El mazo: sus dos Pokémon encima del nombre. El par de iconos
-                  identifica un mazo más rápido que su nombre escrito, que es
-                  para lo que existen. */}
+              {/* The deck: its two Pokémon above the name. The pair of icons
+                  identifies a deck faster than its written name, which is
+                  what they exist for. */}
               <span className="s-deck">
                 <span className="pkm-slot">
                   <PokemonPair
@@ -257,9 +258,9 @@ export default function SessionList({ onOpen }) {
               </span>
             </button>
 
-            {/* La confirmación sigue existiendo: el menú cambia de dónde sale la
-                acción, no que borrar un torneo de cinco rondas sea
-                irreversible. */}
+            {/* The confirmation still exists: the menu changes where the
+                action is triggered from, not the fact that deleting a
+                five-round tournament is irreversible. */}
             {confirming === s.id ? (
               <span className="confirm-delete">
                 ¿Borrar?
@@ -273,8 +274,8 @@ export default function SessionList({ onOpen }) {
                   {
                     icon: '✏️',
                     label: 'Editar',
-                    // El segundo argumento abre la sesión con el formulario de
-                    // cabecera ya desplegado, en vez de duplicarlo aquí.
+                    // The second argument opens the session with the header
+                    // form already expanded, instead of duplicating it here.
                     onSelect: () => onOpen(s.id, true),
                   },
                   {

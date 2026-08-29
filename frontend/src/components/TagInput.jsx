@@ -1,20 +1,21 @@
 import { useState } from 'react'
 
 /**
- * Entrada de etiquetas con sugerencias de las que ya existen.
+ * Tag input with suggestions drawn from the ones that already exist.
  *
- * Las sugerencias no son comodidad: son lo que evita la deriva. Si reusar
- * «gamesmart» es más fácil que teclearla, no acabas con «GameSmart» y
- * «Game Smart» como etiquetas distintas. El servidor normaliza igualmente al
- * guardar, pero para entonces el usuario ya escribió algo que no reconoce.
+ * The suggestions aren't a convenience: they're what prevents drift. If
+ * reusing "gamesmart" is easier than typing it out, you don't end up with
+ * "GameSmart" and "Game Smart" as separate tags. The server normalizes on
+ * save regardless, but by then the user has already typed something they
+ * don't recognize.
  *
- * Sin debounce ni AbortController, al revés que PokemonPicker: las sugerencias
- * llegan ya cargadas por props. Filtrar un array en memoria no necesita ni
- * retardo ni cancelación.
+ * No debounce or AbortController, unlike PokemonPicker: the suggestions
+ * arrive already loaded via props. Filtering an in-memory array needs neither
+ * delay nor cancellation.
  */
-// El mismo tope que declara el backend en SessionCreate/SessionUpdate. Sin él,
-// la etiqueta 11 se acepta en pantalla y el guardado falla con un mensaje de
-// validación en bruto que no dice qué control lo causó.
+// The same cap the backend declares in SessionCreate/SessionUpdate. Without
+// it, tag 11 is accepted on screen and saving fails with a raw validation
+// message that doesn't say which control caused it.
 const MAX_TAGS = 10
 
 export default function TagInput({ value = [], suggestions = [], onChange }) {
@@ -36,13 +37,13 @@ export default function TagInput({ value = [], suggestions = [], onChange }) {
   }
 
   function handleKey(event) {
-    // Enter añade; coma también, porque es como se escriben las listas.
+    // Enter adds; comma too, because that's how lists get written.
     if (event.key === 'Enter' || event.key === ',') {
       event.preventDefault()
       add(draft)
     }
-    // Retroceso con el campo vacío borra la última: atajo estándar en este
-    // tipo de control, y evita tener que apuntar a una × diminuta.
+    // Backspace with the field empty deletes the last one: standard shortcut
+    // for this kind of control, and it avoids having to aim at a tiny ×.
     if (event.key === 'Backspace' && !draft && value.length) {
       onChange(value.slice(0, -1))
     }

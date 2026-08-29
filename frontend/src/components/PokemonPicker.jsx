@@ -4,16 +4,16 @@ import { searchPokemon } from '../api/pokemon'
 const DEBOUNCE_MS = 250
 
 /**
- * Buscador de un Pokémon. Devuelve la referencia elegida por `onSelect`.
+ * Pokémon search box. Returns the reference chosen through `onSelect`.
  *
- * Repite la técnica de CardSearch —debounce más AbortController— pero no el
- * componente: busca en otro recurso, devuelve otra cosa y se pinta distinto.
- * Reutilizar el patrón es correcto; reutilizar el componente habría sido
- * forzarlo a hacer dos trabajos.
+ * It repeats CardSearch's technique — debounce plus AbortController — but not
+ * the component: it searches a different resource, returns something
+ * different, and renders differently. Reusing the pattern is correct; reusing
+ * the component would have forced it to do two jobs.
  *
- * El debounce es más corto que el de las cartas (250 ms frente a 350) porque
- * aquí la consulta va contra 1025 documentos locales y responde en microsegundos:
- * el retardo solo existe para no lanzar una petición por tecla.
+ * The debounce is shorter than the cards' (250 ms versus 350) because here
+ * the query runs against 1025 local documents and responds in microseconds:
+ * the delay exists only so it doesn't fire a request per keystroke.
  */
 export default function PokemonPicker({ value, onSelect, placeholder = 'dragapult' }) {
   const [query, setQuery] = useState('')
@@ -33,7 +33,7 @@ export default function PokemonPicker({ value, onSelect, placeholder = 'dragapul
           setResults(data)
           setOpen(true)
         })
-        // Abortar es cancelación deliberada, no un fallo que mostrar.
+        // Aborting is a deliberate cancellation, not a failure to display.
         .catch((err) => {
           if (err.name !== 'AbortError') setResults([])
         })
@@ -77,8 +77,9 @@ export default function PokemonPicker({ value, onSelect, placeholder = 'dragapul
           {results.map((p) => (
             <li key={p.dex_id}>
               <button type="button" onClick={() => choose(p)}>
-                {/* icon_url y no art_url a propósito: aquí hay 20 a la vez.
-                    Con los renders de HOME, cada búsqueda serían 2.5 MB. */}
+                {/* icon_url and not art_url on purpose: there are 20 of these
+                    at once here. With HOME renders, each search would be
+                    2.5 MB. */}
                 <img src={p.icon_url} alt="" width={28} height={28} />
                 <span>{p.name}</span>
                 <span className="pkm-dex">#{p.dex_id}</span>

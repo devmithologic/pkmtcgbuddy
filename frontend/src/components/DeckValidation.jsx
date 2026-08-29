@@ -1,21 +1,23 @@
 const DECK_SIZE = 60
 
 /**
- * Estado de legalidad del mazo.
+ * The deck's legality state.
  *
- * La validación la calcula el servidor y llega ya hecha; este componente solo la
- * presenta. Duplicar las reglas en el cliente para «avisar antes» sería tener dos
- * fuentes de verdad que acabarían discrepando.
+ * The validation is computed by the server and arrives already done; this
+ * component only presents it. Duplicating the rules on the client to "warn
+ * early" would mean having two sources of truth that would eventually
+ * disagree.
  */
 export default function DeckValidation({ validation, pendingTotal }) {
-  // `pendingTotal` llega cuando hay cambios sin guardar. En ese caso la
-  // validación del servidor describe una lista que ya no es la que ves, así que
-  // NO se puede seguir afirmando «mazo legal»: sería mentira en pantalla.
+  // `pendingTotal` arrives when there are unsaved changes. In that case the
+  // server's validation describes a list that is no longer the one you're
+  // looking at, so it can NO LONGER claim "legal deck": that would be a lie
+  // on screen.
   //
-  // Se muestra el total contado en el cliente —una suma, no una regla— y el
-  // veredicto se sustituye por «sin comprobar». Recalcular aquí las reglas
-  // completas daría dos fuentes de verdad que acabarían discrepando; contar
-  // cartas no corre ese riesgo.
+  // What's shown instead is the total counted on the client — a sum, not a
+  // rule — and the verdict is replaced with "unchecked". Recomputing the full
+  // rules here would give two sources of truth that would eventually
+  // disagree; counting cards runs no such risk.
   const stale = pendingTotal !== null && pendingTotal !== undefined
   const total = stale ? pendingTotal : validation.total_cards
   const isLegal = !stale && validation.is_legal
@@ -34,8 +36,8 @@ export default function DeckValidation({ validation, pendingTotal }) {
         </span>
       </div>
 
-      {/* aria-hidden porque el número de arriba ya dice lo mismo a un lector
-          de pantalla; la barra es refuerzo visual, no información nueva. */}
+      {/* aria-hidden because the number above already says the same thing to a
+          screen reader; the bar is visual reinforcement, not new information. */}
       <div className="bar" aria-hidden="true">
         <div className="bar-fill" style={{ width: `${pct}%` }} />
       </div>

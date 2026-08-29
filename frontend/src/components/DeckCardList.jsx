@@ -5,13 +5,15 @@ const GROUPS = [
 ]
 
 /**
- * La lista del mazo, agrupada por categoría.
+ * The deck's decklist, grouped by category.
  *
- * Se agrupa así porque es como se leen y se escriben las listas en el juego real:
- * cuenta de Pokémon, de entrenadores y de energías. Ordenar alfabéticamente sin
- * agrupar sería más fácil de programar y menos útil de usar.
+ * It's grouped this way because that's how lists are read and written in the
+ * real game: a count of Pokémon, of Trainers, and of Energy. Sorting
+ * alphabetically without grouping would be easier to code and less useful to
+ * use.
  *
- * Presentacional: no pide datos ni los modifica. Recibe la lista y dos callbacks.
+ * Presentational: it doesn't fetch data or modify it. It receives the list and
+ * two callbacks.
  */
 export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
   if (cards.length === 0) {
