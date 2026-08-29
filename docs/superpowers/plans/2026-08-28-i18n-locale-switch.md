@@ -253,6 +253,13 @@ Read both lists in full. Each entry is either a catalogue key or an explicit exc
 
 The English copy produced by the previous plan is the source of truth. Copy it verbatim — rewording here means rewording the Spanish too, for nothing.
 
+**One string was deliberately left open for this moment.** `SessionDetail.jsx` uses **"correct"**
+as a round-level verb (`Correct round 3`) where the header uses **"edit"**. The Spanish drew that
+distinction on purpose (`corregir` versus `editar`), and the translation preserved it — but two
+reviewers noted that English does not lean on "correct" as a casual UI verb the way Spanish does.
+Decide it here, before it is frozen into `en.js`, and change the component to match whatever you
+choose. Keeping the distinction is defensible; so is collapsing both to "edit".
+
 ```js
 export default {
   nav: { sessions: 'Sessions', decks: 'Decks', cards: 'Cards' },
