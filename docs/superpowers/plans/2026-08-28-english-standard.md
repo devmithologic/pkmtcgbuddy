@@ -41,7 +41,7 @@ Fixed translations. Consistency across 50 files matters more than the elegance o
 | impresión | printing | a specific printing of a card |
 | sesión | session | |
 | ronda | round | |
-| partida | game | a single game inside a match; `partidas` in stats = games played |
+| partida | **Match** for the entity, **game** for a count | The row first said "a single game inside a match" — that sub-model does not exist here. `docs/domain.md` defines **Match** as *one round inside a session*, and the code already names it so (`addMatch`, `/api/sessions/{id}/matches`). So: the API resource and the domain object are **Match**; a tally of them reads as **games** (`stats.py`: "100% of 2 games is not the same as 67% of 30"). |
 | rival | opponent | |
 | torneo | tournament | |
 | carpeta | folder | |
