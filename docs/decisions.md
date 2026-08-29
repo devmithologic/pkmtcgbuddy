@@ -232,9 +232,10 @@ Macaronic code is worse than either language pure. `CLAUDE.md` states the projec
 full-stack engineering to the developer's career; an English codebase is the industry norm and the
 one a reader outside Spain can review. Spanish survives only as a UI translation.
 
-**The interface language is chosen in the client.** Detected from `navigator.language` on the first
-visit, then remembered in `localStorage`; an explicit choice always outranks detection. No backend
-involvement, no `Accept-Language` negotiation, no user account to store it on.
+**The interface language will be chosen in the client.** Decided, not yet built (see
+`docs/superpowers/plans/2026-08-28-i18n-locale-switch.md`): detected from `navigator.language` on the
+first visit, then remembered in `localStorage`; an explicit choice always outranks detection. No
+backend involvement, no `Accept-Language` negotiation, no user account to store it on.
 
 **A `Violation` carries a code and parameters, never prose.** Rejected: keeping `message` as an
 English fallback. Two sources of truth for the same sentence diverge — the Spanish text changes, the

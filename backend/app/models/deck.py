@@ -132,7 +132,7 @@ class Violation(BaseModel):
 
 
 class DeckValidation(BaseModel):
-    """Legality status of a decklist.
+    """Legality state of a decklist.
 
     NOT stored in the database. Computed on read, same as Matchup: it is a
     derived value, and storing it opens the door to it contradicting the

@@ -96,9 +96,10 @@ Short and real. Add entries as they become true, delete ones that stop being tru
   learning artifact; a comment restating the code is dead weight, and a comment naming the bug that
   bit us is the whole point.
 - **Everything in this repository is written in English** — identifiers, comments, docstrings,
-  documentation and the strings the interface ships with. Spanish exists in exactly one place:
-  `frontend/src/i18n/es.js`, as a translation of the interface. Conversation with the developer
-  stays in Spanish; the artifact does not.
+  documentation and the strings the interface ships with. Spanish is reserved for exactly one place:
+  `frontend/src/i18n/es.js`, as a translation of the interface (not yet implemented; see
+  `docs/superpowers/plans/2026-08-28-i18n-locale-switch.md`). Conversation with the developer stays
+  in Spanish; the artifact does not.
 
 ## Before you act: read the decision record
 
@@ -130,7 +131,7 @@ an architecture, swapping a provider, or reopening any of these:
 | Deck lists import/export as PTCG Live text | the interop format; needs the `sets` collection |
 | Import takes what it resolves and reports the rest | a friend's list may cite an unsynced set |
 | English is the source language of the repo | a bilingual codebase drifts; the artifact is a portfolio |
-| The UI language is detected, then remembered | `navigator.language` once, then `localStorage` wins |
+| The UI language will be detected, then remembered | `navigator.language` once, then `localStorage` wins; not yet implemented |
 | A `Violation` carries a code and params, not prose | prose plus a code is two sources of truth |
 
 **`docs/domain.md`** — Session, Match, Record, Tags, Deck, DeckVersion, Folder, Archetype, Matchup,
