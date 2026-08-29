@@ -122,7 +122,7 @@ async def create_deck(
             {
                 "deck_id": deck_id,
                 "version": 1,
-                "message": "Lista inicial",
+                "message": "Initial list",
                 "cards": [],
                 "created_at": now,
             }

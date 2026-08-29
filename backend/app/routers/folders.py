@@ -22,7 +22,7 @@ def _to_out(doc: dict) -> FolderOut:
 async def _exists_or_404(folder_id: ObjectId) -> dict:
     doc = await folder_repository.get_folder(folder_id)
     if not doc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa carpeta no existe")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That folder does not exist")
     return doc
 
 
@@ -65,7 +65,7 @@ async def update_folder(folder_id: str, payload: FolderUpdate) -> FolderOut:
         if await folder_repository.would_create_cycle(oid, new_parent_id):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                "Una carpeta no puede moverse dentro de sí misma ni de una de sus subcarpetas",
+                "A folder cannot be moved inside itself or one of its subfolders",
             )
 
     await folder_repository.update_folder(oid, payload)
@@ -76,4 +76,4 @@ async def update_folder(folder_id: str, payload: FolderUpdate) -> FolderOut:
 async def delete_folder(folder_id: str) -> None:
     """Deletes the folder. Its decks and subfolders move up to the parent; they are not deleted."""
     if not await folder_repository.delete_folder(to_object_id(folder_id)):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Esa carpeta no existe")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That folder does not exist")

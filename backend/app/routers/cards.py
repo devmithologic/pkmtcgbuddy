@@ -25,10 +25,10 @@ router = APIRouter(prefix="/cards", tags=["cards"])
 async def search_cards(
     # Query(...) declares query-string parameters with validation and documentation.
     # The short aliases are what the user sees in the URL: /api/cards?q=char
-    q: str | None = Query(default=None, min_length=2, description="Parte del nombre"),
-    format: DeckFormat | None = Query(default=None, description="Filtra por legalidad"),
+    q: str | None = Query(default=None, min_length=2, description="Part of the name"),
+    format: DeckFormat | None = Query(default=None, description="Filter by legality"),
     category: CardCategory | None = Query(default=None),
-    ace_spec: bool = Query(default=False, description="Solo cartas ACE SPEC"),
+    ace_spec: bool = Query(default=False, description="ACE SPEC cards only"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=24, ge=1, le=100),
 ) -> CardSearchResult:
@@ -55,7 +55,7 @@ async def search_cards(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "No hay cartas sincronizadas. Ejecuta:"
+                "No cards are synced. Run:"
                 " python -m app.services.card_sync"
             ),
         )
@@ -71,7 +71,7 @@ async def get_card(card_id: str) -> Card:
     if card is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe la carta {card_id} en el catálogo sincronizado",
+            detail=f"Card {card_id} is not in the synced catalogue",
         )
 
     return card

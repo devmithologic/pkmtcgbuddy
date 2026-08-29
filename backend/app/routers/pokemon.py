@@ -15,7 +15,7 @@ router = APIRouter(prefix="/pokemon", tags=["pokemon"])
 
 @router.get("", response_model=list[PokemonRefOut])
 async def search_pokemon(
-    q: str = Query(min_length=2, description="Parte del nombre"),
+    q: str = Query(min_length=2, description="Part of the name"),
     limit: int = Query(default=20, ge=1, le=50),
 ) -> list[PokemonRefOut]:
     """Search Pokémon by name, by substring.

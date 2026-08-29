@@ -56,7 +56,7 @@ def validate_deck(
         violations.append(
             Violation(
                 code=ViolationCode.UNKNOWN_CARD,
-                message=f"{len(unknown)} carta(s) no están en el catálogo sincronizado",
+                message=f"{len(unknown)} card(s) are not in the synced catalogue",
                 card_ids=unknown,
             )
         )
@@ -67,11 +67,11 @@ def validate_deck(
     total = sum(entry.quantity for entry in cards)
     if total != DECK_SIZE:
         missing = DECK_SIZE - total
-        detail = f"faltan {missing}" if missing > 0 else f"sobran {-missing}"
+        detail = f"missing {missing}" if missing > 0 else f"extra {-missing}"
         violations.append(
             Violation(
                 code=ViolationCode.WRONG_SIZE,
-                message=f"Un mazo son {DECK_SIZE} cartas: hay {total}, {detail}",
+                message=f"A deck is {DECK_SIZE} cards: there are {total}, {detail}",
             )
         )
 
@@ -97,7 +97,7 @@ def validate_deck(
         violations.append(
             Violation(
                 code=ViolationCode.TOO_MANY_COPIES,
-                message=f"«{name}»: {n} copias, el máximo son {MAX_COPIES_PER_NAME}",
+                message=f'"{name}": {n} copies, the maximum is {MAX_COPIES_PER_NAME}',
                 card_ids=ids_by_name[name],
             )
         )
@@ -110,8 +110,8 @@ def validate_deck(
             Violation(
                 code=ViolationCode.TOO_MANY_ACE_SPEC,
                 message=(
-                    f"{ace_total} cartas ACE SPEC: solo se permite "
-                    f"{MAX_ACE_SPEC} por mazo"
+                    f"{ace_total} ACE SPEC cards: only {MAX_ACE_SPEC} is "
+                    "allowed per deck"
                 ),
                 card_ids=ace_ids,
             )
@@ -130,7 +130,7 @@ def validate_deck(
             Violation(
                 code=ViolationCode.ILLEGAL_IN_FORMAT,
                 message=(
-                    f"{len(illegal_ids)} carta(s) no son legales en "
+                    f"{len(illegal_ids)} card(s) are not legal in "
                     f"{deck_format.value}: {sample}"
                 ),
                 card_ids=illegal_ids,

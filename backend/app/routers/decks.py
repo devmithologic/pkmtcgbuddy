@@ -65,7 +65,7 @@ async def _load_deck(deck_id: str) -> dict:
 
     if deck is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"No existe el mazo {deck_id}"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Deck {deck_id} does not exist"
         )
     return deck
 
@@ -165,7 +165,7 @@ async def import_deck(payload: DeckImport) -> DeckImportResult:
     if not lines:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "No se reconoció ninguna carta. El formato es «3 Riolu PRE 50», una por línea.",
+            'No card was recognized. The format is "3 Riolu PRE 50", one per line.',
         )
 
     abbreviations = await set_repository.abbreviation_map()
@@ -195,8 +195,8 @@ async def import_deck(payload: DeckImport) -> DeckImportResult:
     if not cards:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Ninguna carta de la lista está en el catálogo. "
-            "¿Has sincronizado los sets con `python -m app.services.set_sync`?",
+            "No card in the list is in the catalogue. "
+            "Have you synced the sets with `python -m app.services.set_sync`?",
         )
 
     # The text format says nothing about the tournament format or the deck's
@@ -204,7 +204,7 @@ async def import_deck(payload: DeckImport) -> DeckImportResult:
     # imports it, and the format is left at Standard, which is what's played
     # and gets changed in the builder's header with one click.
     deck_id = await deck_repository.create_deck(
-        payload.name or "Mazo importado",
+        payload.name or "Imported deck",
         DeckFormat.STANDARD,
         deck_repository.to_object_id(payload.folder_id) if payload.folder_id else None,
     )
@@ -263,7 +263,7 @@ async def get_deck(deck_id: str) -> DeckOut:
     if version is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="El mazo apunta a una versión que no existe",
+            detail="The deck points at a version that does not exist",
         )
 
     deck_format = DeckFormat(deck["format"])
@@ -316,9 +316,9 @@ async def delete_deck(deck_id: str) -> None:
     if in_use:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"No se puede borrar: {in_use} "
-            f"{'sesión se jugó' if in_use == 1 else 'sesiones se jugaron'} con este mazo. "
-            "Bórralas primero si de verdad quieres eliminarlo.",
+            f"Cannot delete: {in_use} "
+            f"{'session was played' if in_use == 1 else 'sessions were played'} with this deck. "
+            "Delete them first if you really want to remove it.",
         )
 
     await deck_repository.delete_deck(deck["_id"])
@@ -388,7 +388,7 @@ async def get_version(deck_id: str, version_id: str) -> DeckVersionOut:
     if version is None or version["deck_id"] != deck["_id"]:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"El mazo {deck_id} no tiene la versión {version_id}",
+            detail=f"Deck {deck_id} has no version {version_id}",
         )
 
     resolved, validation = await _resolve(version["cards"], DeckFormat(deck["format"]))
@@ -406,10 +406,10 @@ async def get_version(deck_id: str, version_id: str) -> DeckVersionOut:
 @router.get("/{deck_id}/stats", response_model=DeckStats)
 async def deck_stats(
     deck_id: str,
-    date_from: date | None = Query(default=None, description="Desde, inclusive"),
-    date_to: date | None = Query(default=None, description="Hasta, inclusive"),
+    date_from: date | None = Query(default=None, description="From, inclusive"),
+    date_to: date | None = Query(default=None, description="To, inclusive"),
     session_type: SessionType | None = Query(default=None),
-    tag: str | None = Query(default=None, description="Filtra por etiqueta de sesión"),
+    tag: str | None = Query(default=None, description="Filter by session tag"),
 ) -> DeckStats:
     """Deck statistics, aggregated over the sessions played with it.
 

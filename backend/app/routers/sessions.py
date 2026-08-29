@@ -37,7 +37,7 @@ async def _load(session_id: str) -> dict:
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe la sesión {session_id}",
+            detail=f"Session {session_id} does not exist",
         )
     return session
 
@@ -78,7 +78,7 @@ async def create_session(payload: SessionCreate) -> SessionOut:
     if version is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"No existe la versión de mazo {payload.deck_version_id}",
+            detail=f"Deck version {payload.deck_version_id} does not exist",
         )
 
     session_id = await session_repository.create_session(payload)
@@ -87,7 +87,7 @@ async def create_session(payload: SessionCreate) -> SessionOut:
 
 @router.get("", response_model=list[SessionSummary])
 async def list_sessions(
-    tag: str | None = Query(default=None, description="Filtra por etiqueta"),
+    tag: str | None = Query(default=None, description="Filter by tag"),
 ) -> list[SessionSummary]:
     """Listing, from the most recent session to the oldest."""
     sessions = await session_repository.list_sessions(tag=tag)
@@ -154,7 +154,7 @@ async def update_session(session_id: str, payload: SessionUpdate) -> SessionOut:
         if version is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"No existe la versión de mazo {payload.deck_version_id}",
+                detail=f"Deck version {payload.deck_version_id} does not exist",
             )
 
     await session_repository.update_session(session["_id"], payload)
@@ -180,7 +180,7 @@ async def update_match(session_id: str, round_no: int, payload: MatchCreate) -> 
     if not await session_repository.update_match(session["_id"], round_no, payload):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"La sesión no tiene una ronda {round_no}",
+            detail=f"The session has no round {round_no}",
         )
     return await _respond(session_id)
 
@@ -193,6 +193,6 @@ async def delete_match(session_id: str, round_no: int) -> SessionOut:
     if not await session_repository.delete_match(session["_id"], round_no):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"La sesión no tiene una ronda {round_no}",
+            detail=f"The session has no round {round_no}",
         )
     return await _respond(session_id)
