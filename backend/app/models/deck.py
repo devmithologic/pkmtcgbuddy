@@ -114,7 +114,7 @@ class ViolationCode(str, Enum):
     """Reasons a deck is not legal.
 
     A code alongside the message so the frontend can decide how to present
-    it without parsing Spanish text.
+    it without parsing prose.
     """
 
     WRONG_SIZE = "wrong_size"

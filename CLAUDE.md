@@ -132,7 +132,7 @@ an architecture, swapping a provider, or reopening any of these:
 | Import takes what it resolves and reports the rest | a friend's list may cite an unsynced set |
 | English is the source language of the repo | a bilingual codebase drifts; the artifact is a portfolio |
 | The UI language will be detected, then remembered | `navigator.language` once, then `localStorage` wins; not yet implemented |
-| A `Violation` carries a code and params, not prose | prose plus a code is two sources of truth |
+| A `Violation` will carry a code and params, not prose | prose plus a code is two sources of truth; not yet implemented |
 
 **`docs/domain.md`** — Session, Match, Record, Tags, Deck, DeckVersion, Folder, Archetype, Matchup,
 and the deck legality rules. Read it before touching a model or adding a field. It also holds three
