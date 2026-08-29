@@ -60,15 +60,15 @@ export function deleteFolder(folderId) {
  * Orphaned data is shown; hiding it is how it gets lost.
  */
 export function buildTree(folders) {
-  const porId = new Map(folders.map((f) => [f.id, { ...f, children: [] }]))
-  const raices = []
+  const byId = new Map(folders.map((f) => [f.id, { ...f, children: [] }]))
+  const roots = []
 
-  for (const nodo of porId.values()) {
-    const padre = nodo.parent_id ? porId.get(nodo.parent_id) : null
-    if (padre) padre.children.push(nodo)
-    else raices.push(nodo)
+  for (const node of byId.values()) {
+    const parent = node.parent_id ? byId.get(node.parent_id) : null
+    if (parent) parent.children.push(node)
+    else roots.push(node)
   }
-  return raices
+  return roots
 }
 
 /**
@@ -77,6 +77,6 @@ export function buildTree(folders) {
  * Used by the "move to" dropdowns, where a linear list is needed but the
  * hierarchy still needs to show through indentation.
  */
-export function flattenTree(nodos, depth = 0) {
-  return nodos.flatMap((n) => [{ ...n, depth }, ...flattenTree(n.children, depth + 1)])
+export function flattenTree(nodes, depth = 0) {
+  return nodes.flatMap((n) => [{ ...n, depth }, ...flattenTree(n.children, depth + 1)])
 }

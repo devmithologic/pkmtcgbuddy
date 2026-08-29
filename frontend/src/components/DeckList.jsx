@@ -11,10 +11,10 @@ import {
 import Menu from './Menu'
 import PokemonPair from './PokemonPair'
 
-const CLAVE_VISTA = 'pkmtcgbuddy.deckView'
+const VIEW_STORAGE_KEY = 'pkmtcgbuddy.deckView'
 
-function vistaGuardada() {
-  return localStorage.getItem(CLAVE_VISTA) === 'flat' ? 'flat' : 'folders'
+function savedView() {
+  return localStorage.getItem(VIEW_STORAGE_KEY) === 'flat' ? 'flat' : 'folders'
 }
 
 /**
@@ -35,7 +35,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [view, setView] = useState(vistaGuardada)
+  const [view, setView] = useState(savedView)
 
   // `currentId` — where you are, null is the root — lives in App and not
   // here. When a deck opens, App unmounts this component to render the
@@ -74,42 +74,42 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
     }
   }, [])
 
-  const porId = new Map(folders.map((f) => [f.id, f]))
-  const planas = flattenTree(buildTree(folders))
+  const byId = new Map(folders.map((f) => [f.id, f]))
+  const flatFolders = flattenTree(buildTree(folders))
 
   /** Path from the root to the current folder, for the breadcrumb. */
-  function ruta(id) {
-    const camino = []
-    let actual = id ? porId.get(id) : null
-    while (actual) {
-      camino.unshift(actual)
-      actual = actual.parent_id ? porId.get(actual.parent_id) : null
+  function getPath(id) {
+    const path = []
+    let current = id ? byId.get(id) : null
+    while (current) {
+      path.unshift(current)
+      current = current.parent_id ? byId.get(current.parent_id) : null
     }
-    return camino
+    return path
   }
 
-  const camino = ruta(currentId)
-  const subcarpetas = folders.filter((f) => (f.parent_id ?? null) === currentId)
-  const mazosAqui = decks.filter((d) => (d.folder_id ?? null) === currentId)
+  const path = getPath(currentId)
+  const subfolders = folders.filter((f) => (f.parent_id ?? null) === currentId)
+  const decksHere = decks.filter((d) => (d.folder_id ?? null) === currentId)
 
-  function esDescendiente(candidato, ancestro) {
-    let actual = porId.get(candidato)
-    while (actual?.parent_id) {
-      if (actual.parent_id === ancestro) return true
-      actual = porId.get(actual.parent_id)
+  function isDescendant(candidateId, ancestorId) {
+    let current = byId.get(candidateId)
+    while (current?.parent_id) {
+      if (current.parent_id === ancestorId) return true
+      current = byId.get(current.parent_id)
     }
     return false
   }
 
-  function cambiaVista(v) {
+  function changeView(v) {
     setView(v)
-    localStorage.setItem(CLAVE_VISTA, v)
+    localStorage.setItem(VIEW_STORAGE_KEY, v)
   }
 
-  async function conError(accion) {
+  async function withErrorHandling(action) {
     setError(null)
     try {
-      await accion()
+      await action()
       await reload()
     } catch (err) {
       setError(err.message)
@@ -124,7 +124,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
    * not from a dropdown — asking for it would be requesting the same data
    * twice.
    */
-  async function creaMazo() {
+  async function createNewDeck() {
     setError(null)
     try {
       const deck = await createDeck({
@@ -140,7 +140,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
     }
   }
 
-  async function importaLista(event) {
+  async function importList(event) {
     event.preventDefault()
     setError(null)
     setImporting((p) => ({ ...p, busy: true }))
@@ -174,59 +174,59 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
    * from the first moment — you can see where it landed — and canceling
    * the rename leaves something, not nothing.
    */
-  async function creaCarpeta() {
+  async function createNewFolder() {
     setError(null)
     try {
-      const carpeta = await createFolder({ name: 'Carpeta nueva', parent_id: currentId })
+      const folder = await createFolder({ name: 'Carpeta nueva', parent_id: currentId })
       await reload()
-      setRenaming({ kind: 'folder', id: carpeta.id, name: carpeta.name })
+      setRenaming({ kind: 'folder', id: folder.id, name: folder.name })
     } catch (err) {
       setError(err.message)
     }
   }
 
-  async function guardaNombre(event) {
+  async function saveName(event) {
     event.preventDefault()
     // Called from both onSubmit and onBlur. Escape cancels by setting
     // `renaming` to null, so a blur that arrives afterward would find
     // nothing to save.
     if (!renaming) return
     const { kind, id, name } = renaming
-    const limpio = name.trim()
-    if (!limpio) return
-    await conError(() =>
-      kind === 'folder' ? updateFolder(id, { name: limpio }) : updateDeck(id, { name: limpio }),
+    const cleaned = name.trim()
+    if (!cleaned) return
+    await withErrorHandling(() =>
+      kind === 'folder' ? updateFolder(id, { name: cleaned }) : updateDeck(id, { name: cleaned }),
     )
     setRenaming(null)
   }
 
-  function destinos(item, kind) {
-    const actual = kind === 'folder' ? item.parent_id : item.folder_id
+  function moveTargets(item, kind) {
+    const current = kind === 'folder' ? item.parent_id : item.folder_id
     return [
-      ...planas
+      ...flatFolders
         .filter(
           (f) =>
             f.id !== (kind === 'folder' ? item.id : null) &&
-            f.id !== actual &&
-            !(kind === 'folder' && esDescendiente(f.id, item.id)),
+            f.id !== current &&
+            !(kind === 'folder' && isDescendant(f.id, item.id)),
         )
         .map((f) => ({
           icon: '📂',
           label: `${'· '.repeat(f.depth)}Mover a ${f.name}`,
           onSelect: () =>
-            conError(() =>
+            withErrorHandling(() =>
               kind === 'folder'
                 ? updateFolder(item.id, { parent_id: f.id })
                 : updateDeck(item.id, { folder_id: f.id }),
             ),
         })),
-      ...(actual
+      ...(current
         ? [
             {
               icon: '↩',
               label: 'Mover a la raíz',
               onSelect: () =>
-                conError(() =>
+                withErrorHandling(() =>
                   kind === 'folder'
                     ? updateFolder(item.id, { parent_id: null })
                     : updateDeck(item.id, { folder_id: null }),
@@ -237,20 +237,20 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
     ]
   }
 
-  const editando = (item, kind) => renaming?.kind === kind && renaming.id === item.id
+  const isRenaming = (item, kind) => renaming?.kind === kind && renaming.id === item.id
 
   /** A row's name, or the field to change it if it's being renamed. */
-  function nombreEditable(item, kind, className) {
-    if (!editando(item, kind)) return <span className={className}>{item.name}</span>
+  function editableName(item, kind, className) {
+    if (!isRenaming(item, kind)) return <span className={className}>{item.name}</span>
 
     return (
-      <form className="rename" onSubmit={guardaNombre}>
+      <form className="rename" onSubmit={saveName}>
         <input
           type="text"
           value={renaming.name}
           onChange={(e) => setRenaming({ ...renaming, name: e.target.value })}
           onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
-          onBlur={guardaNombre}
+          onBlur={saveName}
           aria-label="Nuevo nombre"
           /* eslint-disable-next-line jsx-a11y/no-autofocus -- the field
              appears from an explicit action and is the only thing to
@@ -278,50 +278,50 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
    * input was nested inside, the conflict was structural. The fix is not to
    * nest them.
    */
-  function CuerpoFila({ activo, onOpen: abrir, children }) {
-    if (!activo) return <div className="row-main">{children}</div>
+  function RowBody({ active, onOpen: open, children }) {
+    if (!active) return <div className="row-main">{children}</div>
     return (
-      <button type="button" className="row-main" onClick={abrir}>
+      <button type="button" className="row-main" onClick={open}>
         {children}
       </button>
     )
   }
 
-  function filaCarpeta(carpeta) {
-    const dentro = decks.filter((d) => d.folder_id === carpeta.id).length
-    const hijas = folders.filter((f) => f.parent_id === carpeta.id).length
+  function folderRow(folder) {
+    const deckCount = decks.filter((d) => d.folder_id === folder.id).length
+    const childCount = folders.filter((f) => f.parent_id === folder.id).length
 
     return (
-      <li key={`f-${carpeta.id}`} className="deck-row folder-row">
-        <CuerpoFila
-          activo={!editando(carpeta, 'folder')}
+      <li key={`f-${folder.id}`} className="deck-row folder-row">
+        <RowBody
+          active={!isRenaming(folder, 'folder')}
           onOpen={() => {
-            setCurrentId(carpeta.id)
+            setCurrentId(folder.id)
             setCreating(false)
           }}
         >
           <span className="row-icon" aria-hidden="true">
             📁
           </span>
-          {nombreEditable(carpeta, 'folder', 'deck-name')}
+          {editableName(folder, 'folder', 'deck-name')}
           <span className="deck-meta">
             {[
-              hijas && `${hijas} ${hijas === 1 ? 'carpeta' : 'carpetas'}`,
-              `${dentro} ${dentro === 1 ? 'mazo' : 'mazos'}`,
+              childCount && `${childCount} ${childCount === 1 ? 'carpeta' : 'carpetas'}`,
+              `${deckCount} ${deckCount === 1 ? 'mazo' : 'mazos'}`,
             ]
               .filter(Boolean)
               .join(' · ')}
           </span>
           <span />
-        </CuerpoFila>
+        </RowBody>
 
-        {confirming?.id === carpeta.id ? (
+        {confirming?.id === folder.id ? (
           <span className="confirm-delete">
             ¿Borrar?
             <button
               type="button"
               onClick={async () => {
-                await conError(() => deleteFolder(carpeta.id))
+                await withErrorHandling(() => deleteFolder(folder.id))
                 setConfirming(null)
               }}
             >
@@ -333,20 +333,20 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           </span>
         ) : (
           <Menu
-            label={`Acciones de ${carpeta.name}`}
+            label={`Acciones de ${folder.name}`}
             actions={[
               {
                 icon: '✏️',
                 label: 'Renombrar',
                 onSelect: () =>
-                  setRenaming({ kind: 'folder', id: carpeta.id, name: carpeta.name }),
+                  setRenaming({ kind: 'folder', id: folder.id, name: folder.name }),
               },
-              ...destinos(carpeta, 'folder'),
+              ...moveTargets(folder, 'folder'),
               {
                 icon: '✕',
                 label: 'Borrar',
                 danger: true,
-                onSelect: () => setConfirming({ kind: 'folder', id: carpeta.id }),
+                onSelect: () => setConfirming({ kind: 'folder', id: folder.id }),
               },
             ]}
           />
@@ -355,10 +355,10 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
     )
   }
 
-  function filaMazo(deck) {
+  function deckRow(deck) {
     return (
       <li key={`d-${deck.id}`} className="deck-row">
-        <CuerpoFila activo={!editando(deck, 'deck')} onOpen={() => onOpen(deck.id)}>
+        <RowBody active={!isRenaming(deck, 'deck')} onOpen={() => onOpen(deck.id)}>
           {/* The slot always exists, whether the deck has icons or not:
               without it, decks with no Pokémon start their name 130 px
               earlier and the list ends up with a jagged left edge. */}
@@ -370,7 +370,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
               variant="art"
             />
           </span>
-          {nombreEditable(deck, 'deck', 'deck-name')}
+          {editableName(deck, 'deck', 'deck-name')}
           <span className="deck-meta">
             {deck.deck_format === 'standard' ? 'Standard' : 'Expanded'} · v
             {deck.current_version}
@@ -378,7 +378,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           <span className={`deck-count ${deck.is_legal ? 'ok' : ''}`}>
             {deck.total_cards}/60
           </span>
-        </CuerpoFila>
+        </RowBody>
 
         {confirming?.id === deck.id ? (
           <span className="confirm-delete">
@@ -386,7 +386,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
             <button
               type="button"
               onClick={async () => {
-                await conError(() => deleteDeck(deck.id))
+                await withErrorHandling(() => deleteDeck(deck.id))
                 setConfirming(null)
               }}
             >
@@ -405,7 +405,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
                 label: 'Renombrar',
                 onSelect: () => setRenaming({ kind: 'deck', id: deck.id, name: deck.name }),
               },
-              ...destinos(deck, 'deck'),
+              ...moveTargets(deck, 'deck'),
               {
                 icon: '✕',
                 label: 'Borrar',
@@ -435,7 +435,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
             >
               Mazos
             </button>
-            {camino.map((c) => (
+            {path.map((c) => (
               <span key={c.id}>
                 <span className="sep" aria-hidden="true">
                   ›
@@ -461,8 +461,8 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
               className="new-menu"
               align="left"
               actions={[
-                { icon: '📁', label: 'Nueva carpeta', onSelect: creaCarpeta },
-              { icon: '🃏', label: 'Nuevo mazo', onSelect: creaMazo },
+                { icon: '📁', label: 'Nueva carpeta', onSelect: createNewFolder },
+              { icon: '🃏', label: 'Nuevo mazo', onSelect: createNewDeck },
               {
                 icon: '📋',
                 label: 'Importar lista',
@@ -475,14 +475,14 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
             <button
               type="button"
               className={view === 'folders' ? 'active' : ''}
-              onClick={() => cambiaVista('folders')}
+              onClick={() => changeView('folders')}
             >
               Carpetas
             </button>
             <button
               type="button"
               className={view === 'flat' ? 'active' : ''}
-              onClick={() => cambiaVista('flat')}
+              onClick={() => changeView('flat')}
             >
               Todos
             </button>
@@ -494,11 +494,11 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
       {loading && <p>Cargando…</p>}
 
       {importing ? (
-        <form className="deck-import" onSubmit={importaLista}>
+        <form className="deck-import" onSubmit={importList}>
           <h3>Importar lista</h3>
           <p className="hint">
             Pega una lista en el formato de PTCG Live o Limitless. Se creará un mazo en{' '}
-            <strong>{camino.length ? camino[camino.length - 1].name : 'Mazos'}</strong>.
+            <strong>{path.length ? path[path.length - 1].name : 'Mazos'}</strong>.
           </p>
 
           <label>
@@ -564,15 +564,15 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           </div>
         </form>
       ) : view === 'flat' ? (
-        <ul className="deck-list">{decks.map(filaMazo)}</ul>
+        <ul className="deck-list">{decks.map(deckRow)}</ul>
       ) : (
         <>
           <ul className="deck-list">
-            {subcarpetas.map(filaCarpeta)}
-            {mazosAqui.map(filaMazo)}
+            {subfolders.map(folderRow)}
+            {decksHere.map(deckRow)}
           </ul>
 
-          {!loading && subcarpetas.length === 0 && mazosAqui.length === 0 && (
+          {!loading && subfolders.length === 0 && decksHere.length === 0 && (
             <p className="empty">
               {currentId ? 'Esta carpeta está vacía.' : 'Todavía no hay mazos.'}
             </p>

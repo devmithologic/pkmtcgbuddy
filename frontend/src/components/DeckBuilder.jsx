@@ -53,7 +53,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
   // Makes the auto-focus happen ONCE. An input's ref callback runs on
   // every render, so without this flag every keystroke would reselect the
   // text and typing would be impossible.
-  const enfocado = useRef(false)
+  const focused = useRef(false)
   // Exported text, or null. Requested from the server instead of assembled
   // here: the format is defined by `deck_text.py`, and having a second
   // implementation on the client guarantees they'll eventually disagree.
@@ -145,9 +145,9 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
    * immediately, like renaming a row in the list. That's why this PATCH
    * doesn't touch `dirty`.
    */
-  async function patchDeck(cambios) {
+  async function patchDeck(changes) {
     try {
-      setDeck(await updateDeck(deckId, cambios))
+      setDeck(await updateDeck(deckId, changes))
     } catch (err) {
       setError(err.message)
     }
@@ -155,7 +155,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
 
   const setPokemon = (slot, pokemon) => patchDeck({ [slot]: pokemon })
 
-  async function exporta() {
+  async function handleExport() {
     setError(null)
     try {
       setExported(await exportDeck(deckId))
@@ -165,13 +165,13 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
   }
 
   /** Saves the name on blur or Enter. Empty is not saved. */
-  async function guardaNombre() {
-    const limpio = name.trim()
-    if (!limpio || limpio === deck.name) {
+  async function saveName() {
+    const cleaned = name.trim()
+    if (!cleaned || cleaned === deck.name) {
       setName(deck.name)
       return
     }
-    await patchDeck({ name: limpio })
+    await patchDeck({ name: cleaned })
   }
 
   function changeQuantity(cardId, quantity) {
@@ -283,7 +283,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onBlur={guardaNombre}
+              onBlur={saveName}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.currentTarget.blur()
                 if (e.key === 'Escape') setName(deck.name)
@@ -293,8 +293,8 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
                  selecting lets you type over it without deleting it by
                  hand. */
               ref={(el) => {
-                if (el && isNew && !enfocado.current) {
-                  enfocado.current = true
+                if (el && isNew && !focused.current) {
+                  focused.current = true
                   el.focus()
                   el.select()
                 }
@@ -313,7 +313,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
               >
                 Nueva versión
               </button>
-              <button type="button" className="secondary" onClick={exporta}>
+              <button type="button" className="secondary" onClick={handleExport}>
                 Exportar
               </button>
             </div>
@@ -410,17 +410,17 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
                   ['s', 'Cartas pequeñas'],
                   ['m', 'Cartas medianas'],
                   ['l', 'Cartas grandes'],
-                ].map(([valor, titulo]) => (
+                ].map(([value, title]) => (
                   <button
-                    key={valor}
+                    key={value}
                     type="button"
-                    className={gridSize === valor ? 'active' : ''}
-                    onClick={() => setGridSize(valor)}
-                    title={titulo}
-                    aria-label={titulo}
-                    aria-pressed={gridSize === valor}
+                    className={gridSize === value ? 'active' : ''}
+                    onClick={() => setGridSize(value)}
+                    title={title}
+                    aria-label={title}
+                    aria-pressed={gridSize === value}
                   >
-                    {valor.toUpperCase()}
+                    {value.toUpperCase()}
                   </button>
                 ))}
               </span>

@@ -21,18 +21,18 @@ const MAX_TAGS = 10
 export default function TagInput({ value = [], suggestions = [], onChange }) {
   const [draft, setDraft] = useState('')
 
-  const normalizada = draft.trim().toLowerCase()
-  const coincidencias = normalizada
+  const normalized = draft.trim().toLowerCase()
+  const matches = normalized
     ? suggestions
-        .filter((s) => s.tag.includes(normalizada) && !value.includes(s.tag))
+        .filter((s) => s.tag.includes(normalized) && !value.includes(s.tag))
         .slice(0, 6)
     : []
 
-  const lleno = value.length >= MAX_TAGS
+  const full = value.length >= MAX_TAGS
 
   function add(tag) {
-    const limpia = tag.trim().toLowerCase().replace(/\s+/g, ' ')
-    if (limpia && !value.includes(limpia) && !lleno) onChange([...value, limpia])
+    const cleaned = tag.trim().toLowerCase().replace(/\s+/g, ' ')
+    if (cleaned && !value.includes(cleaned) && !full) onChange([...value, cleaned])
     setDraft('')
   }
 
@@ -66,16 +66,16 @@ export default function TagInput({ value = [], suggestions = [], onChange }) {
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleKey}
           onBlur={() => draft && add(draft)}
-          disabled={lleno}
+          disabled={full}
           placeholder={
-            lleno ? `máximo ${MAX_TAGS}` : value.length ? '' : 'gamesmart, preparación regional…'
+            full ? `máximo ${MAX_TAGS}` : value.length ? '' : 'gamesmart, preparación regional…'
           }
         />
       </span>
 
-      {coincidencias.length > 0 && (
+      {matches.length > 0 && (
         <ul className="tag-suggestions">
-          {coincidencias.map((s) => (
+          {matches.map((s) => (
             <li key={s.tag}>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => add(s.tag)}>
                 {s.tag} <span className="tag-count">{s.sessions}</span>

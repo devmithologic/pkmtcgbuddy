@@ -31,9 +31,9 @@ export default function App() {
   // and in what mode.
   const [editSessionOnOpen, setEditSessionOnOpen] = useState(false)
 
-  function openSession(id, editar = false) {
+  function openSession(id, editing = false) {
     setOpenSessionId(id)
-    setEditSessionOnOpen(editar)
+    setEditSessionOnOpen(editing)
   }
 
   function switchTab(id) {
@@ -90,9 +90,9 @@ export default function App() {
           <DeckList
             currentId={deckFolderId}
             setCurrentId={setDeckFolderId}
-            onOpen={(id, nuevo = false) => {
+            onOpen={(id, isNew = false) => {
               setOpenDeckId(id)
-              setDeckIsNew(nuevo)
+              setDeckIsNew(isNew)
             }}
           />
         ))}

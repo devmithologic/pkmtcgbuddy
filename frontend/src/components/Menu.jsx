@@ -44,25 +44,25 @@ export default function Menu({
   useEffect(() => {
     if (!open) return
 
-    function alPulsarFuera(event) {
+    function handleClickOutside(event) {
       // contains() also covers children: clicking a menu option is a click
       // "inside", and closing it there would prevent the action from running.
       if (!root.current?.contains(event.target)) setOpen(false)
     }
 
-    function alPulsarTecla(event) {
+    function handleKeyDown(event) {
       if (event.key === 'Escape') setOpen(false)
     }
 
     // `mousedown`, not `click`: it fires earlier, so the menu closes on press
     // rather than on release. With `click` the menu stays visible while the
     // button is held down and a flicker shows.
-    document.addEventListener('mousedown', alPulsarFuera)
-    document.addEventListener('keydown', alPulsarTecla)
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      document.removeEventListener('mousedown', alPulsarFuera)
-      document.removeEventListener('keydown', alPulsarTecla)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
     }
   }, [open])
 
@@ -79,7 +79,7 @@ export default function Menu({
         aria-controls={open ? menuId : undefined}
         aria-label={label}
         title={label}
-        onClick={() => setOpen((estaba) => !estaba)}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
       >
         {trigger}
       </button>
@@ -90,19 +90,19 @@ export default function Menu({
           id={menuId}
           role="menu"
         >
-          {actions.map((accion) => (
+          {actions.map((action) => (
             <button
-              key={accion.label}
+              key={action.label}
               type="button"
               role="menuitem"
-              className={accion.danger ? 'danger' : undefined}
+              className={action.danger ? 'danger' : undefined}
               onClick={() => {
                 setOpen(false)
-                accion.onSelect()
+                action.onSelect()
               }}
             >
-              <span aria-hidden="true">{accion.icon}</span>
-              {accion.label}
+              <span aria-hidden="true">{action.icon}</span>
+              {action.label}
             </button>
           ))}
         </div>

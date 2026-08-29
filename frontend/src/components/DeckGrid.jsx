@@ -34,7 +34,7 @@ export default function DeckGrid({
   }
 
   /** One cell: the card, its quantity and, when editable, its controls. */
-  function celda(entry) {
+  function cell(entry) {
     return (
       <li
         key={entry.card.id}
@@ -92,7 +92,7 @@ export default function DeckGrid({
   if (!grouped) {
     return (
       <ul className="deck-grid" data-size={size}>
-        {cards.map(celda)}
+        {cards.map(cell)}
       </ul>
     )
   }
@@ -112,7 +112,7 @@ export default function DeckGrid({
             </h4>
 
             <ul className="deck-grid" data-size={size}>
-              {group.map(celda)}
+              {group.map(cell)}
             </ul>
           </section>
         )

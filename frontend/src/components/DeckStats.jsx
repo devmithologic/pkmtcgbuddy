@@ -10,7 +10,7 @@ import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
  * 62% of 26 read the same if you only look at the number. Rows below this
  * threshold are flagged so they aren't mistaken for a trend.
  */
-const MUESTRA_MINIMA = 5
+const MIN_SAMPLE = 5
 
 const EMPTY_FILTERS = { date_from: '', date_to: '', session_type: '', tag: '' }
 
@@ -20,10 +20,10 @@ function pct(rate) {
 
 /** A row: label, bar proportional to the win rate, record and percentage. */
 function Row({ label, line, sub }) {
-  const escasa = line.played < MUESTRA_MINIMA
+  const thin = line.played < MIN_SAMPLE
 
   return (
-    <li className={`stat-row ${escasa ? 'is-thin' : ''}`}>
+    <li className={`stat-row ${thin ? 'is-thin' : ''}`}>
       <span className="stat-label">
         {label}
         {sub && <span className="stat-sub">{sub}</span>}
@@ -101,7 +101,7 @@ export default function DeckStats({ deckId }) {
   if (!stats) return <p>Cargando…</p>
 
   const { overall, by_version: byVersion, by_archetype: byArchetype } = stats
-  const sinDatos = overall.played === 0
+  const noData = overall.played === 0
 
   return (
     <section className="deck-stats">
@@ -146,7 +146,7 @@ export default function DeckStats({ deckId }) {
         )}
       </div>
 
-      {sinDatos ? (
+      {noData ? (
         <p className="empty">
           Sin partidas para este recorte. Registra sesiones con este mazo en la pestaña Sesiones.
         </p>
@@ -194,7 +194,7 @@ export default function DeckStats({ deckId }) {
           </ul>
 
           <p className="hint">
-            Los renglones atenuados tienen menos de {MUESTRA_MINIMA} partidas: el porcentaje todavía
+            Los renglones atenuados tienen menos de {MIN_SAMPLE} partidas: el porcentaje todavía
             no significa gran cosa.
           </p>
         </>
