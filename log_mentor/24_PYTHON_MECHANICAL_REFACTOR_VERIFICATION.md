@@ -18,11 +18,11 @@ The need is acute: rename a Python variable `carpeta` to `folder`, and if you mi
 
 **Abstract Syntax Tree** (**AST**) is the representation Python's parser produces: a tree of node types (`Module`, `FunctionDef`, `Assign`, `BinOp`, etc.) that captures every statement and expression, but not comment text or line numbers.
 
-The `ast` module in the standard library can dump any tree to a string representation via `ast.dump()`. The key technique is a single flag: `include_attributes=False`.
+The `ast` module in the standard library can dump any tree to a string representation via `ast.dump()`. The key technique is a single flag — and the good news is that it is already the default: `ast.dump(node, annotate_fields=True, include_attributes=False, *, indent=None)`.
 
-**With `include_attributes=True` (the default):** The dump includes line numbers, column offsets, and character positions for every node. So when you rename `folder` back to `carpeta` or reformat a docstring from three lines to five, the dump changes — not because the statements differ, but because the physical location changed.
+**If you pass `include_attributes=True`:** The dump includes line numbers, column offsets and character positions for every node. So when you rename `folder` back to `carpeta` or reformat a docstring from three lines to five, the dump changes — not because the statements differ, but because the physical location changed.
 
-**With `include_attributes=False`:** The dump omits those numbers. A docstring that moves from lines 5–7 to 5–8 produces an identical dump. A variable renamed from `carpeta` to `folder` *does* produce a different dump — the identifier text is part of the node value, not an attribute. But a reformatted comment, or a docstring translated from Spanish to English, produces the **same dump**.
+**With `include_attributes=False`, which is what you get by default:** The dump omits those numbers. A docstring that moves from lines 5–7 to 5–8 produces an identical dump. A variable renamed from `carpeta` to `folder` *does* produce a different dump — the identifier text is part of the node value, not an attribute. But a reformatted comment, or a docstring translated from Spanish to English, produces the **same dump**.
 
 Procedure:
 
