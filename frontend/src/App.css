@@ -58,10 +58,31 @@
   margin-bottom: 2rem;
 }
 
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-2);
+}
+
 .app h1 {
   margin: 0;
   font-size: 1.75rem;
 }
+
+/* Same shape as .view-switch: a two-option segmented control, border on the
+   outside only, the active side picked out with the accent colour. Kept as
+   its own class (not a reuse of .view-switch) because this one lives in the
+   header rather than beside a list, and the two are free to diverge. */
+.locale-switch { display: inline-flex; gap: 0; flex-shrink: 0; }
+.locale-switch button {
+  padding: 0.3rem 0.7rem; font: inherit; font-size: var(--step--1);
+  color: var(--ink-3); background: none; cursor: pointer;
+  border: 1px solid var(--line-strong);
+}
+.locale-switch button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.locale-switch button:last-child { border-radius: 0 var(--radius) var(--radius) 0; border-left: none; }
+.locale-switch button.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 
 .subtitle {
   margin: 0.25rem 0 0;
