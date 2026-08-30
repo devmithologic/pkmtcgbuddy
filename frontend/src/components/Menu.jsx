@@ -30,10 +30,10 @@ import { useT } from '../i18n/index.jsx'
 export default function Menu({
   actions,
   // No literal default here: `t` comes from `const t = useT()` in the
-  // function body, so it does not exist yet in the parameter list — writing
-  // `label = t('menu.defaultLabel')` here would reference `t` before that
-  // binding, a temporal-dead-zone ReferenceError. The fallback is applied
-  // below instead, after `t` is in scope.
+  // function body. Parameter defaults are evaluated in parameter scope,
+  // which is outside the body's const bindings, so `t` is not in scope there.
+  // Writing `label = t('menu.defaultLabel')` would fail with plain ReferenceError:
+  // t is not defined. The fallback is applied in the body instead.
   label,
   trigger = '⋮',
   className = '',
