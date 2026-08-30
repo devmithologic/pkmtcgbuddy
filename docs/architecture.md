@@ -35,6 +35,13 @@ frontend/src/
                 DeckList DeckScreen DeckBuilder DeckGrid DeckCardList DeckValidation DeckStats
                 SessionList SessionDetail
                 Menu PokemonPair PokemonPicker TagInput
+  i18n/         translate.js   pure createTranslator(catalogues, locale, opts) -> t; no React,
+                               no import of en.js/es.js — the catalogues are injected by index.jsx.
+                               That independence is why it runs under `node --test` with no build
+                               step: components -> i18n -> nothing.
+                index.jsx      LocaleProvider, useT(), useLocale(): detects the locale, persists it,
+                               syncs document.documentElement.lang
+                en.js es.js    the catalogues; en is the source and the fallback locale
   App.css index.css        index.css holds the tokens; App.css the components
 ```
 

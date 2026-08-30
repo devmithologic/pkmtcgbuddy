@@ -97,9 +97,13 @@ Short and real. Add entries as they become true, delete ones that stop being tru
   bit us is the whole point.
 - **Everything in this repository is written in English** — identifiers, comments, docstrings,
   documentation and the strings the interface ships with. Spanish is reserved for exactly one place:
-  `frontend/src/i18n/es.js`, as a translation of the interface (not yet implemented; see
-  `docs/superpowers/plans/2026-08-28-i18n-locale-switch.md`). Conversation with the developer stays
+  `frontend/src/i18n/es.js`, as a translation of the interface. Conversation with the developer stays
   in Spanish; the artifact does not.
+- **User-visible text lives in `frontend/src/i18n/`, never in a component.** `en.js` is the
+  source; `es.js` is the translation and may lag — a missing key falls back to English. `count`
+  is a reserved parameter name: it is the only one that selects a plural form.
+- **The backend does not send prose.** A `Violation` carries a code and parameters; the words
+  are the client's.
 
 ## Before you act: read the decision record
 
@@ -131,8 +135,9 @@ an architecture, swapping a provider, or reopening any of these:
 | Deck lists import/export as PTCG Live text | the interop format; needs the `sets` collection |
 | Import takes what it resolves and reports the rest | a friend's list may cite an unsynced set |
 | English is the source language of the repo | a bilingual codebase drifts; the artifact is a portfolio |
-| The UI language will be detected, then remembered | `navigator.language` once, then `localStorage` wins; not yet implemented |
-| A `Violation` will carry a code and params, not prose | prose plus a code is two sources of truth; not yet implemented |
+| The UI language is detected, then remembered | `navigator.language` once, then `localStorage` wins |
+| A `Violation` carries a code and params, not prose | prose plus a code is two sources of truth |
+| A catalogue string pluralises on exactly one number | `count` drives `Intl.PluralRules`; a second varying quantity needs its own entry |
 
 **`docs/domain.md`** — Session, Match, Record, Tags, Deck, DeckVersion, Folder, Archetype, Matchup,
 and the deck legality rules. Read it before touching a model or adding a field. It also holds three
