@@ -42,7 +42,7 @@ export default {
     optionAny: 'Cualquiera',
     optionAll: 'Todas',
     optionAceSpecOnly: 'Solo ACE SPEC',
-    hintSubstring: 'La búsqueda es por subcadena: <code>rod</code> encuentra <code>Aerodactyl</code>.',
+    hintSubstring: 'La búsqueda es por subcadena: rod encuentra Aerodactyl.',
     errorTooFewLetters: 'Escribe al menos 2 letras, o marca «Solo ACE SPEC».',
     searching: 'Buscando…',
     noMatches: 'Ninguna carta coincide.',
@@ -54,7 +54,7 @@ export default {
   },
 
   deckList: {
-    emptyRoot: 'Todavía no hay mazos.',
+    empty: 'Todavía no hay mazos.',
     emptyFolder: 'Esta carpeta está vacía.',
     newDeck: 'Mazo nuevo',
     newFolder: 'Carpeta nueva',
@@ -65,17 +65,22 @@ export default {
     deleteAction: 'Borrar',
     renameLabel: 'Nuevo nombre',
     deleteConfirm: '¿Borrar?',
-    folderCountOne: 'carpeta',
-    folderCountOther: 'carpetas',
-    deckCountOne: 'mazo',
-    deckCountOther: 'mazos',
+    folders: { one: '{count} carpeta', other: '{count} carpetas' },
+    inside: { one: '{count} mazo', other: '{count} mazos' },
     importList: 'Importar lista',
     importHint: 'Pega una lista en el formato de PTCG Live o Limitless. Se creará un mazo en {location}.',
     importLabel: 'Lista',
     importNameLabel: 'Nombre',
     importing: 'Importando…',
     importButton: 'Importar',
-    importedCards: 'Importadas <strong>{count}</strong> {pluralCard}. No se reconocieron {unresolved} {pluralLine}:',
+    importedCards: {
+      one: 'Importada {count} carta.',
+      other: 'Importadas {count} cartas.',
+    },
+    importedUnresolved: {
+      one: 'No se reconoció {count} línea:',
+      other: 'No se reconocieron {count} líneas:',
+    },
     importTip: 'Puede ser una errata, o una carta de un set que todavía no está sincronizado. Añádelas a mano en el constructor.',
     openDeck: 'Abrir el mazo',
     breadcrumbLabel: 'Ruta',
@@ -86,7 +91,6 @@ export default {
     newMenuLabel: 'Crear',
     newMenuTrigger: '+ Nuevo',
     loading: 'Cargando…',
-    decksTitle: 'Todos los mazos ({count})',
   },
 
   deckBuilder: {
@@ -152,7 +156,11 @@ export default {
     allTags: 'Todas',
     clear: 'limpiar',
     record: '{wins}–{losses}–{ties}',
-    gamesInfo: '{games} partidas en {sessions} sesion{sessionPlural}{updating}',
+    played: {
+      one: '{games} partidas en {count} sesión',
+      other: '{games} partidas en {count} sesiones',
+    },
+    updating: ' · actualizando…',
     byVersion: 'Por versión',
     byOpponent: 'Por rival',
     byEventType: 'Por tipo de evento',
@@ -186,6 +194,7 @@ export default {
     confirmDelete: '¿Borrar?',
     editSession: 'Editar',
     deleteSession: 'Borrar',
+    rowActions: 'Acciones de {name}',
   },
 
   sessionDetail: {
@@ -202,7 +211,7 @@ export default {
     placeholderEventNotes: 'Cómo fue el día, qué probaste…',
     saveSession: 'Guardar sesión',
     noRounds: 'sin rondas todavía',
-    recordLabel: '{count} ronda{roundPlural}',
+    recordLabel: { one: '{count} ronda', other: '{count} rondas' },
     editRound: 'corregir',
     editRoundHeading: 'Corregir ronda {round}',
     deleteRound: 'borrar',
