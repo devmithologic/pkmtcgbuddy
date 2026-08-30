@@ -9,6 +9,7 @@ const catalogues = {
     deckList: {
       empty: 'No decks yet.',
       inside: { one: '{count} deck', other: '{count} decks' },
+      folders: { one: '{count} folder', other: '{count} folders' },
     },
     violation: { too_many_copies: '"{name}": {count} copies, the maximum is {max}' },
   },
@@ -85,4 +86,14 @@ test('reports a plural entry used without a count instead of rendering an object
   const t = translator('en', (key) => missing.push(key))
   assert.equal(t('deckList.inside'), 'deckList.inside')
   assert.deepEqual(missing, ['deckList.inside'])
+})
+
+test('pluralises a fallen-back entry using the locale it resolved in, not the active locale', () => {
+  // deckList.empty is an English-only string elsewhere in this file, but a
+  // plural entry needs its own case: `deckList.folders` exists only in `en`,
+  // so a request in `es` falls back to it — and must then be pluralised by
+  // English's one/other split, not Spanish's, because the string it resolved
+  // to is English.
+  assert.equal(translator('es')('deckList.folders', { count: 1 }), '1 folder')
+  assert.equal(translator('es')('deckList.folders', { count: 2 }), '2 folders')
 })
