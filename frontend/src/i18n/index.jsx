@@ -1,3 +1,13 @@
+/* oxlint-disable react/only-export-components */
+/**
+ * Vite hot-reloads a module only when it exports components exclusively.
+ * This file deliberately exports the LocaleProvider component and its two
+ * hooks together because they are one idea — you cannot use useT or useLocale
+ * without LocaleProvider, so they belong in one module. Edits here cost a
+ * full page reload and the loss of component state; that price is paid
+ * knowingly because this file changes approximately never.
+ */
+
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 import en from './en.js'
@@ -58,7 +68,7 @@ export function LocaleProvider({ children }) {
   // Without this memo, every render of LocaleProvider (triggered by anything,
   // not just a locale change) would hand consumers a new object and force
   // them all to re-render regardless of whether locale actually changed.
-  const value = useMemo(() => ({ locale, setLocale, t }), [locale])
+  const value = useMemo(() => ({ locale, setLocale, t }), [locale, t])
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
