@@ -297,10 +297,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
       <li key={`f-${folder.id}`} className="deck-row folder-row">
         <RowBody
           active={!isRenaming(folder, 'folder')}
-          onOpen={() => {
-            setCurrentId(folder.id)
-            setCreating(false)
-          }}
+          onOpen={() => setCurrentId(folder.id)}
         >
           <span className="row-icon" aria-hidden="true">
             📁

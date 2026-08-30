@@ -200,7 +200,6 @@ export default {
     confirmDelete: 'Delete?',
     editSession: 'Edit',
     deleteSession: 'Delete',
-    rowActions: 'Actions for {name}',
   },
 
   sessionDetail: {
