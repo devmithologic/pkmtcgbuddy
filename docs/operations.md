@@ -14,6 +14,9 @@ cd backend && source .venv/bin/activate && uvicorn app.main:app --reload   # :80
 # Frontend — terminal 2
 cd frontend && npm run dev                                                 # :5173
 
+# Frontend unit tests — Node's built-in runner, nothing to install.
+cd frontend && npm test
+
 # MongoDB — launchd service, starts at login. Aliases in ~/.zshrc:
 mongo-status · mongo-ping · mongo-start · mongo-stop · mongo-log
 
@@ -71,8 +74,10 @@ Phases 1–4 are built and verified in the browser.
 
 Known gaps, in the order they are likely to matter:
 
-- **No tests.** Phase 5 has not started. Everything so far was verified by hand in the browser and
-  with scripted API calls — real, but not repeatable.
+- **No test suite in the Phase 5 sense.** No backend tests, no component tests, no E2E. Everything
+  so far was verified by hand in the browser and with scripted API calls — real, but not repeatable.
+  The one exception: `frontend/src/i18n/translate.js` has 10 unit tests under `node --test` (`npm
+  test`), because it was written free of React and the catalogues precisely so it could be.
 - **Two review findings left open** (documented in commit `454f001`): round numbers use
   read-modify-write, which only matters under concurrency and this is a single-user local app; and
   saving a deck containing cards outside the synced catalogue silently drops them.

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { useT } from '../i18n/index.jsx'
 
 /**
  * A button that expands into a list of actions.
@@ -28,11 +29,21 @@ import { useEffect, useId, useRef, useState } from 'react'
  */
 export default function Menu({
   actions,
-  label = 'Actions',
+  // No literal default here: `t` comes from `const t = useT()` in the
+  // function body. Parameter defaults are evaluated in parameter scope,
+  // which is outside the body's const bindings, so `t` is not in scope there.
+  // Writing `label = t('menu.defaultLabel')` would fail with plain ReferenceError:
+  // t is not defined. The fallback is applied in the body instead.
+  label,
   trigger = '⋮',
   className = '',
   align = 'right',
 }) {
+  const t = useT()
+  // Every current call site passes its own label, so this fallback never
+  // fires today — it exists because Menu is shared, and a future caller
+  // that omits `label` should still get translated copy, not 'undefined'.
+  const resolvedLabel = label ?? t('menu.defaultLabel')
   const [open, setOpen] = useState(false)
   // The root node, so we can ask whether the click landed inside or outside.
   const root = useRef(null)
@@ -77,8 +88,8 @@ export default function Menu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        aria-label={label}
-        title={label}
+        aria-label={resolvedLabel}
+        title={resolvedLabel}
         onClick={() => setOpen((wasOpen) => !wasOpen)}
       >
         {trigger}

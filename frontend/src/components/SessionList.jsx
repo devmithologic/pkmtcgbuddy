@@ -4,7 +4,8 @@ import { createSession, deleteSession, listSessions, listTags } from '../api/ses
 import PokemonPair from './PokemonPair'
 import Menu from './Menu'
 import TagInput from './TagInput'
-import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
+import { SESSION_TYPES } from '../sessionTypes'
+import { useT } from '../i18n/index.jsx'
 
 /**
  * Today, in the user's time zone.
@@ -37,6 +38,7 @@ function emptyForm() {
 
 /** Session listing and the form to start a new one. */
 export default function SessionList({ onOpen }) {
+  const t = useT()
   const [sessions, setSessions] = useState([])
   const [decks, setDecks] = useState([])
   const [form, setForm] = useState(emptyForm)
@@ -52,9 +54,9 @@ export default function SessionList({ onOpen }) {
   const [confirming, setConfirming] = useState(null)
 
   async function reload(tag = filterTag) {
-    const [s, t] = await Promise.all([listSessions(tag ?? undefined), listTags()])
+    const [s, tagList] = await Promise.all([listSessions(tag ?? undefined), listTags()])
     setSessions(s)
-    setTags(t)
+    setTags(tagList)
   }
 
   useEffect(() => {
@@ -62,11 +64,11 @@ export default function SessionList({ onOpen }) {
 
     // The three requests go together: none depends on the others.
     Promise.all([listSessions(filterTag ?? undefined), listDecks(), listTags()])
-      .then(([s, d, t]) => {
+      .then(([s, d, tagList]) => {
         if (!active) return
         setSessions(s)
         setDecks(d)
-        setTags(t)
+        setTags(tagList)
       })
       .catch((err) => active && setError(err.message))
       .finally(() => active && setLoading(false))
@@ -122,10 +124,10 @@ export default function SessionList({ onOpen }) {
   return (
     <section className="screen-split">
       <form onSubmit={handleSubmit} className="match-form">
-        <h2>New session</h2>
+        <h2>{t('sessionList.newSession')}</h2>
 
         <label>
-          Date
+          {t('sessionList.labelDate')}
           <input
             type="date"
             name="played_at"
@@ -136,20 +138,20 @@ export default function SessionList({ onOpen }) {
         </label>
 
         <label>
-          Type
+          {t('sessionList.labelType')}
           <select name="session_type" value={form.session_type} onChange={handleChange}>
-            {SESSION_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+            {SESSION_TYPES.map((value) => (
+              <option key={value} value={value}>
+                {t(`sessionType.${value}`)}
               </option>
             ))}
           </select>
         </label>
 
         <label>
-          Deck
+          {t('sessionList.labelDeck')}
           <select name="deck_id" value={form.deck_id} onChange={handleChange} required>
-            <option value="">— choose a deck —</option>
+            <option value="">{t('sessionList.placeholderDeck')}</option>
             {decks.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name} (v{d.current_version})
@@ -159,31 +161,31 @@ export default function SessionList({ onOpen }) {
         </label>
 
         <label>
-          Name <span className="optional">optional</span>
+          {t('sessionList.labelName')} <span className="optional">{t('common.optional')}</span>
           <input
             type="text"
             name="name"
             value={form.name}
             onChange={handleChange}
-            placeholder="League Cup Guadalajara"
+            placeholder={t('sessionList.placeholderName')}
           />
         </label>
 
         <label>
-          Tags <span className="optional">optional: shop, purpose…</span>
+          {t('sessionList.labelTags')} <span className="optional">{t('sessionList.placeholderTags')}</span>
           <TagInput
             value={form.tags}
             suggestions={tags}
-            onChange={(t) => setForm({ ...form, tags: t })}
+            onChange={(newTags) => setForm({ ...form, tags: newTags })}
           />
         </label>
 
         {decks.length === 0 && !loading && (
-          <p className="hint">You need to create a deck before logging a session.</p>
+          <p className="hint">{t('sessionList.deckRequired')}</p>
         )}
 
         <button type="submit" disabled={creating || !form.deck_id}>
-          {creating ? 'Creating…' : 'Start session'}
+          {creating ? t('sessionList.creating') : t('sessionList.startSession')}
         </button>
 
         {error && <p className="error">{error}</p>}
@@ -202,28 +204,28 @@ export default function SessionList({ onOpen }) {
             className={filterTag === null ? 'active' : ''}
             onClick={() => setFilterTag(null)}
           >
-            All
+            {t('sessionList.filterAll')}
           </button>
-          {tags.map((t) => (
+          {tags.map((tagItem) => (
             <button
-              key={t.tag}
+              key={tagItem.tag}
               type="button"
-              className={filterTag === t.tag ? 'active' : ''}
-              onClick={() => setFilterTag(t.tag)}
+              className={filterTag === tagItem.tag ? 'active' : ''}
+              onClick={() => setFilterTag(tagItem.tag)}
             >
-              {t.tag} <span className="tag-count">{t.sessions}</span>
+              {tagItem.tag} <span className="tag-count">{tagItem.sessions}</span>
             </button>
           ))}
         </div>
       )}
 
       <h2>
-        Sessions ({sessions.length})
+        {t('sessionList.sessionsTitle', { count: sessions.length })}
         {filterTag && <span className="filtered-by"> · {filterTag}</span>}
       </h2>
-      {loading && <p>Loading…</p>}
+      {loading && <p>{t('sessionList.loading')}</p>}
       {!loading && sessions.length === 0 && (
-        <p className="empty">No sessions logged yet.</p>
+        <p className="empty">{t('sessionList.noSessions')}</p>
       )}
 
       <ul className="session-list">
@@ -232,7 +234,7 @@ export default function SessionList({ onOpen }) {
             <button type="button" onClick={() => onOpen(s.id)}>
               <span className="s-date">{s.played_at}</span>
               <span className={`s-type s-type--${s.session_type}`}>
-                {TYPE_LABEL[s.session_type]}
+                {t(`sessionType.${s.session_type}`)}
               </span>
               <span className="s-name">{s.name || s.deck_name}</span>
 
@@ -263,24 +265,24 @@ export default function SessionList({ onOpen }) {
                 five-round tournament is irreversible. */}
             {confirming === s.id ? (
               <span className="confirm-delete">
-                Delete?
-                <button type="button" onClick={() => handleDelete(s.id)}>Yes</button>
-                <button type="button" onClick={() => setConfirming(null)}>No</button>
+                {t('sessionList.confirmDelete')}
+                <button type="button" onClick={() => handleDelete(s.id)}>{t('common.yes')}</button>
+                <button type="button" onClick={() => setConfirming(null)}>{t('common.no')}</button>
               </span>
             ) : (
               <Menu
-                label={`Actions for ${s.name || s.played_at}`}
+                label={t('sessionList.rowActions', { name: s.name || s.played_at })}
                 actions={[
                   {
                     icon: '✏️',
-                    label: 'Edit',
+                    label: t('sessionList.editSession'),
                     // The second argument opens the session with the header
                     // form already expanded, instead of duplicating it here.
                     onSelect: () => onOpen(s.id, true),
                   },
                   {
                     icon: '✕',
-                    label: 'Delete',
+                    label: t('sessionList.deleteSession'),
                     danger: true,
                     onSelect: () => setConfirming(s.id),
                   },

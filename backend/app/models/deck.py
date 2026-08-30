@@ -113,8 +113,9 @@ class DeckCardsUpdate(BaseModel):
 class ViolationCode(str, Enum):
     """Reasons a deck is not legal.
 
-    A code alongside the message so the frontend can decide how to present
-    it without parsing prose.
+    A stable wire value the client matches against its own catalogue key —
+    never parsed, never shown, so it can stay in English while the sentence
+    it selects is translated.
     """
 
     WRONG_SIZE = "wrong_size"
@@ -126,7 +127,11 @@ class ViolationCode(str, Enum):
 
 class Violation(BaseModel):
     code: ViolationCode
-    message: str
+    # The words live in the client's catalogue; this carries only the numbers and
+    # names they need. Keeping a rendered `message` here too would be two sources
+    # of truth for one sentence, and the day the Spanish changes and this does
+    # not, nobody notices.
+    params: dict[str, str | int] = Field(default_factory=dict)
     # Cards involved, so the UI can point them out.
     card_ids: list[str] = Field(default_factory=list)
 

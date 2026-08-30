@@ -1,7 +1,9 @@
+import { useT } from '../i18n/index.jsx'
+
 const GROUPS = [
-  { key: 'Pokemon', label: 'Pokémon' },
-  { key: 'Trainer', label: 'Trainer' },
-  { key: 'Energy', label: 'Energy' },
+  { key: 'Pokemon' },
+  { key: 'Trainer' },
+  { key: 'Energy' },
 ]
 
 /**
@@ -29,8 +31,10 @@ export default function DeckGrid({
   size = 'm',
   grouped = true,
 }) {
+  const t = useT()
+
   if (cards.length === 0) {
-    return <p className="empty">This list is empty.</p>
+    return <p className="empty">{t('deckGrid.emptyList')}</p>
   }
 
   /** One cell: the card, its quantity and, when editable, its controls. */
@@ -53,6 +57,9 @@ export default function DeckGrid({
               column of numbers. */}
           <span className="qty-badge">{entry.quantity}</span>
 
+          {/* "ACE" (not "ACE SPEC"): a corner badge, space-constrained, and this
+              abbreviation was never localized even in the app's own
+              pre-anglicisation Spanish, which already said "ACE" in English. */}
           {entry.is_ace_spec && <span className="corner ace">ACE</span>}
           {!entry.legal_in_format && <span className="corner illegal">!</span>}
         </div>
@@ -62,14 +69,14 @@ export default function DeckGrid({
             <button
               type="button"
               onClick={() => onChangeQuantity(entry.card.id, entry.quantity - 1)}
-              aria-label={`Remove one copy of ${entry.card.name}`}
+              aria-label={t('deckGrid.removeOneCard', { name: entry.card.name })}
             >
               −
             </button>
             <button
               type="button"
               onClick={() => onChangeQuantity(entry.card.id, entry.quantity + 1)}
-              aria-label={`Add one copy of ${entry.card.name}`}
+              aria-label={t('deckGrid.addOneCard', { name: entry.card.name })}
             >
               +
             </button>
@@ -77,7 +84,7 @@ export default function DeckGrid({
               type="button"
               className="remove"
               onClick={() => onRemove(entry.card.id)}
-              aria-label={`Remove ${entry.card.name}`}
+              aria-label={t('deckGrid.removeCard', { name: entry.card.name })}
             >
               ×
             </button>
@@ -99,7 +106,7 @@ export default function DeckGrid({
 
   return (
     <div className="deck-grid-groups">
-      {GROUPS.map(({ key, label }) => {
+      {GROUPS.map(({ key }) => {
         const group = cards.filter((c) => c.category === key)
         if (group.length === 0) return null
 
@@ -108,7 +115,7 @@ export default function DeckGrid({
         return (
           <section key={key}>
             <h4>
-              {label} <span className="group-count">{count}</span>
+              {t(`cardCategory.${key}`)} <span className="group-count">{count}</span>
             </h4>
 
             <ul className="deck-grid" data-size={size}>

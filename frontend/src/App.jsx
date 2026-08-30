@@ -4,15 +4,36 @@ import DeckList from './components/DeckList'
 import DeckScreen from './components/DeckScreen'
 import SessionDetail from './components/SessionDetail'
 import SessionList from './components/SessionList'
+import { useLocale, useT } from './i18n/index.jsx'
 import './App.css'
 
-const TABS = [
-  { id: 'sessions', label: 'Sessions' },
-  { id: 'decks', label: 'Decks' },
-  { id: 'cards', label: 'Cards' },
-]
+const TABS = ['sessions', 'decks', 'cards']
+
+// EN/ES are deliberately not run through t(): a switch that renames itself
+// into the language you can't read is a switch you can't find. Same reason
+// the aria-label below stays English-only.
+function LocaleSwitch() {
+  const { locale, setLocale } = useLocale()
+
+  return (
+    <div className="locale-switch" role="group" aria-label="Language">
+      {['en', 'es'].map((code) => (
+        <button
+          key={code}
+          type="button"
+          className={locale === code ? 'active' : ''}
+          aria-pressed={locale === code}
+          onClick={() => setLocale(code)}
+        >
+          {code.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function App() {
+  const t = useT()
   const [tab, setTab] = useState('sessions')
   // Which deck or session is open. null = the listing. This is navigation, and
   // with two levels it does not yet justify a router: two state variables say
@@ -47,16 +68,19 @@ export default function App() {
   return (
     <main className="app">
       <header>
-        <h1>pkmtcgbuddy</h1>
+        <div className="header-top">
+          <h1>pkmtcgbuddy</h1>
+          <LocaleSwitch />
+        </div>
         <nav className="tabs">
-          {TABS.map((t) => (
+          {TABS.map((id) => (
             <button
-              key={t.id}
+              key={id}
               type="button"
-              className={tab === t.id ? 'active' : ''}
-              onClick={() => switchTab(t.id)}
+              className={tab === id ? 'active' : ''}
+              onClick={() => switchTab(id)}
             >
-              {t.label}
+              {t(`nav.${id}`)}
             </button>
           ))}
         </nav>

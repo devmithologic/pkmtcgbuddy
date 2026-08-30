@@ -1,4 +1,18 @@
+import { useT } from '../i18n/index.jsx'
+
 const DECK_SIZE = 60
+
+// One ViolationCode, two catalogue keys: "3 missing" and "3 too many" are
+// different sentences, and no plural rule tells them apart — the choice has to
+// be made here, by comparing the same numbers the backend sent.
+function violationKey(v) {
+  if (v.code === 'wrong_size') {
+    return v.params.total < v.params.expected
+      ? 'violation.wrong_size_missing'
+      : 'violation.wrong_size_excess'
+  }
+  return `violation.${v.code}`
+}
 
 /**
  * The deck's legality state.
@@ -9,6 +23,8 @@ const DECK_SIZE = 60
  * disagree.
  */
 export default function DeckValidation({ validation, pendingTotal }) {
+  const t = useT()
+
   // `pendingTotal` arrives when there are unsaved changes. In that case the
   // server's validation describes a list that is no longer the one you're
   // looking at, so it can NO LONGER claim "legal deck": that would be a lie
@@ -32,7 +48,11 @@ export default function DeckValidation({ validation, pendingTotal }) {
           <span className="of">/{DECK_SIZE}</span>
         </span>
         <span className="verdict">
-          {stale ? 'Unchecked — save to validate' : isLegal ? 'Legal deck' : 'Not legal yet'}
+          {stale
+            ? t('deckValidation.unchecked')
+            : isLegal
+              ? t('deckValidation.legal')
+              : t('deckValidation.notLegal')}
         </span>
       </div>
 
@@ -45,7 +65,7 @@ export default function DeckValidation({ validation, pendingTotal }) {
       {violations.length > 0 && (
         <ul className="violations">
           {violations.map((v, i) => (
-            <li key={`${v.code}-${i}`}>{v.message}</li>
+            <li key={`${v.code}-${i}`}>{t(violationKey(v), v.params)}</li>
           ))}
         </ul>
       )}

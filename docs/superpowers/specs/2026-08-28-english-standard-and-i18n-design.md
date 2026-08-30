@@ -4,7 +4,7 @@ this file keeps the reasoning that is too long for a table row. -->
 
 # English as the source language, and a Spanish translation layer
 
-**Date:** 2026-08-28 · **Status:** approved, not yet implemented
+**Date:** 2026-08-28 · **Status:** implemented
 
 ## Goal
 

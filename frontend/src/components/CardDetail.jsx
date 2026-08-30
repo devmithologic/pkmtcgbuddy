@@ -1,11 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getCard } from '../api/cards'
-
-const CATEGORY_LABEL = {
-  Pokemon: 'Pokémon',
-  Trainer: 'Trainer',
-  Energy: 'Energy',
-}
+import { useT } from '../i18n/index.jsx'
 
 /**
  * Detail of a card.
@@ -21,6 +16,7 @@ const CATEGORY_LABEL = {
  * needed.
  */
 export default function CardDetail({ cardId, onClose }) {
+  const t = useT()
   const [card, setCard] = useState(null)
   const [error, setError] = useState(null)
 
@@ -41,12 +37,12 @@ export default function CardDetail({ cardId, onClose }) {
 
   return (
     <aside className="card-detail">
-      <button type="button" className="close" onClick={onClose} aria-label="Close">
+      <button type="button" className="close" onClick={onClose} aria-label={t('common.close')}>
         ×
       </button>
 
       {error && <p className="error">{error}</p>}
-      {!card && !error && <p>Loading…</p>}
+      {!card && !error && <p>{t('common.loading')}</p>}
 
       {card && (
         <>
@@ -54,17 +50,27 @@ export default function CardDetail({ cardId, onClose }) {
           <h3>{card.name}</h3>
 
           <dl>
-            <dt>Category</dt>
-            <dd>{CATEGORY_LABEL[card.category] ?? card.category}</dd>
+            <dt>{t('cardDetail.category')}</dt>
+            {/* card.category is a closed set of exactly three values — the
+                backend models it as CardCategory(str, Enum) in
+                backend/app/models/card.py — so translating it can't drift
+                the way open TCGdex card text could. An unrecognized value
+                (data drift) falls back to the raw string rather than a raw
+                catalogue key. */}
+            <dd>{['Pokemon', 'Trainer', 'Energy'].includes(card.category)
+              ? t(`cardCategory.${card.category}`)
+              : card.category}</dd>
 
-            <dt>Rarity</dt>
+            <dt>{t('cardDetail.rarity')}</dt>
             <dd>{card.rarity ?? '—'}</dd>
 
-            <dt>Regulation mark</dt>
+            <dt>{t('cardDetail.regulationMark')}</dt>
             <dd>{card.regulation_mark ?? '—'}</dd>
 
-            <dt>Legality</dt>
+            <dt>{t('cardDetail.legality')}</dt>
             <dd>
+              {/* "Standard"/"Expanded": the format name, kept literal in
+                  both locales — see the matching note in DeckList.jsx. */}
               <span className={card.legal_standard ? 'legal' : 'illegal'}>
                 Standard {card.legal_standard ? '✓' : '✗'}
               </span>{' '}
@@ -74,7 +80,7 @@ export default function CardDetail({ cardId, onClose }) {
             </dd>
           </dl>
 
-          {card.is_ace_spec && <p className="ace-spec">ACE SPEC — max 1 per deck</p>}
+          {card.is_ace_spec && <p className="ace-spec">{t('cardDetail.aceSpecNote')}</p>}
         </>
       )}
     </aside>

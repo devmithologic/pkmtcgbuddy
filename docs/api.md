@@ -45,3 +45,24 @@ DELETE /api/folders/{id}                   children re-parent upward, nothing is
 
 GET    /api/pokemon ?q &limit
 ```
+
+## Deck validation shape
+
+`DeckValidation.violations` is a list of `{code, params, card_ids}`. `code` is a
+`ViolationCode` wire value (`wrong_size`, `too_many_copies`, `too_many_ace_spec`,
+`illegal_in_format`, `unknown_card`); `params` carries only the numbers and names
+each sentence needs (counts, a card name, the declared format, a sample of up to
+three illegal card names). There is no `message` field — the backend does not
+render a sentence at all. The words live in the frontend's `violation.*`
+catalogue (`frontend/src/i18n/`), keyed by `code`; the client picks the string
+and interpolates `params` into it. This is deliberate: a rendered `message`
+alongside `params` would be two sources of truth for one sentence, and the day
+the Spanish text changes and the English `message` does not, nobody notices.
+
+| `code` | `params` |
+| --- | --- |
+| `unknown_card` | `count` |
+| `wrong_size` | `expected`, `total`, `count` |
+| `too_many_copies` | `name`, `count`, `max` |
+| `too_many_ace_spec` | `count`, `max` |
+| `illegal_in_format` | `count`, `format`, `sample` |

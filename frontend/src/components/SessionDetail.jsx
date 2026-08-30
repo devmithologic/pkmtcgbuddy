@@ -8,16 +8,20 @@ import {
   updateMatch,
   updateSession,
 } from '../api/sessions'
-import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
+import { SESSION_TYPES } from '../sessionTypes'
 import PokemonPair from './PokemonPair'
 import TagInput from './TagInput'
 import PokemonPicker from './PokemonPicker'
+import { useT } from '../i18n/index.jsx'
 
-const RESULTS = [
-  { value: 'win', label: 'Win' },
-  { value: 'loss', label: 'Loss' },
-  { value: 'tie', label: 'Tie' },
-]
+// A match result, in wire form. Its label depends on the active locale (see
+// sessionTypes.js for the same reasoning), so only the value is a module
+// constant; the label is looked up at render time as `sessionDetail.result<Value>`.
+const RESULTS = ['win', 'loss', 'tie']
+
+function resultKey(value) {
+  return `sessionDetail.result${value[0].toUpperCase()}${value.slice(1)}`
+}
 
 const EMPTY_ROUND = {
   opponent_archetype: '',
@@ -55,6 +59,7 @@ function headerFrom(s) {
 }
 
 export default function SessionDetail({ sessionId, startEditing = false, onBack }) {
+  const t = useT()
   const [session, setSession] = useState(null)
   const [form, setForm] = useState(EMPTY_ROUND)
   // Which ROUND is being corrected, or null. Named explicitly so it isn't
@@ -103,10 +108,10 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
   useEffect(() => {
     let active = true
     Promise.all([listDecks(), listTags()])
-      .then(([d, t]) => {
+      .then(([d, tagList]) => {
         if (!active) return
         setDecks(d)
-        setAllTags(t)
+        setAllTags(tagList)
       })
       .catch(() => {})
     return () => {
@@ -179,7 +184,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
   }
 
   if (error && !session) return <p className="error">{error}</p>
-  if (!session) return <p>Loading…</p>
+  if (!session) return <p>{t('common.loading')}</p>
 
   const { record } = session
 
@@ -187,19 +192,19 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
     <div className="session-detail">
       <div className="builder-head">
         <button type="button" className="back" onClick={onBack}>
-          ← Sessions
+          {t('sessionDetail.back')}
         </button>
         <div className="session-head">
-          <h2>{session.name || TYPE_LABEL[session.session_type]}</h2>
+          <h2>{session.name || t(`sessionType.${session.session_type}`)}</h2>
           <p className="subtitle">
-            {session.played_at} · {TYPE_LABEL[session.session_type]} · {session.deck_name}{' '}
+            {session.played_at} · {t(`sessionType.${session.session_type}`)} · {session.deck_name}{' '}
             <span className="vtag">v{session.deck_version}</span>
           </p>
           {session.tags?.length > 0 && (
             <span className="tag-chips read-only">
-              {session.tags.map((t) => (
-                <span key={t} className="tag-chip">
-                  {t}
+              {session.tags.map((tag) => (
+                <span key={tag} className="tag-chip">
+                  {tag}
                 </span>
               ))}
             </span>
@@ -207,7 +212,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           {session.notes && <p className="session-notes">{session.notes}</p>}
           {!editingHeader && (
             <button type="button" className="peek" onClick={startEditHeader}>
-              edit session
+              {t('sessionDetail.editSession')}
             </button>
           )}
         </div>
@@ -215,10 +220,10 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
 
       {editingHeader && (
         <form onSubmit={saveHeader} className="match-form session-edit">
-          <h3>Edit session</h3>
+          <h3>{t('sessionDetail.editSessionHeading')}</h3>
 
           <label>
-            Date
+            {t('sessionDetail.labelDate')}
             <input
               type="date"
               value={header.played_at}
@@ -228,21 +233,21 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Type
+            {t('sessionDetail.labelType')}
             <select
               value={header.session_type}
               onChange={(e) => setHeader({ ...header, session_type: e.target.value })}
             >
-              {SESSION_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {SESSION_TYPES.map((value) => (
+                <option key={value} value={value}>
+                  {t(`sessionType.${value}`)}
                 </option>
               ))}
             </select>
           </label>
 
           <label>
-            Deck
+            {t('sessionDetail.labelDeck')}
             <select
               value={header.deck_version_id}
               onChange={(e) => setHeader({ ...header, deck_version_id: e.target.value })}
@@ -252,7 +257,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
                   v3 — so it's offered explicitly so it isn't lost when the
                   dropdown opens. */}
               <option value={session.deck_version_id}>
-                {session.deck_name} (v{session.deck_version}) — current
+                {session.deck_name} (v{session.deck_version}) — {t('sessionDetail.deckCurrent')}
               </option>
               {decks
                 .filter((d) => d.current_version_id !== session.deck_version_id)
@@ -265,40 +270,40 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
           </label>
 
           <label>
-            Name <span className="optional">optional</span>
+            {t('sessionDetail.labelName')} <span className="optional">{t('common.optional')}</span>
             <input
               type="text"
               value={header.name}
               onChange={(e) => setHeader({ ...header, name: e.target.value })}
-              placeholder="League Cup Guadalajara"
+              placeholder={t('sessionDetail.placeholderName')}
             />
           </label>
 
           <label>
-            Tags <span className="optional">optional</span>
+            {t('sessionDetail.labelTags')} <span className="optional">{t('common.optional')}</span>
             <TagInput
               value={header.tags}
               suggestions={allTags}
-              onChange={(t) => setHeader({ ...header, tags: t })}
+              onChange={(newTags) => setHeader({ ...header, tags: newTags })}
             />
           </label>
 
           <label>
-            Event notes <span className="optional">optional</span>
+            {t('sessionDetail.labelEventNotes')} <span className="optional">{t('common.optional')}</span>
             <textarea
               value={header.notes}
               onChange={(e) => setHeader({ ...header, notes: e.target.value })}
               rows={2}
-              placeholder="How the day went, what you tried…"
+              placeholder={t('sessionDetail.placeholderEventNotes')}
             />
           </label>
 
           <div className="round-form-actions">
             <button type="submit" disabled={busy}>
-              {busy ? 'Saving…' : 'Save session'}
+              {busy ? t('sessionDetail.saving') : t('sessionDetail.saveSession')}
             </button>
             <button type="button" className="secondary" onClick={() => setEditingHeader(false)}>
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </form>
@@ -315,8 +320,8 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
         </span>
         <span className="record-label">
           {session.matches.length === 0
-            ? 'no rounds yet'
-            : `${session.matches.length} ${session.matches.length === 1 ? 'round' : 'rounds'}`}
+            ? t('sessionDetail.noRounds')
+            : t('sessionDetail.recordLabel', { count: session.matches.length })}
         </span>
       </div>
 
@@ -339,11 +344,11 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
               {m.opponent_archetype}
             </span>
             <span className="round-result">
-              {RESULTS.find((r) => r.value === m.result)?.label}
+              {t(resultKey(m.result))}
             </span>
             <span className="round-actions">
               <button type="button" onClick={() => startEdit(m)} disabled={busy}>
-                correct
+                {t('sessionDetail.editRound')}
               </button>
               <button
                 type="button"
@@ -358,7 +363,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
                 }}
                 disabled={busy}
               >
-                delete
+                {t('sessionDetail.deleteRound')}
               </button>
             </span>
             {m.notes && <p className="round-notes">{m.notes}</p>}
@@ -368,66 +373,70 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
       </div>
 
       <form onSubmit={handleAdd} className="match-form round-form">
-        <h3>{editingRound === null ? `Round ${session.matches.length + 1}` : `Correct round ${editingRound}`}</h3>
+        <h3>
+          {editingRound === null
+            ? t('sessionDetail.roundHeading', { round: session.matches.length + 1 })
+            : t('sessionDetail.editRoundHeading', { round: editingRound })}
+        </h3>
 
         <label>
-          Opponent&apos;s deck
+          {t('sessionDetail.labelOpponentDeck')}
           <input
             type="text"
             value={form.opponent_archetype}
             onChange={(e) => setForm({ ...form, opponent_archetype: e.target.value })}
-            placeholder="Gardevoir ex"
+            placeholder={t('sessionDetail.placeholderOpponentDeck')}
             required
           />
         </label>
 
         <label>
-          Opponent&apos;s Pokémon <span className="optional">optional</span>
+          {t('sessionDetail.labelOpponentPokemon')} <span className="optional">{t('common.optional')}</span>
           <span className="pkm-two">
             <PokemonPicker
               value={form.opponent_primary}
               onSelect={(p) => setForm({ ...form, opponent_primary: p })}
-              placeholder="gardevoir"
+              placeholder={t('sessionDetail.placeholderOpponentPrimaryPokemon')}
             />
             <PokemonPicker
               value={form.opponent_secondary}
               onSelect={(p) => setForm({ ...form, opponent_secondary: p })}
-              placeholder="second"
+              placeholder={t('sessionDetail.placeholderOpponentSecondaryPokemon')}
             />
           </span>
         </label>
 
         <label>
-          Result
+          {t('sessionDetail.labelResult')}
           <select
             value={form.result}
             onChange={(e) => setForm({ ...form, result: e.target.value })}
           >
-            {RESULTS.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
+            {RESULTS.map((value) => (
+              <option key={value} value={value}>
+                {t(resultKey(value))}
               </option>
             ))}
           </select>
         </label>
 
         <label>
-          Notes <span className="optional">optional</span>
+          {t('sessionDetail.labelNotes')} <span className="optional">{t('common.optional')}</span>
           <textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={2}
-            placeholder="What happened, what you'd change…"
+            placeholder={t('sessionDetail.placeholderNotes')}
           />
         </label>
 
         <div className="round-form-actions">
           <button type="submit" disabled={busy}>
-            {editingRound === null ? 'Add round' : 'Save correction'}
+            {editingRound === null ? t('sessionDetail.addRound') : t('sessionDetail.saveCorrection')}
           </button>
           {editingRound !== null && (
             <button type="button" className="secondary" onClick={cancelEdit}>
-              Cancel
+              {t('common.cancel')}
             </button>
           )}
         </div>
