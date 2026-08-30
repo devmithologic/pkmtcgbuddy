@@ -10,6 +10,7 @@ import {
 } from '../api/folders'
 import Menu from './Menu'
 import PokemonPair from './PokemonPair'
+import { useT } from '../i18n/index.jsx'
 
 const VIEW_STORAGE_KEY = 'pkmtcgbuddy.deckView'
 
@@ -31,6 +32,7 @@ function savedView() {
  *   rest; with navigation, the root already IS that place.
  */
 export default function DeckList({ onOpen, currentId, setCurrentId }) {
+  const t = useT()
   const [decks, setDecks] = useState([])
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -212,7 +214,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
         )
         .map((f) => ({
           icon: '📂',
-          label: `${'· '.repeat(f.depth)}Move to ${f.name}`,
+          label: `${'· '.repeat(f.depth)}${t('deckList.moveToFolder', { name: f.name })}`,
           onSelect: () =>
             withErrorHandling(() =>
               kind === 'folder'
@@ -224,7 +226,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
         ? [
             {
               icon: '↩',
-              label: 'Move to root',
+              label: t('deckList.moveToRoot'),
               onSelect: () =>
                 withErrorHandling(() =>
                   kind === 'folder'
@@ -251,7 +253,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           onChange={(e) => setRenaming({ ...renaming, name: e.target.value })}
           onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
           onBlur={saveName}
-          aria-label="New name"
+          aria-label={t('deckList.renameLabel')}
           /* eslint-disable-next-line jsx-a11y/no-autofocus -- the field
              appears from an explicit action and is the only thing to
              interact with. */
@@ -306,8 +308,8 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           {editableName(folder, 'folder', 'deck-name')}
           <span className="deck-meta">
             {[
-              childCount && `${childCount} ${childCount === 1 ? 'folder' : 'folders'}`,
-              `${deckCount} ${deckCount === 1 ? 'deck' : 'decks'}`,
+              childCount && t('deckList.folders', { count: childCount }),
+              t('deckList.inside', { count: deckCount }),
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -317,7 +319,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
 
         {confirming?.id === folder.id ? (
           <span className="confirm-delete">
-            Delete?
+            {t('deckList.deleteConfirm')}
             <button
               type="button"
               onClick={async () => {
@@ -325,26 +327,26 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
                 setConfirming(null)
               }}
             >
-              Yes
+              {t('common.yes')}
             </button>
             <button type="button" onClick={() => setConfirming(null)}>
-              No
+              {t('common.no')}
             </button>
           </span>
         ) : (
           <Menu
-            label={`Actions for ${folder.name}`}
+            label={t('menu.actionLabel', { name: folder.name })}
             actions={[
               {
                 icon: '✏️',
-                label: 'Rename',
+                label: t('deckList.renameAction'),
                 onSelect: () =>
                   setRenaming({ kind: 'folder', id: folder.id, name: folder.name }),
               },
               ...moveTargets(folder, 'folder'),
               {
                 icon: '✕',
-                label: 'Delete',
+                label: t('deckList.deleteAction'),
                 danger: true,
                 onSelect: () => setConfirming({ kind: 'folder', id: folder.id }),
               },
@@ -372,6 +374,10 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           </span>
           {editableName(deck, 'deck', 'deck-name')}
           <span className="deck-meta">
+            {/* "Standard"/"Expanded": the format name, not prose — kept
+                literal in both locales. Confirmed against
+                es-to-en-diff.txt: this string was never localized even in
+                the pre-anglicization Spanish app. */}
             {deck.deck_format === 'standard' ? 'Standard' : 'Expanded'} · v
             {deck.current_version}
           </span>
@@ -382,7 +388,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
 
         {confirming?.id === deck.id ? (
           <span className="confirm-delete">
-            Delete?
+            {t('deckList.deleteConfirm')}
             <button
               type="button"
               onClick={async () => {
@@ -390,25 +396,25 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
                 setConfirming(null)
               }}
             >
-              Yes
+              {t('common.yes')}
             </button>
             <button type="button" onClick={() => setConfirming(null)}>
-              No
+              {t('common.no')}
             </button>
           </span>
         ) : (
           <Menu
-            label={`Actions for ${deck.name}`}
+            label={t('menu.actionLabel', { name: deck.name })}
             actions={[
               {
                 icon: '✏️',
-                label: 'Rename',
+                label: t('deckList.renameAction'),
                 onSelect: () => setRenaming({ kind: 'deck', id: deck.id, name: deck.name }),
               },
               ...moveTargets(deck, 'deck'),
               {
                 icon: '✕',
-                label: 'Delete',
+                label: t('deckList.deleteAction'),
                 danger: true,
                 onSelect: () => setConfirming({ kind: 'deck', id: deck.id }),
               },
@@ -427,13 +433,13 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
             click, not two. In the flat view there's nowhere to be, so it's
             not rendered. */}
         {view === 'folders' ? (
-          <nav className="breadcrumb" aria-label="Breadcrumb">
+          <nav className="breadcrumb" aria-label={t('deckList.breadcrumbLabel')}>
             <button
               type="button"
               onClick={() => setCurrentId(null)}
               disabled={currentId === null}
             >
-              Decks
+              {t('deckList.decksLabel')}
             </button>
             {path.map((c) => (
               <span key={c.id}>
@@ -451,58 +457,59 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
             ))}
           </nav>
         ) : (
-          <h2 className="breadcrumb-title">All decks ({decks.length})</h2>
+          <h2 className="breadcrumb-title">{t('deckList.allDecks', { count: decks.length })}</h2>
         )}
 
         <div className="toolbar-right">
           <Menu
-              trigger="+ New"
-              label="Create"
+              trigger={t('deckList.newMenuTrigger')}
+              label={t('deckList.newMenuLabel')}
               className="new-menu"
               align="left"
               actions={[
-                { icon: '📁', label: 'New folder', onSelect: createNewFolder },
-              { icon: '🃏', label: 'New deck', onSelect: createNewDeck },
+                { icon: '📁', label: t('deckList.newFolder'), onSelect: createNewFolder },
+              { icon: '🃏', label: t('deckList.newDeck'), onSelect: createNewDeck },
               {
                 icon: '📋',
-                label: 'Import list',
+                label: t('deckList.importList'),
                 onSelect: () => setImporting({ text: '', name: '', busy: false, report: null }),
               },
             ]}
           />
 
-          <div className="view-switch" role="group" aria-label="View mode">
+          <div className="view-switch" role="group" aria-label={t('deckList.viewModeLabel')}>
             <button
               type="button"
               className={view === 'folders' ? 'active' : ''}
               onClick={() => changeView('folders')}
             >
-              Folders
+              {t('deckList.foldersTab')}
             </button>
             <button
               type="button"
               className={view === 'flat' ? 'active' : ''}
               onClick={() => changeView('flat')}
             >
-              All
+              {t('deckList.allTab')}
             </button>
           </div>
         </div>
       </div>
 
       {error && <p className="error">{error}</p>}
-      {loading && <p>Loading…</p>}
+      {loading && <p>{t('deckList.loading')}</p>}
 
       {importing ? (
         <form className="deck-import" onSubmit={importList}>
-          <h3>Import list</h3>
+          <h3>{t('deckList.importList')}</h3>
           <p className="hint">
-            Paste a list in PTCG Live or Limitless format. A deck will be created in{' '}
-            <strong>{path.length ? path[path.length - 1].name : 'Decks'}</strong>.
+            {t('deckList.importHint', {
+              location: path.length ? path[path.length - 1].name : t('deckList.decksLabel'),
+            })}
           </p>
 
           <label>
-            Name <span className="optional">optional</span>
+            {t('deckList.importNameLabel')} <span className="optional">{t('common.optional')}</span>
             <input
               type="text"
               value={importing.name}
@@ -512,7 +519,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           </label>
 
           <label>
-            List
+            {t('deckList.importLabel')}
             <textarea
               value={importing.text}
               onChange={(e) => setImporting({ ...importing, text: e.target.value, report: null })}
@@ -532,35 +539,30 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           {importing.report && (
             <div className="import-report">
               <p>
-                Imported <strong>{importing.report.imported_cards}</strong>{' '}
-                {importing.report.imported_cards === 1 ? 'card' : 'cards'}.{' '}
-                {importing.report.unresolved.length}{' '}
-                {importing.report.unresolved.length === 1 ? 'line' : 'lines'} not recognized:
+                {t('deckList.importedCards', { count: importing.report.imported_cards })}{' '}
+                {t('deckList.importedUnresolved', { count: importing.report.unresolved.length })}
               </p>
               <ul>
                 {importing.report.unresolved.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
-              <p className="hint">
-                It could be a typo, or a card from a set that hasn&apos;t been synced yet. Add
-                them by hand in the builder.
-              </p>
+              <p className="hint">{t('deckList.importTip')}</p>
             </div>
           )}
 
           <div className="builder-actions">
             {importing.report ? (
               <button type="button" onClick={() => onOpen(importing.report.deck.id)}>
-                Open the deck
+                {t('deckList.openDeck')}
               </button>
             ) : (
               <button type="submit" disabled={importing.busy}>
-                {importing.busy ? 'Importing…' : 'Import'}
+                {importing.busy ? t('deckList.importing') : t('deckList.importButton')}
               </button>
             )}
             <button type="button" className="secondary" onClick={() => setImporting(null)}>
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
         </form>
@@ -575,7 +577,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
 
           {!loading && subfolders.length === 0 && decksHere.length === 0 && (
             <p className="empty">
-              {currentId ? 'This folder is empty.' : 'No decks yet.'}
+              {currentId ? t('deckList.emptyFolder') : t('deckList.empty')}
             </p>
           )}
         </>

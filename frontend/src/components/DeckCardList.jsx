@@ -1,7 +1,9 @@
+import { useT } from '../i18n/index.jsx'
+
 const GROUPS = [
-  { key: 'Pokemon', label: 'Pokémon' },
-  { key: 'Trainer', label: 'Trainer' },
-  { key: 'Energy', label: 'Energy' },
+  { key: 'Pokemon' },
+  { key: 'Trainer' },
+  { key: 'Energy' },
 ]
 
 /**
@@ -16,13 +18,15 @@ const GROUPS = [
  * two callbacks.
  */
 export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
+  const t = useT()
+
   if (cards.length === 0) {
-    return <p className="empty">The deck is empty. Search for cards on the right to add them.</p>
+    return <p className="empty">{t('deckCardList.emptyDeck')}</p>
   }
 
   return (
     <div className="deck-groups">
-      {GROUPS.map(({ key, label }) => {
+      {GROUPS.map(({ key }) => {
         const group = cards.filter((c) => c.category === key)
         if (group.length === 0) return null
 
@@ -31,7 +35,7 @@ export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
         return (
           <section key={key} className="deck-group">
             <h4>
-              {label} <span className="group-count">{count}</span>
+              {t(`cardCategory.${key}`)} <span className="group-count">{count}</span>
             </h4>
 
             <ul>
@@ -41,7 +45,7 @@ export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
                     <button
                       type="button"
                       onClick={() => onChangeQuantity(entry.card.id, entry.quantity - 1)}
-                      aria-label={`Remove one copy of ${entry.card.name}`}
+                      aria-label={t('deckCardList.removeOneCard', { name: entry.card.name })}
                     >
                       −
                     </button>
@@ -49,7 +53,7 @@ export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
                     <button
                       type="button"
                       onClick={() => onChangeQuantity(entry.card.id, entry.quantity + 1)}
-                      aria-label={`Add one copy of ${entry.card.name}`}
+                      aria-label={t('deckCardList.addOneCard', { name: entry.card.name })}
                     >
                       +
                     </button>
@@ -57,16 +61,16 @@ export default function DeckCardList({ cards, onChangeQuantity, onRemove }) {
 
                   <span className="deck-card-name">
                     {entry.card.name}
-                    {entry.is_ace_spec && <span className="tag ace">ACE SPEC</span>}
-                    {entry.is_basic_energy && <span className="tag basic">basic</span>}
-                    {!entry.legal_in_format && <span className="tag illegal">illegal</span>}
+                    {entry.is_ace_spec && <span className="tag ace">{t('deckCardList.aceSpec')}</span>}
+                    {entry.is_basic_energy && <span className="tag basic">{t('deckCardList.basic')}</span>}
+                    {!entry.legal_in_format && <span className="tag illegal">{t('deckCardList.illegal')}</span>}
                   </span>
 
                   <button
                     type="button"
                     className="remove"
                     onClick={() => onRemove(entry.card.id)}
-                    aria-label={`Remove ${entry.card.name} from deck`}
+                    aria-label={t('deckCardList.removeDeck', { name: entry.card.name })}
                   >
                     ×
                   </button>

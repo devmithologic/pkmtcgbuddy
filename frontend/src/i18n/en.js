@@ -25,6 +25,12 @@ export default {
     testing: 'Testing',
   },
 
+  cardCategory: {
+    Pokemon: 'Pokémon',
+    Trainer: 'Trainer',
+    Energy: 'Energy',
+  },
+
   cardDetail: {
     category: 'Category',
     rarity: 'Rarity',
@@ -107,6 +113,7 @@ export default {
     copy: 'Copy',
     cards: 'Cards',
     list: 'List',
+    preview: 'Preview',
     smallCards: 'Small cards',
     mediumCards: 'Medium cards',
     largeCards: 'Large cards',
@@ -114,6 +121,7 @@ export default {
     close: 'close',
     readOnlyNote: 'Read-only: earlier versions are frozen.',
     history: 'History',
+    versionCardCount: { one: '{count} card', other: '{count} cards' },
     historyNote: 'Only the current version is editable. Earlier ones stay frozen so the statistics attributed to them remain true.',
     hideVersion: 'hide',
     showVersion: 'view',

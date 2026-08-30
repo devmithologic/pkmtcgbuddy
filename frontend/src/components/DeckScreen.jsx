@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import DeckBuilder from './DeckBuilder'
 import DeckStats from './DeckStats'
+import { useT } from '../i18n/index.jsx'
 
 /**
  * The open deck, with its two faces: building it and measuring it.
@@ -10,6 +11,7 @@ import DeckStats from './DeckStats'
  * stats view doesn't need the decklist, and vice versa.
  */
 export default function DeckScreen({ deckId, isNew = false, onBack }) {
+  const t = useT()
   const [view, setView] = useState('build')
 
   return (
@@ -20,14 +22,14 @@ export default function DeckScreen({ deckId, isNew = false, onBack }) {
           className={view === 'build' ? 'active' : ''}
           onClick={() => setView('build')}
         >
-          List
+          {t('deckScreen.list')}
         </button>
         <button
           type="button"
           className={view === 'stats' ? 'active' : ''}
           onClick={() => setView('stats')}
         >
-          Stats
+          {t('deckScreen.stats')}
         </button>
       </div>
 
@@ -38,7 +40,7 @@ export default function DeckScreen({ deckId, isNew = false, onBack }) {
       ) : (
         <>
           <button type="button" className="back" onClick={onBack}>
-            ← Decks
+            {t('deckScreen.back')}
           </button>
           <DeckStats deckId={deckId} />
         </>

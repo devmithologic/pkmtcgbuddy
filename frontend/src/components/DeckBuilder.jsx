@@ -15,6 +15,7 @@ import DeckGrid from './DeckGrid'
 import DeckValidation from './DeckValidation'
 import PokemonPair from './PokemonPair'
 import PokemonPicker from './PokemonPicker'
+import { useT } from '../i18n/index.jsx'
 
 /**
  * Deck-building screen.
@@ -29,6 +30,7 @@ import PokemonPicker from './PokemonPicker'
  * disagree.
  */
 export default function DeckBuilder({ deckId, isNew = false, onBack }) {
+  const t = useT()
   const [deck, setDeck] = useState(null)
   // The name is edited in place, so it needs its own state: the server's
   // copy only updates on blur, not on every keystroke.
@@ -230,7 +232,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
    * warning.
    */
   async function handleNewVersion() {
-    const message = window.prompt('What changes in this version?')
+    const message = window.prompt(t('deckBuilder.versionPrompt'))
     if (!message) return
 
     setSaving(true)
@@ -256,7 +258,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
   }
 
   if (error && !deck) return <p className="error">{error}</p>
-  if (!deck) return <p>Loading…</p>
+  if (!deck) return <p>{t('common.loading')}</p>
 
   return (
     <div className="deck-builder">
@@ -266,7 +268,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
           it fell off-screen exactly when there were unsaved changes. */}
       <div className="builder-head">
         <button type="button" className="back" onClick={onBack}>
-          ← Decks
+          {t('deckBuilder.back')}
         </button>
 
         <PokemonPair
@@ -288,7 +290,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
                 if (e.key === 'Enter') e.currentTarget.blur()
                 if (e.key === 'Escape') setName(deck.name)
               }}
-              aria-label="Deck name"
+              aria-label={t('deckBuilder.nameLabel')}
               /* A newly created deck is called "New deck": focusing and
                  selecting lets you type over it without deleting it by
                  hand. */
@@ -303,7 +305,11 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
 
             <div className="builder-actions">
               <button type="button" onClick={handleSave} disabled={!dirty || saving}>
-                {saving ? 'Saving…' : dirty ? 'Save changes' : 'No changes'}
+                {saving
+                  ? t('deckBuilder.saving')
+                  : dirty
+                    ? t('deckBuilder.saveChanges')
+                    : t('deckBuilder.noChanges')}
               </button>
               <button
                 type="button"
@@ -311,10 +317,10 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
                 onClick={handleNewVersion}
                 disabled={saving}
               >
-                New version
+                {t('deckBuilder.newVersion')}
               </button>
               <button type="button" className="secondary" onClick={handleExport}>
-                Export
+                {t('deckBuilder.export')}
               </button>
             </div>
           </div>
@@ -323,12 +329,17 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
             <select
               value={deck.deck_format}
               onChange={(e) => patchDeck({ deck_format: e.target.value })}
-              aria-label="Deck format"
+              aria-label={t('deckBuilder.formatLabel')}
             >
+              {/* "Standard"/"Expanded": the format name, kept literal in both
+                  locales — see the matching note in DeckList.jsx. */}
               <option value="standard">Standard</option>
               <option value="expanded">Expanded</option>
             </select>
-            · version {deck.current_version.version} · {deck.current_version.message}
+            · {t('deckBuilder.versionInfo', {
+              version: deck.current_version.version,
+              message: deck.current_version.message,
+            })}
           </p>
 
           <div className="deck-pokemon">
@@ -339,7 +350,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
             <PokemonPicker
               value={deck.secondary_pokemon}
               onSelect={(p) => setPokemon('secondary_pokemon', p)}
-              placeholder="secondary"
+              placeholder={t('deckBuilder.pokemonSecondary')}
             />
           </div>
         </div>
@@ -349,16 +360,14 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
 
       {exported !== null && (
         <div className="deck-export">
-          <p className="hint">
-            List in PTCG Live format. Copy and paste it into any builder.
-          </p>
+          <p className="hint">{t('deckBuilder.exportList')}</p>
           <textarea readOnly rows={12} value={exported} spellCheck={false} />
           <div className="builder-actions">
             <button type="button" onClick={() => navigator.clipboard?.writeText(exported)}>
-              Copy
+              {t('deckBuilder.copy')}
             </button>
             <button type="button" className="secondary" onClick={() => setExported(null)}>
-              Close
+              {t('common.close')}
             </button>
           </div>
         </div>
@@ -374,7 +383,7 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
             pendingTotal={dirty ? cards.reduce((sum, c) => sum + c.quantity, 0) : null}
           />
 
-          {dirty && <p className="hint">There are unsaved changes.</p>}
+          {dirty && <p className="hint">{t('deckBuilder.unsavedChanges')}</p>}
 
           <div className="view-toggle">
             <button
@@ -382,14 +391,14 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
               className={view === 'grid' ? 'active' : ''}
               onClick={() => setView('grid')}
             >
-              Cards
+              {t('deckBuilder.cards')}
             </button>
             <button
               type="button"
               className={view === 'list' ? 'active' : ''}
               onClick={() => setView('list')}
             >
-              List
+              {t('deckBuilder.list')}
             </button>
             {/* The whole deck at once, with no category headers breaking up
                 the grid: it's how a published list is viewed. Read-only on
@@ -401,15 +410,15 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
               className={view === 'preview' ? 'active' : ''}
               onClick={() => setView('preview')}
             >
-              Preview
+              {t('deckBuilder.preview')}
             </button>
 
             {view !== 'list' && (
               <span className="grid-size">
                 {[
-                  ['s', 'Small cards'],
-                  ['m', 'Medium cards'],
-                  ['l', 'Large cards'],
+                  ['s', t('deckBuilder.smallCards')],
+                  ['m', t('deckBuilder.mediumCards')],
+                  ['l', t('deckBuilder.largeCards')],
                 ].map(([value, title]) => (
                   <button
                     key={value}
@@ -443,14 +452,15 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
           {comparing && (
             <section className="comparing">
               <h4>
-                Viewing v{comparing.version} · {comparing.message}
+                {t('deckBuilder.viewingVersion', {
+                  version: comparing.version,
+                  message: comparing.message,
+                })}
                 <button type="button" onClick={() => setComparing(null)}>
-                  close
+                  {t('deckBuilder.close')}
                 </button>
               </h4>
-              <p className="hint">
-                Read-only: earlier versions are frozen.
-              </p>
+              <p className="hint">{t('deckBuilder.readOnlyNote')}</p>
               {/* readOnly removes the controls: offering a button that
                   can't do anything confuses more than it helps. */}
               <DeckGrid cards={comparing.cards} readOnly size={gridSize} />
@@ -459,25 +469,24 @@ export default function DeckBuilder({ deckId, isNew = false, onBack }) {
 
           {versions.length > 0 && (
             <section className="history">
-              <h4>History</h4>
+              <h4>{t('deckBuilder.history')}</h4>
               <ul>
                 {versions.map((v) => (
                   <li key={v.id} className={v.version === deck.current_version.version ? 'current' : ''}>
                     <span className="vnum">v{v.version}</span>
                     <span className="vmsg">{v.message}</span>
-                    <span className="vcount">{v.total_cards} cards</span>
+                    <span className="vcount">
+                      {t('deckBuilder.versionCardCount', { count: v.total_cards })}
+                    </span>
                     {v.version !== deck.current_version.version && (
                       <button type="button" className="peek" onClick={() => toggleCompare(v)}>
-                        {comparing?.id === v.id ? 'hide' : 'view'}
+                        {comparing?.id === v.id ? t('deckBuilder.hideVersion') : t('deckBuilder.showVersion')}
                       </button>
                     )}
                   </li>
                 ))}
               </ul>
-              <p className="hint">
-                Only the current version is editable. Earlier ones stay frozen so the statistics
-                attributed to them remain true.
-              </p>
+              <p className="hint">{t('deckBuilder.historyNote')}</p>
             </section>
           )}
         </div>
