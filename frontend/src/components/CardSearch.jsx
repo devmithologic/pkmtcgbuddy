@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { searchCards } from '../api/cards'
 import CardDetail from './CardDetail'
+import { useT } from '../i18n/index.jsx'
 
 const DEBOUNCE_MS = 350
 
@@ -25,6 +26,7 @@ function emptyFilters(format) {
  *    launching the next.
  */
 export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
+  const t = useT()
   const [filters, setFilters] = useState(() => emptyFilters(defaultFormat))
   const [results, setResults] = useState([])
   const [hasMore, setHasMore] = useState(false)
@@ -121,36 +123,38 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
 
   return (
     <section className="card-search">
-      <h2>Search cards</h2>
+      <h2>{t('cardSearch.title')}</h2>
 
       <div className="filters">
         <label>
-          Name
+          {t('cardSearch.labelName')}
           <input
             type="text"
             name="q"
             value={filters.q}
             onChange={handleFilterChange}
-            placeholder="charizard"
+            placeholder={t('cardSearch.placeholderName')}
           />
         </label>
 
         <label>
-          Format
+          {t('cardSearch.labelFormat')}
           <select name="format" value={filters.format} onChange={handleFilterChange}>
+            {/* "Standard"/"Expanded": the format name, kept literal in both
+                locales — see the matching note in DeckList.jsx. */}
             <option value="standard">Standard</option>
             <option value="expanded">Expanded</option>
-            <option value="">Any</option>
+            <option value="">{t('cardSearch.optionAny')}</option>
           </select>
         </label>
 
         <label>
-          Category
+          {t('cardSearch.labelCategory')}
           <select name="category" value={filters.category} onChange={handleFilterChange}>
-            <option value="">All</option>
-            <option value="Pokemon">Pokémon</option>
-            <option value="Trainer">Trainer</option>
-            <option value="Energy">Energy</option>
+            <option value="">{t('cardSearch.optionAll')}</option>
+            <option value="Pokemon">{t('cardCategory.Pokemon')}</option>
+            <option value="Trainer">{t('cardCategory.Trainer')}</option>
+            <option value="Energy">{t('cardCategory.Energy')}</option>
           </select>
         </label>
 
@@ -161,20 +165,18 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
             checked={filters.ace_spec}
             onChange={handleFilterChange}
           />
-          ACE SPEC only
+          {t('cardSearch.optionAceSpecOnly')}
         </label>
       </div>
 
-      <p className="hint">
-        Search is by substring: <code>rod</code> matches <code>Aerodactyl</code>.
-      </p>
+      <p className="hint">{t('cardSearch.hintSubstring')}</p>
 
-      {!canSearch && <p className="empty">Type at least 2 letters, or check &quot;ACE SPEC only&quot;.</p>}
-      {loading && <p>Searching…</p>}
+      {!canSearch && <p className="empty">{t('cardSearch.errorTooFewLetters')}</p>}
+      {loading && <p>{t('cardSearch.searching')}</p>}
       {error && <p className="error">{error}</p>}
 
       {!loading && !error && canSearch && results.length === 0 && (
-        <p className="empty">No card matches.</p>
+        <p className="empty">{t('cardSearch.noMatches')}</p>
       )}
 
       <ul className="card-grid">
@@ -188,14 +190,14 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
             <button
               type="button"
               onClick={() => (onPick ? onPick(card) : setSelectedId(card.id))}
-              title={onPick ? `Add ${card.name} to deck` : card.name}
+              title={onPick ? t('cardSearch.addCardTooltip', { name: card.name }) : card.name}
             >
               {card.image_url ? (
                 // loading="lazy" avoids downloading 24 images at once: the
                 // browser only requests the ones that enter the viewport.
                 <img src={card.image_url} alt={card.name} loading="lazy" />
               ) : (
-                <span className="no-image">no image</span>
+                <span className="no-image">{t('cardSearch.noImage')}</span>
               )}
               <span className="card-name">{card.name}</span>
             </button>
@@ -206,11 +208,11 @@ export default function CardSearch({ onPick, defaultFormat = 'standard' }) {
       {canSearch && (page > 1 || hasMore) && (
         <div className="pagination">
           <button type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
+            {t('cardSearch.previousPage')}
           </button>
-          <span>Page {page}</span>
+          <span>{t('cardSearch.page', { page })}</span>
           <button type="button" disabled={!hasMore} onClick={() => setPage((p) => p + 1)}>
-            Next
+            {t('cardSearch.nextPage')}
           </button>
         </div>
       )}
