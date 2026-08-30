@@ -203,7 +203,6 @@ export default {
     confirmDelete: '¿Borrar?',
     editSession: 'Editar',
     deleteSession: 'Borrar',
-    rowActions: 'Acciones de {name}',
   },
 
   sessionDetail: {

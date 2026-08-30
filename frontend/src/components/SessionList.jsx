@@ -271,7 +271,7 @@ export default function SessionList({ onOpen }) {
               </span>
             ) : (
               <Menu
-                label={t('sessionList.rowActions', { name: s.name || s.played_at })}
+                label={t('menu.actionLabel', { name: s.name || s.played_at })}
                 actions={[
                   {
                     icon: '✏️',
