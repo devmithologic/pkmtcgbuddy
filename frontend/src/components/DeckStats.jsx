@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getDeckStats } from '../api/decks'
 import { listTags } from '../api/sessions'
-import { SESSION_TYPES, TYPE_LABEL } from '../sessionTypes'
+import { SESSION_TYPES } from '../sessionTypes'
+import { useT } from '../i18n/index.jsx'
 
 /**
  * How many games it takes before a percentage starts to mean something.
@@ -52,6 +53,7 @@ function Row({ label, line, sub }) {
  * two to disagree.
  */
 export default function DeckStats({ deckId }) {
+  const t = useT()
   const [stats, setStats] = useState(null)
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [tags, setTags] = useState([])
@@ -85,7 +87,7 @@ export default function DeckStats({ deckId }) {
   useEffect(() => {
     let active = true
     listTags()
-      .then((t) => active && setTags(t))
+      .then((tagList) => active && setTags(tagList))
       .catch(() => {})
     return () => {
       active = false
@@ -98,7 +100,7 @@ export default function DeckStats({ deckId }) {
   }
 
   if (error) return <p className="error">{error}</p>
-  if (!stats) return <p>Loading…</p>
+  if (!stats) return <p>{t('deckStats.loading')}</p>
 
   const { overall, by_version: byVersion, by_archetype: byArchetype } = stats
   const noData = overall.played === 0
@@ -107,32 +109,32 @@ export default function DeckStats({ deckId }) {
     <section className="deck-stats">
       <div className="stats-filters">
         <label>
-          From
+          {t('deckStats.from')}
           <input type="date" name="date_from" value={filters.date_from} onChange={handleFilter} />
         </label>
         <label>
-          To
+          {t('deckStats.to')}
           <input type="date" name="date_to" value={filters.date_to} onChange={handleFilter} />
         </label>
         <label>
-          Event type
+          {t('deckStats.eventType')}
           <select name="session_type" value={filters.session_type} onChange={handleFilter}>
-            <option value="">All</option>
-            {SESSION_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+            <option value="">{t('deckStats.allEventTypes')}</option>
+            {SESSION_TYPES.map((value) => (
+              <option key={value} value={value}>
+                {t(`sessionType.${value}`)}
               </option>
             ))}
           </select>
         </label>
         {tags.length > 0 && (
           <label>
-            Tag
+            {t('deckStats.tag')}
             <select name="tag" value={filters.tag} onChange={handleFilter}>
-              <option value="">All</option>
-              {tags.map((t) => (
-                <option key={t.tag} value={t.tag}>
-                  {t.tag} ({t.sessions})
+              <option value="">{t('deckStats.allTags')}</option>
+              {tags.map((tagItem) => (
+                <option key={tagItem.tag} value={tagItem.tag}>
+                  {tagItem.tag} ({tagItem.sessions})
                 </option>
               ))}
             </select>
@@ -141,15 +143,13 @@ export default function DeckStats({ deckId }) {
 
         {(filters.date_from || filters.date_to || filters.session_type || filters.tag) && (
           <button type="button" className="clear" onClick={() => setFilters(EMPTY_FILTERS)}>
-            clear
+            {t('deckStats.clear')}
           </button>
         )}
       </div>
 
       {noData ? (
-        <p className="empty">
-          No games for this filter. Log sessions with this deck in the Sessions tab.
-        </p>
+        <p className="empty">{t('deckStats.noData')}</p>
       ) : (
         <>
           <div className="overall">
@@ -158,46 +158,47 @@ export default function DeckStats({ deckId }) {
               {overall.wins}–{overall.losses}–{overall.ties}
             </span>
             <span className="overall-sub">
-              {overall.played} games across {stats.sessions_counted}{' '}
-              {stats.sessions_counted === 1 ? 'session' : 'sessions'}
-              {loading && ' · updating…'}
+              {t('deckStats.played', { games: overall.played, count: stats.sessions_counted })}
+              {loading && t('deckStats.updating')}
             </span>
           </div>
 
           {/* By version comes first on purpose: it's the question no other
               tracker answers, and the reason versioning exists. */}
-          <h3>By version</h3>
+          <h3>{t('deckStats.byVersion')}</h3>
           <ul className="stat-list">
             {byVersion.map((v) => (
               <Row key={v.version_id} label={`v${v.version}`} sub={v.message} line={v} />
             ))}
           </ul>
           {byVersion.length === 1 && (
-            <p className="hint">
-              With only one version there is no comparison possible yet. Create a new version
-              when you change cards and these numbers will start showing whether the change
-              worked.
-            </p>
+            <p className="hint">{t('deckStats.singleVersionNote')}</p>
           )}
 
-          <h3>By opponent</h3>
+          <h3>{t('deckStats.byOpponent')}</h3>
           <ul className="stat-list">
             {byArchetype.map((a) => (
               <Row key={a.label} label={a.label} line={a} />
             ))}
           </ul>
 
-          <h3>By event type</h3>
+          <h3>{t('deckStats.byEventType')}</h3>
           <ul className="stat-list">
-            {stats.by_session_type.map((t) => (
-              <Row key={t.label} label={TYPE_LABEL[t.label] ?? t.label} line={t} />
+            {stats.by_session_type.map((row) => (
+              <Row
+                key={row.label}
+                // row.label comes from the backend and isn't guaranteed to be
+                // a known session type — a stale value from before a type was
+                // renamed, for instance. Only translate what's recognized;
+                // otherwise fall back to the raw label rather than printing a
+                // raw catalogue key.
+                label={SESSION_TYPES.includes(row.label) ? t(`sessionType.${row.label}`) : row.label}
+                line={row}
+              />
             ))}
           </ul>
 
-          <p className="hint">
-            Dimmed rows have fewer than {MIN_SAMPLE} games: the percentage doesn&apos;t mean
-            much yet.
-          </p>
+          <p className="hint">{t('deckStats.dimmedRowNote', { minSample: MIN_SAMPLE })}</p>
         </>
       )}
     </section>
