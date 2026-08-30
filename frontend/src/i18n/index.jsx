@@ -63,7 +63,19 @@ export function LocaleProvider({ children }) {
     document.documentElement.lang = locale
   }, [locale])
 
-  const t = useMemo(() => createTranslator(CATALOGUES, locale), [locale])
+  // translate.js's default onMissing warns unconditionally — it has no way to
+  // know it's a production build, because reading import.meta.env there would
+  // couple the framework-free core to Vite. That check belongs here instead,
+  // in the binding layer, where import.meta.env.DEV is already available.
+  const t = useMemo(
+    () =>
+      createTranslator(CATALOGUES, locale, {
+        onMissing: import.meta.env.DEV
+          ? (key, loc) => console.warn(`[i18n] missing "${key}" (${loc})`)
+          : () => {},
+      }),
+    [locale],
+  )
 
   // Without this memo, every render of LocaleProvider (triggered by anything,
   // not just a locale change) would hand consumers a new object and force
