@@ -56,7 +56,7 @@ def validate_deck(
         violations.append(
             Violation(
                 code=ViolationCode.UNKNOWN_CARD,
-                message=f"{len(unknown)} card(s) are not in the synced catalogue",
+                params={"count": len(unknown)},
                 card_ids=unknown,
             )
         )
@@ -66,12 +66,17 @@ def validate_deck(
     # --- size ------------------------------------------------------------
     total = sum(entry.quantity for entry in cards)
     if total != DECK_SIZE:
-        missing = DECK_SIZE - total
-        detail = f"missing {missing}" if missing > 0 else f"extra {-missing}"
+        # `diff` is unsigned: the client picks "missing" or "too many" by
+        # comparing `total` against `expected` itself, so it needs a magnitude,
+        # not a sign it would have to strip back off.
         violations.append(
             Violation(
                 code=ViolationCode.WRONG_SIZE,
-                message=f"A deck is {DECK_SIZE} cards: there are {total}, {detail}",
+                params={
+                    "expected": DECK_SIZE,
+                    "total": total,
+                    "diff": abs(DECK_SIZE - total),
+                },
             )
         )
 
@@ -97,7 +102,7 @@ def validate_deck(
         violations.append(
             Violation(
                 code=ViolationCode.TOO_MANY_COPIES,
-                message=f'"{name}": {n} copies, the maximum is {MAX_COPIES_PER_NAME}',
+                params={"name": name, "count": n, "max": MAX_COPIES_PER_NAME},
                 card_ids=ids_by_name[name],
             )
         )
@@ -109,10 +114,7 @@ def validate_deck(
         violations.append(
             Violation(
                 code=ViolationCode.TOO_MANY_ACE_SPEC,
-                message=(
-                    f"{ace_total} ACE SPEC cards: only {MAX_ACE_SPEC} is "
-                    "allowed per deck"
-                ),
+                params={"count": ace_total, "max": MAX_ACE_SPEC},
                 card_ids=ace_ids,
             )
         )
@@ -125,14 +127,16 @@ def validate_deck(
     ]
     if illegal_ids:
         names = sorted({catalogue[cid].name for cid in illegal_ids})
+        # English card names, which are data, not prose — they survive as a param.
         sample = ", ".join(names[:3]) + ("…" if len(names) > 3 else "")
         violations.append(
             Violation(
                 code=ViolationCode.ILLEGAL_IN_FORMAT,
-                message=(
-                    f"{len(illegal_ids)} card(s) are not legal in "
-                    f"{deck_format.value}: {sample}"
-                ),
+                params={
+                    "count": len(illegal_ids),
+                    "format": deck_format.value,
+                    "sample": sample,
+                },
                 card_ids=illegal_ids,
             )
         )
