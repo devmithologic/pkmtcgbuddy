@@ -195,6 +195,12 @@ registered **only while the menu is open**, and its `useEffect` **returns its cl
 every open leaks a listener. It uses `mousedown` rather than `click` so the menu closes on press
 instead of on release.
 
+**Exception: the language switch is not a `Menu`.** Two options rendered as a `role="group"` toggle
+(`App.jsx`) is less machinery than a popover for a binary choice — no open/close state, no outside-click
+listener, no keyboard-navigation-within-a-list to build. This is a deliberate override of the rule
+above, not an oversight. The condition for reversing it is explicit: if a third language arrives, the
+choice stops being binary and this becomes a `Menu` like everything else.
+
 
 ## Deck lists travel as PTCG Live text
 

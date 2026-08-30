@@ -138,6 +138,7 @@ an architecture, swapping a provider, or reopening any of these:
 | The UI language is detected, then remembered | `navigator.language` once, then `localStorage` wins |
 | A `Violation` carries a code and params, not prose | prose plus a code is two sources of truth |
 | A catalogue string pluralises on exactly one number | `count` drives `Intl.PluralRules`; a second varying quantity needs its own entry |
+| The language switch is a toggle, not a `Menu` | two options; reverts to `Menu` if a third language arrives |
 
 **`docs/domain.md`** — Session, Match, Record, Tags, Deck, DeckVersion, Folder, Archetype, Matchup,
 and the deck legality rules. Read it before touching a model or adding a field. It also holds three
