@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { searchPokemon } from '../api/pokemon'
+import { useT } from '../i18n/index.jsx'
 
 const DEBOUNCE_MS = 250
 
@@ -16,6 +17,7 @@ const DEBOUNCE_MS = 250
  * the delay exists only so it doesn't fire a request per keystroke.
  */
 export default function PokemonPicker({ value, onSelect, placeholder = 'dragapult' }) {
+  const t = useT()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [open, setOpen] = useState(false)
@@ -58,7 +60,7 @@ export default function PokemonPicker({ value, onSelect, placeholder = 'dragapul
         <span className="pkm-chosen">
           <img src={value.icon_url} alt={value.name} width={32} height={32} />
           <span>{value.name}</span>
-          <button type="button" onClick={() => onSelect(null)} aria-label={`Remove ${value.name}`}>
+          <button type="button" onClick={() => onSelect(null)} aria-label={t('pokemonPicker.removePokemon', { name: value.name })}>
             ×
           </button>
         </span>
