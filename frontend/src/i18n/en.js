@@ -6,10 +6,7 @@ export default {
   },
 
   common: {
-    save: 'Save',
     cancel: 'Cancel',
-    delete: 'Delete',
-    back: 'Back',
     close: 'Close',
     loading: 'Loading…',
     yes: 'Yes',
@@ -77,6 +74,7 @@ export default {
     importHint: 'Paste a list in PTCG Live or Limitless format. A deck will be created in {location}.',
     importLabel: 'List',
     importNameLabel: 'Name',
+    placeholderImportName: 'Mega Lucario',
     importing: 'Importing…',
     importButton: 'Import',
     importedCards: { one: 'Imported {count} card.', other: 'Imported {count} cards.' },
@@ -160,7 +158,6 @@ export default {
     tag: 'Tag',
     allTags: 'All',
     clear: 'clear',
-    record: '{wins}–{losses}–{ties}',
     played: {
       one: '{count} game',
       other: '{count} games',
@@ -215,6 +212,7 @@ export default {
     labelDeck: 'Deck',
     deckCurrent: 'current',
     labelName: 'Name',
+    placeholderName: 'League Cup Guadalajara',
     labelTags: 'Tags',
     labelEventNotes: 'Event notes',
     placeholderEventNotes: 'How the day went, what you tried…',

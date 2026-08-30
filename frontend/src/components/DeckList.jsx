@@ -514,7 +514,7 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
               type="text"
               value={importing.name}
               onChange={(e) => setImporting({ ...importing, name: e.target.value })}
-              placeholder="Mega Lucario"
+              placeholder={t('deckList.placeholderImportName')}
             />
           </label>
 

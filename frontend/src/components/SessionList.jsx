@@ -167,7 +167,7 @@ export default function SessionList({ onOpen }) {
             name="name"
             value={form.name}
             onChange={handleChange}
-            placeholder="League Cup Guadalajara"
+            placeholder={t('sessionList.placeholderName')}
           />
         </label>
 

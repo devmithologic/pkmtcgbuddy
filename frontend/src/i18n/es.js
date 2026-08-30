@@ -6,10 +6,7 @@ export default {
   },
 
   common: {
-    save: 'Guardar',
     cancel: 'Cancelar',
-    delete: 'Borrar',
-    back: 'Atrás',
     close: 'Cerrar',
     loading: 'Cargando…',
     yes: 'Sí',
@@ -77,6 +74,7 @@ export default {
     importHint: 'Pega una lista en el formato de PTCG Live o Limitless. Se creará un mazo en {location}.',
     importLabel: 'Lista',
     importNameLabel: 'Nombre',
+    placeholderImportName: 'Mega Lucario',
     importing: 'Importando…',
     importButton: 'Importar',
     importedCards: {
@@ -163,7 +161,6 @@ export default {
     tag: 'Etiqueta',
     allTags: 'Todas',
     clear: 'limpiar',
-    record: '{wins}–{losses}–{ties}',
     played: {
       one: '{count} partida',
       other: '{count} partidas',
@@ -218,6 +215,7 @@ export default {
     labelDeck: 'Mazo',
     deckCurrent: 'actual',
     labelName: 'Nombre',
+    placeholderName: 'League Cup Guadalajara',
     labelTags: 'Etiquetas',
     labelEventNotes: 'Notas del evento',
     placeholderEventNotes: 'Cómo fue el día, qué probaste…',

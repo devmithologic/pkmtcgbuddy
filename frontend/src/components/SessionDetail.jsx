@@ -275,7 +275,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
               type="text"
               value={header.name}
               onChange={(e) => setHeader({ ...header, name: e.target.value })}
-              placeholder="League Cup Guadalajara"
+              placeholder={t('sessionDetail.placeholderName')}
             />
           </label>
 
@@ -385,7 +385,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
             type="text"
             value={form.opponent_archetype}
             onChange={(e) => setForm({ ...form, opponent_archetype: e.target.value })}
-            placeholder="Gardevoir ex"
+            placeholder={t('sessionDetail.placeholderOpponentDeck')}
             required
           />
         </label>
@@ -426,7 +426,7 @@ export default function SessionDetail({ sessionId, startEditing = false, onBack 
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={2}
-            placeholder="What happened, what you'd change…"
+            placeholder={t('sessionDetail.placeholderNotes')}
           />
         </label>
 
