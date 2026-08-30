@@ -64,11 +64,11 @@ export default function SessionList({ onOpen }) {
 
     // The three requests go together: none depends on the others.
     Promise.all([listSessions(filterTag ?? undefined), listDecks(), listTags()])
-      .then(([s, d, t]) => {
+      .then(([s, d, tagList]) => {
         if (!active) return
         setSessions(s)
         setDecks(d)
-        setTags(t)
+        setTags(tagList)
       })
       .catch((err) => active && setError(err.message))
       .finally(() => active && setLoading(false))
