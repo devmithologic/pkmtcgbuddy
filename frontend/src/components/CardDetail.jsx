@@ -51,11 +51,12 @@ export default function CardDetail({ cardId, onClose }) {
 
           <dl>
             <dt>{t('cardDetail.category')}</dt>
-            {/* card.category is one of the three fixed values under our own
-                control (see cardCategory.* in the catalogue) — not open
-                TCGdex text — so it's translated like any other UI label. An
-                unrecognized value (data drift) falls back to the raw string
-                rather than a raw catalogue key. */}
+            {/* card.category is a closed set of exactly three values — the
+                backend models it as CardCategory(str, Enum) in
+                backend/app/models/card.py — so translating it can't drift
+                the way open TCGdex card text could. An unrecognized value
+                (data drift) falls back to the raw string rather than a raw
+                catalogue key. */}
             <dd>{['Pokemon', 'Trainer', 'Energy'].includes(card.category)
               ? t(`cardCategory.${card.category}`)
               : card.category}</dd>

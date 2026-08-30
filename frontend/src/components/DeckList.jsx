@@ -375,9 +375,9 @@ export default function DeckList({ onOpen, currentId, setCurrentId }) {
           {editableName(deck, 'deck', 'deck-name')}
           <span className="deck-meta">
             {/* "Standard"/"Expanded": the format name, not prose — kept
-                literal in both locales. Confirmed against
-                es-to-en-diff.txt: this string was never localized even in
-                the pre-anglicization Spanish app. */}
+                literal in both locales. The app's own pre-anglicisation
+                Spanish already said "Standard"/"Expanded" in English, so
+                there is nothing to translate here. */}
             {deck.deck_format === 'standard' ? 'Standard' : 'Expanded'} · v
             {deck.current_version}
           </span>

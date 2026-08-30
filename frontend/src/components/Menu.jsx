@@ -29,9 +29,11 @@ import { useT } from '../i18n/index.jsx'
  */
 export default function Menu({
   actions,
-  // No literal default here: the fallback is a translated string, and a
-  // default parameter is evaluated once, outside any component render,
-  // where useT() has no provider to read from.
+  // No literal default here: `t` comes from `const t = useT()` in the
+  // function body, so it does not exist yet in the parameter list — writing
+  // `label = t('menu.defaultLabel')` here would reference `t` before that
+  // binding, a temporal-dead-zone ReferenceError. The fallback is applied
+  // below instead, after `t` is in scope.
   label,
   trigger = '⋮',
   className = '',

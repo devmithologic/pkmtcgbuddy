@@ -58,8 +58,8 @@ export default function DeckGrid({
           <span className="qty-badge">{entry.quantity}</span>
 
           {/* "ACE" (not "ACE SPEC"): a corner badge, space-constrained, and this
-              abbreviation was never localized even in the pre-anglicization
-              Spanish app — see es-to-en-diff.txt, which has no entry for it. */}
+              abbreviation was never localized even in the app's own
+              pre-anglicisation Spanish, which already said "ACE" in English. */}
           {entry.is_ace_spec && <span className="corner ace">ACE</span>}
           {!entry.legal_in_format && <span className="corner illegal">!</span>}
         </div>
