@@ -58,3 +58,11 @@ catalogue (`frontend/src/i18n/`), keyed by `code`; the client picks the string
 and interpolates `params` into it. This is deliberate: a rendered `message`
 alongside `params` would be two sources of truth for one sentence, and the day
 the Spanish text changes and the English `message` does not, nobody notices.
+
+| `code` | `params` |
+| --- | --- |
+| `unknown_card` | `count` |
+| `wrong_size` | `expected`, `total`, `count` |
+| `too_many_copies` | `name`, `count`, `max` |
+| `too_many_ace_spec` | `count`, `max` |
+| `illegal_in_format` | `count`, `format`, `sample` |

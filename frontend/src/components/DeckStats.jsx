@@ -158,7 +158,15 @@ export default function DeckStats({ deckId }) {
               {overall.wins}–{overall.losses}–{overall.ties}
             </span>
             <span className="overall-sub">
-              {t('deckStats.played', { games: overall.played, count: stats.sessions_counted })}
+              {/* Two quantities, two plural entries: `count` only ever picks one
+                  category, so `played` and `playedAcross` are separate keys, each
+                  pluralised on its own number, joined as fragments. That's safe
+                  here specifically because a noun phrase followed by a
+                  prepositional phrase keeps its order in both English and
+                  Spanish, and each fragment is a whole phrase rather than a stem
+                  needing a suffix glued on. */}
+              {t('deckStats.played', { count: overall.played })}{' '}
+              {t('deckStats.playedAcross', { count: stats.sessions_counted })}
               {loading && t('deckStats.updating')}
             </span>
           </div>

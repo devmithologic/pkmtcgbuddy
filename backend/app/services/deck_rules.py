@@ -66,16 +66,18 @@ def validate_deck(
     # --- size ------------------------------------------------------------
     total = sum(entry.quantity for entry in cards)
     if total != DECK_SIZE:
-        # `diff` is unsigned: the client picks "missing" or "too many" by
+        # `count` is unsigned: the client picks "missing" or "too many" by
         # comparing `total` against `expected` itself, so it needs a magnitude,
-        # not a sign it would have to strip back off.
+        # not a sign it would have to strip back off. Named `count`, not `diff`,
+        # so it's the same parameter the catalogue pluralises on — "falta"
+        # versus "faltan" needs Intl.PluralRules to see it as `count`.
         violations.append(
             Violation(
                 code=ViolationCode.WRONG_SIZE,
                 params={
                     "expected": DECK_SIZE,
                     "total": total,
-                    "diff": abs(DECK_SIZE - total),
+                    "count": abs(DECK_SIZE - total),
                 },
             )
         )

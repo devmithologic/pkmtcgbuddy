@@ -162,8 +162,12 @@ export default {
     clear: 'clear',
     record: '{wins}–{losses}–{ties}',
     played: {
-      one: '{games} games across {count} session',
-      other: '{games} games across {count} sessions',
+      one: '{count} game',
+      other: '{count} games',
+    },
+    playedAcross: {
+      one: 'across {count} session',
+      other: 'across {count} sessions',
     },
     updating: ' · updating…',
     byVersion: 'By version',
@@ -257,8 +261,17 @@ export default {
       one: '{count} card is not in the synced catalogue',
       other: '{count} cards are not in the synced catalogue',
     },
-    wrong_size_missing: 'A deck is {expected} cards: there are {total}, {diff} missing',
-    wrong_size_excess: 'A deck is {expected} cards: there are {total}, {diff} too many',
+    // English has no number agreement in this clause, so both branches are the
+    // same string on purpose — a plural entry is still required so its shape
+    // matches the Spanish entry, which does agree.
+    wrong_size_missing: {
+      one: 'A deck is {expected} cards: there are {total}, {count} missing',
+      other: 'A deck is {expected} cards: there are {total}, {count} missing',
+    },
+    wrong_size_excess: {
+      one: 'A deck is {expected} cards: there are {total}, {count} too many',
+      other: 'A deck is {expected} cards: there are {total}, {count} too many',
+    },
     too_many_copies: '"{name}": {count} copies, the maximum is {max}',
     too_many_ace_spec: '{count} ACE SPEC cards: only {max} is allowed per deck',
     illegal_in_format: {

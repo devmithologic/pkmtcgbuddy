@@ -165,8 +165,12 @@ export default {
     clear: 'limpiar',
     record: '{wins}–{losses}–{ties}',
     played: {
-      one: '{games} partidas en {count} sesión',
-      other: '{games} partidas en {count} sesiones',
+      one: '{count} partida',
+      other: '{count} partidas',
+    },
+    playedAcross: {
+      one: 'en {count} sesión',
+      other: 'en {count} sesiones',
     },
     updating: ' · actualizando…',
     byVersion: 'Por versión',
@@ -260,8 +264,14 @@ export default {
       one: '{count} carta no está en el catálogo sincronizado',
       other: '{count} cartas no están en el catálogo sincronizado',
     },
-    wrong_size_missing: 'Un mazo son {expected} cartas: hay {total}, faltan {diff}',
-    wrong_size_excess: 'Un mazo son {expected} cartas: hay {total}, sobran {diff}',
+    wrong_size_missing: {
+      one: 'Un mazo son {expected} cartas: hay {total}, falta {count}',
+      other: 'Un mazo son {expected} cartas: hay {total}, faltan {count}',
+    },
+    wrong_size_excess: {
+      one: 'Un mazo son {expected} cartas: hay {total}, sobra {count}',
+      other: 'Un mazo son {expected} cartas: hay {total}, sobran {count}',
+    },
     too_many_copies: '«{name}»: {count} copias, el máximo son {max}',
     too_many_ace_spec: '{count} cartas ACE SPEC: solo se permite {max} por mazo',
     illegal_in_format: {
